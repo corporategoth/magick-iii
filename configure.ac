@@ -59,6 +59,8 @@ dnl AC_PROG_LIBTOOL
 dnl AC_STRUCT_TIMEZONE
 AM_PATH_PYTHON(2.2)
 
+ALL_LINGUAS="en_GB"
+
 dnl Required stuff
 dnl ==============
 

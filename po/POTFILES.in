@@ -1,0 +1,13 @@
+# Pretty much all our source flies have translatable text.
+src/config_init.cpp
+src/config_parse.cpp
+src/dependency.cpp
+src/livechannel.cpp
+src/liveuser.cpp
+src/magick.cpp
+src/main.cpp
+src/message.cpp
+src/protocol.cpp
+src/server.cpp
+src/service.cpp
+src/storage.cpp
