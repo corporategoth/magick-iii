@@ -3,271 +3,297 @@
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
-#, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
+"Project-Id-Version: Magick 3.0\n"
 "Report-Msgid-Bugs-To: translators@neuromancy.net\n"
-"POT-Creation-Date: 2005-03-23 20:20-0500\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
+"POT-Creation-Date: 2005-04-06 00:31-0400\n"
+"PO-Revision-Date: 2005-04-06 00:24-0400\n"
+"Last-Translator: Preston A. Elder <prez@neuromancy.net>\n"
+"Language-Team: The Neuromancy Society Translators <translators@neuromancy."
+"net>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/main.cpp:118
-msgid "Starting other threads ..."
-msgstr "Starting other threads ..."
-
-#: src/main.cpp:130
-msgid "Startup complete."
-msgstr "Startup complete."
-
-#: src/main.cpp:164
-msgid "Shutting Down."
-msgstr "Shutting Down."
-
-#: src/main.cpp:173
-#, fuzzy
-msgid "Stopping other threads ..."
-msgstr "Starting other threads ..."
-
-#: src/main.cpp:185
-#, fuzzy
-msgid "Shutdown complete."
-msgstr "Shutdown complete."
-
-#: src/magick.cpp:100
-#, c-format
-msgid "Attempting connection to %1%[%2%]."
-msgstr ""
-
-#: src/magick.cpp:127
-#, c-format
-msgid "Timed out attempting connection to %1%[%2%]."
-msgstr ""
-
-#: src/magick.cpp:134
-#, c-format
-msgid "Disconnect requested to %1%[%2%]."
-msgstr ""
-
-#: src/magick.cpp:148
-#, c-format
-msgid "Received error code #%1% from primary socket group, closing socket."
-msgstr ""
-
-#: src/magick.cpp:156
-msgid "Invalid data in result from primary socket group, closing socket."
-msgstr ""
-
-#: src/magick.cpp:165
-#, c-format
-msgid "Received socket error #%1% on %2%[%3%], closing."
-msgstr ""
-
-#: src/magick.cpp:170 src/magick.cpp:328
-#, c-format
-msgid "Could not establish connection to %1%[%2%]."
-msgstr ""
-
-#: src/magick.cpp:175
-#, c-format
-msgid "Connection to %2%[%3%] closed by foreign host."
-msgstr ""
-
-#: src/magick.cpp:190
-#, c-format
-msgid "Received socket error #%1% attempting connection to %2%[%3%]."
-msgstr ""
-
-#: src/magick.cpp:198
-#, c-format
-msgid "Connection established to %1%[%2%]."
-msgstr ""
-
-#: src/magick.cpp:233 src/magick.cpp:260 src/magick.cpp:291
-#, c-format
-msgid "Received socket error #%1% while sending data to %2%[%3%]."
-msgstr ""
-
-#: src/magick.cpp:268 src/magick.cpp:299
-#, c-format
-msgid "Uplink connection closed by %1%[%2%]."
-msgstr ""
-
-#: src/magick.cpp:320
-#, c-format
-msgid "Uplink connection to %1%[%2%] dropped."
-msgstr ""
-
-#: src/config_parse.cpp:96 src/config_parse.cpp:105 src/config_parse.cpp:113
-#: src/config_parse.cpp:121 src/config_parse.cpp:129 src/config_parse.cpp:137
-#: src/config_parse.cpp:145
-#, c-format
-msgid "CFG: %1% must be at least equal to %2%."
-msgstr ""
-
-#: src/config_parse.cpp:155
-#, c-format
-msgid "CFG: Could not bind to %1% (%2%)."
-msgstr ""
-
-#: src/config_parse.cpp:334 src/config_parse.cpp:728
-#, c-format
-msgid "CFG: No stages found for %1%."
-msgstr ""
-
-#: src/config_parse.cpp:367 src/config_parse.cpp:388 src/config_parse.cpp:761
-#: src/config_parse.cpp:782
-#, c-format
-msgid "CFG: Multiple final stages specified for %1%."
-msgstr ""
-
-#: src/config_parse.cpp:376 src/config_parse.cpp:770
-#, c-format
-msgid "CFG: No file name specified for %1%."
-msgstr ""
-
-#: src/config_parse.cpp:398 src/config_parse.cpp:792
-#, c-format
-msgid "CFG: No host and/or port specified for %1%."
-msgstr ""
-
-#: src/config_parse.cpp:412
-#, c-format
-msgid "CFG: No verify string specified for %1%."
-msgstr ""
-
-#: src/config_parse.cpp:440
-#, c-format
-msgid "CFG: No key or keyfile specified for %1%."
-msgstr ""
-
-#: src/config_parse.cpp:446 src/config_parse.cpp:840
-#, c-format
-msgid "CFG: Only key or keyfile may be specified for %1%."
-msgstr ""
-
-#: src/config_parse.cpp:466 src/config_parse.cpp:860
-#, c-format
-msgid "CFG: No final stages specified for %1%."
-msgstr ""
-
-#: src/config_parse.cpp:530 src/config_parse.cpp:924
-msgid "CFG: Could not open storage socket."
-msgstr ""
-
-#: src/config_parse.cpp:536 src/config_parse.cpp:930
-#, c-format
-msgid "CFG: Could not connect to remote storage host ([%1%]:%2%)."
-msgstr ""
-
-#: src/config_parse.cpp:559 src/config_parse.cpp:610 src/config_parse.cpp:953
-#: src/config_parse.cpp:1004
-#, c-format
-msgid "CFG: Failed to open %1% (%2%) - stage not loaded."
-msgstr ""
-
-#: src/config_parse.cpp:585 src/config_parse.cpp:979
-#, c-format
-msgid "CFG: Could not read key file %1%."
-msgstr ""
-
-#: src/config_parse.cpp:601 src/config_parse.cpp:995
-#, c-format
-msgid "CFG: Logic error at %1%:%2% in %3% (no key specified)."
-msgstr ""
-
-#: src/config_parse.cpp:633 src/config_parse.cpp:1027
-#, c-format
-msgid "CFG: Failed to initialise crypt stage: %1%"
-msgstr ""
-
-#: src/config_parse.cpp:652
-msgid "CFG: No DB directory specified for storage.berkeldydb."
-msgstr ""
-
-#: src/config_parse.cpp:705 src/config_parse.cpp:1039
-#: src/config_parse.cpp:1132 src/config_parse.cpp:1235
-#: src/config_parse.cpp:1315
-#, c-format
-msgid "CFG: Failed to open %1% (%2%) - storage mechanism not loaded."
-msgstr ""
-
-#: src/config_parse.cpp:1059 src/config_parse.cpp:1162
-#: src/config_parse.cpp:1265
-#, c-format
-msgid "CFG: No DB name specified for %1%."
-msgstr ""
-
-#: src/config_parse.cpp:1371 src/config_parse.cpp:1449
-#: src/config_parse.cpp:1471 src/config_parse.cpp:1541
-#: src/config_parse.cpp:1548 src/config_parse.cpp:1638
-#: src/config_parse.cpp:1675 src/config_parse.cpp:1692
-#: src/config_parse.cpp:1735 src/config_parse.cpp:1742
-#, c-format
-msgid "CFG: %1% not specified."
-msgstr ""
-
-#: src/config_parse.cpp:1379 src/config_parse.cpp:1457
-#: src/config_parse.cpp:1479 src/config_parse.cpp:1556
-#, c-format
-msgid "CFG: Could not retrieve existing %1% log."
-msgstr ""
-
-#: src/config_parse.cpp:1390 src/config_parse.cpp:1646
-#: src/config_parse.cpp:1711
-#, c-format
-msgid "CFG: Could not open log file %1%."
-msgstr ""
-
-#: src/config_parse.cpp:1578 src/config_parse.cpp:1759
-msgid "CFG: Could not open logging socket."
-msgstr ""
-
-#: src/config_parse.cpp:1584 src/config_parse.cpp:1767
-#, c-format
-msgid "CFG: Could not connect to remote logging host ([%1%]:%2%)."
-msgstr ""
-
-#: src/config_init.cpp:1037
+#: src/config_init.cpp:1153
 #, c-format
 msgid "Failed to set working directory to %1%."
 msgstr ""
 
-#: src/config_init.cpp:1046
+#: src/config_init.cpp:1162
 #, c-format
 msgid "Could not open configuration file %1%."
 msgstr ""
 
-#: src/config_init.cpp:1066
+#: src/config_init.cpp:1182
 #, c-format
 msgid "Missing field %1%."
 msgstr ""
 
-#: src/config_init.cpp:1073
+#: src/config_init.cpp:1189
 msgid ""
 "Stop value not disabled in config.\n"
 "Please READ and EDIT your configuration file."
 msgstr ""
 
-#: src/protocol.cpp:188
+#: src/config_parse.cpp:105
+#, c-format
+msgid "Unknown trace level %1% specified."
+msgstr ""
+
+#: src/config_parse.cpp:116 src/config_parse.cpp:125 src/config_parse.cpp:133
+#: src/config_parse.cpp:141 src/config_parse.cpp:149 src/config_parse.cpp:157
+#: src/config_parse.cpp:165
+#, c-format
+msgid "CFG: %1% must be at least equal to %2%."
+msgstr ""
+
+#: src/config_parse.cpp:175
+#, c-format
+msgid "CFG: Could not bind to %1% (%2%)."
+msgstr ""
+
+#: src/config_parse.cpp:371 src/config_parse.cpp:449 src/config_parse.cpp:471
+#: src/config_parse.cpp:541 src/config_parse.cpp:548 src/config_parse.cpp:638
+#: src/config_parse.cpp:675 src/config_parse.cpp:692 src/config_parse.cpp:735
+#: src/config_parse.cpp:742
+#, c-format
+msgid "CFG: %1% not specified."
+msgstr ""
+
+#: src/config_parse.cpp:379 src/config_parse.cpp:457 src/config_parse.cpp:479
+#: src/config_parse.cpp:556
+#, c-format
+msgid "CFG: Could not retrieve existing %1% log."
+msgstr ""
+
+#: src/config_parse.cpp:390 src/config_parse.cpp:646 src/config_parse.cpp:711
+#, c-format
+msgid "CFG: Could not open log file %1%."
+msgstr ""
+
+#: src/config_parse.cpp:578 src/config_parse.cpp:759
+msgid "CFG: Could not open logging socket."
+msgstr ""
+
+#: src/config_parse.cpp:584 src/config_parse.cpp:767
+#, c-format
+msgid "CFG: Could not connect to remote logging host ([%1%]:%2%)."
+msgstr ""
+
+#: src/magick.cpp:112
+#, c-format
+msgid "Attempting connection to %1%[%2%]."
+msgstr ""
+
+#: src/magick.cpp:139
+#, c-format
+msgid "Timed out attempting connection to %1%[%2%]."
+msgstr ""
+
+#: src/magick.cpp:146
+#, c-format
+msgid "Disconnect requested to %1%[%2%]."
+msgstr ""
+
+#: src/magick.cpp:162
+#, c-format
+msgid "Received error code #%1% from primary socket group, closing socket."
+msgstr ""
+
+#: src/magick.cpp:170
+msgid "Invalid data in result from primary socket group, closing socket."
+msgstr ""
+
+#: src/magick.cpp:179
+#, c-format
+msgid "Received socket error #%1% on %2%[%3%], closing."
+msgstr ""
+
+#: src/magick.cpp:184 src/magick.cpp:340
+#, c-format
+msgid "Could not establish connection to %1%[%2%]."
+msgstr ""
+
+#: src/magick.cpp:189
+#, c-format
+msgid "Connection to %2%[%3%] closed by foreign host."
+msgstr ""
+
+#: src/magick.cpp:204
+#, c-format
+msgid "Received socket error #%1% attempting connection to %2%[%3%]."
+msgstr ""
+
+#: src/magick.cpp:212
+#, c-format
+msgid "Connection established to %1%[%2%]."
+msgstr ""
+
+#: src/magick.cpp:244 src/magick.cpp:271 src/magick.cpp:302
+#, c-format
+msgid "Received socket error #%1% while sending data to %2%[%3%]."
+msgstr ""
+
+#: src/magick.cpp:279 src/magick.cpp:310
+#, c-format
+msgid "Uplink connection closed by %1%[%2%]."
+msgstr ""
+
+#: src/magick.cpp:332
+#, c-format
+msgid "Uplink connection to %1%[%2%] dropped."
+msgstr ""
+
+#: src/main.cpp:164
+msgid "Starting other threads ..."
+msgstr ""
+
+#: src/main.cpp:178
+msgid "Loading databases."
+msgstr ""
+
+#: src/main.cpp:180
+msgid "Startup complete."
+msgstr ""
+
+#: src/main.cpp:212
+msgid "Shutting Down."
+msgstr ""
+
+#: src/main.cpp:221
+msgid "Stopping other threads ..."
+msgstr ""
+
+#: src/main.cpp:233
+msgid "Shutdown complete."
+msgstr ""
+
+#: src/message.cpp:68
+#, c-format
+msgid "Processing message: %1%"
+msgstr ""
+
+#: src/protocol.cpp:202
 #, c-format
 msgid "Could not open protocol file %1%."
 msgstr ""
 
-#: src/protocol.cpp:229
+#: src/protocol.cpp:245
 msgid "Encoding character set is not a power of 2 in size."
 msgstr ""
 
-#: src/protocol.cpp:250
+#: src/protocol.cpp:316
 #, c-format
 msgid "Failed to write to outbound flack with error #%1%."
 msgstr ""
 
-#: src/protocol.cpp:322 src/protocol.cpp:332
+#: src/protocol.cpp:424
 #, c-format
 msgid "Invalid message from server \"%1%\", ignored."
+msgstr ""
+
+#: src/server.cpp:207
+msgid "Too many worker threads, killing one."
+msgstr ""
+
+#: src/server.cpp:222
+msgid "Not enough worker threads, creating one."
+msgstr ""
+
+#: src/storage.cpp:181 src/storage.cpp:529
+#, c-format
+msgid "CFG: No stages_ found for %1%."
+msgstr ""
+
+#: src/storage.cpp:214 src/storage.cpp:235 src/storage.cpp:562
+#: src/storage.cpp:583
+#, c-format
+msgid "CFG: Multiple final stages_ specified for %1%."
+msgstr ""
+
+#: src/storage.cpp:223 src/storage.cpp:571
+#, c-format
+msgid "CFG: No file name specified for %1%."
+msgstr ""
+
+#: src/storage.cpp:245 src/storage.cpp:593
+#, c-format
+msgid "CFG: No host and/or port specified for %1%."
+msgstr ""
+
+#: src/storage.cpp:259
+#, c-format
+msgid "CFG: No verify string specified for %1%."
+msgstr ""
+
+#: src/storage.cpp:287
+#, c-format
+msgid "CFG: No key or keyfile specified for %1%."
+msgstr ""
+
+#: src/storage.cpp:293 src/storage.cpp:641
+#, c-format
+msgid "CFG: Only key or keyfile may be specified for %1%."
+msgstr ""
+
+#: src/storage.cpp:313 src/storage.cpp:661
+#, c-format
+msgid "CFG: No final stages_ specified for %1%."
+msgstr ""
+
+#: src/storage.cpp:347 src/storage.cpp:695
+msgid "CFG: Could not open storage socket."
+msgstr ""
+
+#: src/storage.cpp:353 src/storage.cpp:701
+#, c-format
+msgid "CFG: Could not connect to remote storage host ([%1%]:%2%)."
+msgstr ""
+
+#: src/storage.cpp:376 src/storage.cpp:427 src/storage.cpp:724
+#: src/storage.cpp:775
+#, c-format
+msgid "CFG: Failed to open %1% (%2%) - stage not loaded."
+msgstr ""
+
+#: src/storage.cpp:402 src/storage.cpp:750
+#, c-format
+msgid "CFG: Could not read key file %1%."
+msgstr ""
+
+#: src/storage.cpp:418 src/storage.cpp:766
+#, c-format
+msgid "CFG: Logic error at %1%:%2% in %3% (no key specified)."
+msgstr ""
+
+#: src/storage.cpp:450 src/storage.cpp:798
+#, c-format
+msgid "CFG: Failed to initialise crypt stage: %1%"
+msgstr ""
+
+#: src/storage.cpp:476
+msgid "CFG: No DB directory specified for storage.berkeldydb."
+msgstr ""
+
+#: src/storage.cpp:499 src/storage.cpp:810 src/storage.cpp:880
+#: src/storage.cpp:960 src/storage.cpp:1017
+#, c-format
+msgid "CFG: Failed to open %1% (%2%) - storage mechanism not loaded."
+msgstr ""
+
+#: src/storage.cpp:837 src/storage.cpp:917 src/storage.cpp:997
+#, c-format
+msgid "CFG: No DB name specified for %1%."
+msgstr ""
+
+#: src/storage.cpp:1507
+#, c-format
+msgid "Database loaded in %1% seconds."
+msgstr ""
+
+#: src/storage.cpp:1524
+#, c-format
+msgid "Database saved in %1% seconds."
 msgstr ""
