@@ -188,6 +188,7 @@ void Uplink::operator()()
 	MT_EB
 	MT_FUNC("Uplink::operator()");
 
+	boost::thread local_thread;
 	while (true)
 	{
 		Message m;
@@ -207,7 +208,7 @@ void Uplink::operator()()
 				NLOG(Info, _("Too many worker threads, killing one."));
 				std::list<boost::thread *>::iterator i;
 				for (i = workers_.begin(); i != workers_.end(); ++i)
-					if (*(*i) == boost::thread())
+					if (*(*i) == local_thread)
 					{
 						delete *i;
 						workers_.erase(i);
