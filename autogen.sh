@@ -4,7 +4,7 @@ aclocal
 autoheader
 cp configure.ac configure.ac.save
 cp Makefile.am Makefile.am.save
-gettextize --copy
+gettextize --copy --no-changelog
 mv configure.ac.save configure.ac
 mv Makefile.am.save Makefile.am
 libtoolize --automake --copy
