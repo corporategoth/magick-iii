@@ -140,6 +140,7 @@ AC_CHECK_LIB(mantra_core_hasher, _init, ,
 	[AC_MSG_ERROR([Mantra Hasher library not found, please specify its location.])])
 AC_CHECK_LIB(dl, dlopen, ,
 	[AC_MSG_ERROR([Dynamic loading libary not found.])])
+AM_GNU_GETTEXT([external])
 
 AC_CHECK_LIB(mantra_storage_xml, _init, [echo >/dev/null],
 	[AC_MSG_WARN([[Mantra's XML storage mechanism not found, disabled.]])])
