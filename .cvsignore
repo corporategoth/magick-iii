@@ -1,0 +1,15 @@
+ABOUT-NLS
+Makefile
+Makefile.in
+aclocal.m4
+autom4te.cache
+config.*
+configure
+depcomp
+install-sh
+ltmain.sh
+m4
+missing
+mkinstalldirs
+py-compile
+
