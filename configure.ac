@@ -34,6 +34,7 @@ AM_INIT_AUTOMAKE
 AC_CONFIG_FILES([	Makefile po/Makefile.in m4/Makefile
 					include/Makefile
 					src/Makefile
+					python/Makefile
 					doc/Makefile
 				])
 AM_CONFIG_HEADER(include/config.h)
