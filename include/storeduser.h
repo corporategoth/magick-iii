@@ -37,6 +37,8 @@ RCSID(magick__storeduser_h, "@(#) $Id$");
 #include "storage.h"
 #include "memo.h"
 
+#include <mantra/core/sync.h>
+
 #include <boost/thread/mutex.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/weak_ptr.hpp>
@@ -49,6 +51,10 @@ class StoredUser : private boost::noncopyable, public boost::totally_ordered1<St
 	friend class if_StoredUser_StoredNick;
 	friend class if_StoredUser_StoredChannel;
 
+	typedef std::set<boost::shared_ptr<LiveUser> > online_users_t;
+	typedef std::set<boost::shared_ptr<StoredNick> > my_nicks_t;
+	typedef std::set<boost::shared_ptr<StoredChannel> > my_channels_t;
+
 	boost::weak_ptr<StoredUser> self;
 	static StorageInterface storage;
 	static StorageInterface storage_access;
@@ -56,10 +62,10 @@ class StoredUser : private boost::noncopyable, public boost::totally_ordered1<St
 
 	boost::uint32_t id_;
 
-	boost::mutex lock_;
-	std::set<boost::shared_ptr<LiveUser> > online_users_;
-	std::set<boost::shared_ptr<StoredNick> > my_nicks_;
-	std::set<boost::shared_ptr<StoredChannel> > my_channels_;
+	NSYNC(StoredUser);
+	online_users_t online_users_;
+	my_nicks_t my_nicks_;
+	my_channels_t my_channels_;
 
 	// use if_StoredUser_DCC
 	void Picture(boost::uint32_t in);

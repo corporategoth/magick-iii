@@ -1042,6 +1042,40 @@ bool Storage::init(const po::variables_map &vm,
 	MT_EE
 }
 
+class NextNumber
+{
+	mantra::Storage *storage;
+	std::string table, column;
+public:
+	NextNumber(mantra::Storage *s, const std::string &t, const std::string &c)
+		: storage(s), table(t), column(c) {}
+
+	mantra::StorageValue operator()() const
+	{
+		mantra::Storage::DataSet data;
+		mantra::Storage::FieldSet fields;
+		fields.insert(column);
+		storage->RetrieveRow(table, data, mantra::ComparisonSet(), fields);
+
+		boost::uint32_t max = 0;
+		mantra::Storage::DataSet::const_iterator i;
+		for (i=data.begin(); i!=data.end(); ++i)
+		{
+			mantra::Storage::RecordMap::const_iterator j = i->find(column);
+			if (j == i->end())
+				continue; // huh?
+			if (boost::get<boost::uint32_t>(j->second) > max)
+				max = boost::get<boost::uint32_t>(j->second);
+		}
+		return (max + 1);
+	}
+};
+
+static mantra::StorageValue GetCurrentDateTime()
+{
+	return mantra::GetCurrentDateTime();
+}
+
 void Storage::init()
 {
 	MT_EB
@@ -1072,11 +1106,14 @@ void Storage::init()
 
 	mantra::Storage::ColumnProperties_t cp;
 
-	// TABLE: nick
-	cp.Assign<boost::uint32_t>(false);
+	// TABLE: users
+	if (backend_.first->support_blank_default())
+		cp.Assign<boost::uint32_t>(false, true);
+	else
+		cp.Assign<boost::uint32_t>(false, NextNumber(backend_.first, "users", "id"));
 	backend_.first->DefineColumn("users", "id", cp);
 
-	cp.Assign<boost::posix_time::ptime>(false);
+	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("users", "last_update", cp);
 	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 32);
 	backend_.first->DefineColumn("users", "last_online", cp);
@@ -1136,7 +1173,7 @@ void Storage::init()
 	backend_.first->DefineColumn("users_access", "number", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 320);
 	backend_.first->DefineColumn("users_access", "mask", cp);
-	cp.Assign<boost::posix_time::ptime>(false);
+	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("users_access", "last_update", cp);
 
 	// TABLE: users_ignore
@@ -1144,7 +1181,7 @@ void Storage::init()
 	backend_.first->DefineColumn("users_ignore", "id", cp);
 	backend_.first->DefineColumn("users_ignore", "number", cp);
 	backend_.first->DefineColumn("users_ignore", "entry", cp);
-	cp.Assign<boost::posix_time::ptime>(false);
+	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("users_ignore", "last_update", cp);
 
 	// TABLE: users_memo
@@ -1184,7 +1221,7 @@ void Storage::init()
 	// TABLE: channels
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 64);
 	backend_.first->DefineColumn("channels", "name", cp);
-	cp.Assign<boost::posix_time::ptime>(false);
+	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("channels", "registered", cp);
 	backend_.first->DefineColumn("channels", "last_update", cp);
 	cp.Assign<boost::posix_time::ptime>(true);
@@ -1264,7 +1301,7 @@ void Storage::init()
 	backend_.first->DefineColumn("channels_level", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("channels_level", "last_updater_id", cp);
-	cp.Assign<boost::posix_time::ptime>(false);
+	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("channels_level", "last_update", cp);
 
 	// TABLE: channel_access
@@ -1284,7 +1321,7 @@ void Storage::init()
 	backend_.first->DefineColumn("channels_access", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("channels_access", "last_updater_id", cp);
-	cp.Assign<boost::posix_time::ptime>(false);
+	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("channels_access", "last_update", cp);
 
 	// TABLE: channel_akick
@@ -1304,7 +1341,7 @@ void Storage::init()
 	backend_.first->DefineColumn("channels_akick", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("channels_akick", "last_updater_id", cp);
-	cp.Assign<boost::posix_time::ptime>(false);
+	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("channels_akick", "last_update", cp);
 
 	// TABLE: channels_greet
@@ -1320,7 +1357,7 @@ void Storage::init()
 	backend_.first->DefineColumn("channels_greet", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("channels_greet", "last_updater_id", cp);
-	cp.Assign<boost::posix_time::ptime>(false);
+	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("channels_greet", "last_update", cp);
 
 	// TABLE: channels_message
@@ -1334,7 +1371,7 @@ void Storage::init()
 	backend_.first->DefineColumn("channels_message", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("channels_message", "last_updater_id", cp);
-	cp.Assign<boost::posix_time::ptime>(false);
+	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("channels_message", "last_update", cp);
 
 	// TABLE: channels_news
@@ -1367,7 +1404,7 @@ void Storage::init()
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
 	backend_.first->DefineColumn("committees", "head_committee", cp);
 
-	cp.Assign<boost::posix_time::ptime>(false);
+	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("committees", "registered", cp);
 	backend_.first->DefineColumn("committees", "last_update", cp);
 
@@ -1395,7 +1432,7 @@ void Storage::init()
 	backend_.first->DefineColumn("committees_member", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("committees_member", "last_updater_id", cp);
-	cp.Assign<boost::posix_time::ptime>(false);
+	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("committees_member", "last_update", cp);
 
 	// TABLE: committees_message
@@ -1409,7 +1446,7 @@ void Storage::init()
 	backend_.first->DefineColumn("committees_message", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("committees_message", "last_updater_id", cp);
-	cp.Assign<boost::posix_time::ptime>(false);
+	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("committees_message", "last_update", cp);
 
 	// TABLE: forbidden
@@ -1419,11 +1456,11 @@ void Storage::init()
 	backend_.first->DefineColumn("forbidden", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("forbidden", "last_updater_id", cp);
-	cp.Assign<boost::posix_time::ptime>(false);
+	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("forbidden", "last_update", cp);
 
 	// TABLE: akills
-	cp.Assign<boost::uint32_t>(false);
+	cp.Assign<boost::uint32_t>(false, NextNumber(backend_.first, "akills", "number"));
 	backend_.first->DefineColumn("akills", "number", cp);
 	cp.Assign<mantra::duration>(false);
 	backend_.first->DefineColumn("akills", "length", cp);
@@ -1434,11 +1471,11 @@ void Storage::init()
 	backend_.first->DefineColumn("akills", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("akills", "last_updater_id", cp);
-	cp.Assign<boost::posix_time::ptime>(false);
+	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("akills", "last_update", cp);
 
 	// TABLE: clones
-	cp.Assign<boost::uint32_t>(false);
+	cp.Assign<boost::uint32_t>(false, NextNumber(backend_.first, "clones", "number"));
 	backend_.first->DefineColumn("clones", "number", cp);
 	backend_.first->DefineColumn("clones", "value", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 350);
@@ -1448,11 +1485,11 @@ void Storage::init()
 	backend_.first->DefineColumn("clones", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("clones", "last_updater_id", cp);
-	cp.Assign<boost::posix_time::ptime>(false);
+	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("clones", "last_update", cp);
 
 	// TABLE: operdenies
-	cp.Assign<boost::uint32_t>(false);
+	cp.Assign<boost::uint32_t>(false, NextNumber(backend_.first, "operdenies", "number"));
 	backend_.first->DefineColumn("operdenies", "number", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 350);
 	backend_.first->DefineColumn("operdenies", "mask", cp);
@@ -1461,11 +1498,11 @@ void Storage::init()
 	backend_.first->DefineColumn("operdenies", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("operdenies", "last_updater_id", cp);
-	cp.Assign<boost::posix_time::ptime>(false);
+	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("operdenies", "last_update", cp);
 
 	// TABLE: ignores
-	cp.Assign<boost::uint32_t>(false);
+	cp.Assign<boost::uint32_t>(false, NextNumber(backend_.first, "ignores", "number"));
 	backend_.first->DefineColumn("ignores", "number", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 350);
 	backend_.first->DefineColumn("ignores", "mask", cp);
@@ -1474,7 +1511,7 @@ void Storage::init()
 	backend_.first->DefineColumn("ignores", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("ignores", "last_updater_id", cp);
-	cp.Assign<boost::posix_time::ptime>(false);
+	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("ignores", "last_update", cp);
 
 	// TABLE: killchans
@@ -1486,7 +1523,7 @@ void Storage::init()
 	backend_.first->DefineColumn("killchans", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("killchans", "last_updater_id", cp);
-	cp.Assign<boost::posix_time::ptime>(false);
+	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("killchans", "last_update", cp);
 
 	backend_.first->EndDefine();

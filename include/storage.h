@@ -80,6 +80,7 @@ class Storage
 
 	void init();
 	void reset();
+
 public:
 	Storage();
 	~Storage();

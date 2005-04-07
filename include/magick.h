@@ -143,7 +143,7 @@ public:
 		{ return opt_config.count(key) != 0; }
 	template<typename T>
 	T ConfigValue(const char *key) const
-		{ return boost::any_cast<T>(opt_config[key].value()); }
+		{ return opt_config[key].template as<T>(); }
 
 	Uplink *getUplink() const { return uplink; }
 	Protocol proto;
