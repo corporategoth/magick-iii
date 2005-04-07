@@ -19,11 +19,9 @@ DROP TABLE users_memo;
 DROP TABLE users_ignore;
 DROP TABLE users_access;
 DROP TABLE users;
-DROP SEQUENCE users_id_seq;
-CREATE SEQUENCE users_id_seq;
 
 CREATE TABLE users (
-		id integer PRIMARY KEY DEFAULT nextval('users_id_seq'),
+		id integer PRIMARY KEY
 		last_update timestamp NOT NULL DEFAULT current_timestamp,
 		last_online varchar(32),
 		password varchar(64) NOT NULL,
