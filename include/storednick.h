@@ -60,6 +60,9 @@ class StoredNick : public boost::noncopyable, public boost::totally_ordered1<Sto
 	void Live(const boost::shared_ptr<LiveUser> &user);
 	void Quit(const std::string &reason);
 
+	// use if_StoredNick_StoredUser
+	static boost::shared_ptr<StoredNick> Last_Seen(boost::uint32_t id);
+
 	StoredNick(const std::string &name, const boost::shared_ptr<StoredUser> &user);
 public:
 	// This will also create the relevant StoredUser
@@ -104,6 +107,20 @@ class if_StoredNick_LiveUser
 		{ base.Live(user); }
 	inline void Quit(const std::string &in)
 		{ base.Quit(in); }
+};
+
+// Special interface used by LiveUser.
+class if_StoredNick_StoredUser
+{
+	friend class StoredUser;
+	StoredNick &base;
+
+	// This is INTENTIONALLY private ...
+	if_StoredNick_StoredUser(StoredNick &b) : base(b) {}
+	if_StoredNick_StoredUser(const boost::shared_ptr<StoredNick> &b) : base(*(b.get())) {}
+
+	inline static boost::shared_ptr<StoredNick> Last_Seen(boost::uint32_t id)
+		{ return StoredNick::Last_Seen(id); }
 };
 
 // Used for tracing mainly.

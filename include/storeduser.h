@@ -63,12 +63,15 @@ class StoredUser : private boost::noncopyable, public boost::totally_ordered1<St
 	boost::uint32_t id_;
 
 	NSYNC(StoredUser);
+	NSYNC(access_number);
+	NSYNC(ignore_number);
+
 	online_users_t online_users_;
 	my_nicks_t my_nicks_;
 	my_channels_t my_channels_;
 
 	// use if_StoredUser_DCC
-	void Picture(boost::uint32_t in);
+	void Picture(boost::uint32_t in, const std::string &ext);
 
 	// use if_StoredUser_StoredNick
 	StoredUser(const std::string &password,
@@ -115,7 +118,7 @@ public:
 	void Comment(const std::string &in);
 	std::string Comment() const;
 
-	void Suspend(const boost::shared_ptr<LiveUser> &user,
+	void Suspend(const boost::shared_ptr<StoredNick> &nick,
 				 const std::string &reason);
 	void Unsuspend();
 	std::string Suspended_By() const;
@@ -135,9 +138,10 @@ public:
 	bool Private() const;
 	void PRIVMSG(const boost::logic::tribool &in);
 	bool PRIVMSG() const;
-	void NoExpire(const bool &in);
+	void NoExpire(const boost::logic::tribool &in);
 	bool NoExpire() const;
 	void ClearPicture();
+	std::string PictureExt() const;
 	boost::uint32_t Picture() const;
 	void LOCK_Language(const bool &in);
 	bool LOCK_Language() const;
@@ -155,20 +159,19 @@ public:
 	bool ACCESS_Matches(const std::string &in) const;
 	bool ACCESS_Matches(const boost::shared_ptr<LiveUser> &in) const;
 	bool ACCESS_Exists(boost::uint32_t num) const;
-	void ACCESS_Add(const std::string &in);
+	boost::uint32_t ACCESS_Add(const std::string &in);
 	void ACCESS_Del(boost::uint32_t num);
 	void ACCESS_Change(boost::uint32_t num, const std::string &in);
 	std::pair<std::string, boost::posix_time::ptime> ACCESS_Get(boost::uint32_t num) const;
 	void ACCESS_Get(std::map<boost::uint32_t, std::pair<std::string, boost::posix_time::ptime> > &fill) const;
 
-	bool IGNORE_Matches(const std::string &in) const;
-	bool IGNORE_Matches(const boost::shared_ptr<LiveUser> &in) const;
+	bool IGNORE_Matches(const boost::shared_ptr<StoredUser> &in) const;
 	bool IGNORE_Exists(boost::uint32_t num) const;
-	void IGNORE_Add(const std::string &in);
+	boost::uint32_t IGNORE_Add(const boost::shared_ptr<StoredUser> &in);
 	void IGNORE_Del(boost::uint32_t num);
-	void IGNORE_Change(boost::uint32_t num, const std::string &in);
-	std::pair<std::string, boost::posix_time::ptime> IGNORE_Get(boost::uint32_t num) const;
-	void IGNORE_Get(std::map<boost::uint32_t, std::pair<std::string, boost::posix_time::ptime> > &fill) const;
+	void IGNORE_Change(boost::uint32_t num, const boost::shared_ptr<StoredUser> &in);
+	std::pair<boost::shared_ptr<StoredUser>, boost::posix_time::ptime> IGNORE_Get(boost::uint32_t num) const;
+	void IGNORE_Get(std::map<boost::uint32_t, std::pair<boost::shared_ptr<StoredUser>, boost::posix_time::ptime> > &fill) const;
 
 	bool MEMO_Exists(boost::uint32_t num) const;
 	void MEMO_Del(boost::uint32_t num);

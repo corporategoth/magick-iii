@@ -58,12 +58,12 @@ Storage::Storage()
 	: finalstage_(std::pair<mantra::FinalStage *, void (*)(mantra::FinalStage *)>(NULL, NULL)),
 	  backend_(std::pair<mantra::Storage *, void (*)(mantra::Storage *)>(NULL, NULL)),
 	  event_(0), handle_(NULL), crypt_handle_(NULL), compress_handle_(NULL),
-	  LiveUsers_lock_(boost::read_write_scheduling_policy::reader_priority),
-	  LiveChannels_lock_(boost::read_write_scheduling_policy::reader_priority),
-	  StoredUsers_lock_(boost::read_write_scheduling_policy::reader_priority),
-	  StoredNicks_lock_(boost::read_write_scheduling_policy::reader_priority),
-	  StoredChannels_lock_(boost::read_write_scheduling_policy::reader_priority),
-	  Committees_lock_(boost::read_write_scheduling_policy::reader_priority)
+	  hasher(mantra::Hasher::NONE), SYNC_NRWINIT(LiveUsers_, reader_priority),
+	  SYNC_NRWINIT(LiveChannels_, reader_priority),
+	  SYNC_NRWINIT(StoredUsers_, reader_priority),
+	  SYNC_NRWINIT(StoredNicks_, reader_priority),
+	  SYNC_NRWINIT(StoredChannels_, reader_priority),
+	  SYNC_NRWINIT(Committees_, reader_priority)
 {
 }
 
@@ -122,19 +122,19 @@ void Storage::reset()
 	}
 
 	{
-		boost::read_write_mutex::scoped_write_lock scoped_lock(StoredUsers_lock_);
+		LOCK_WLOCK(StoredUsers_);
 		StoredUsers_.clear();
 	}
 	{
-		boost::read_write_mutex::scoped_write_lock scoped_lock(StoredNicks_lock_);
+		LOCK_WLOCK(StoredNicks_);
 		StoredNicks_.clear();
 	}
 	{
-		boost::read_write_mutex::scoped_write_lock scoped_lock(StoredChannels_lock_);
+		LOCK_WLOCK(StoredChannels_);
 		StoredChannels_.clear();
 	}
 	{
-		boost::read_write_mutex::scoped_write_lock scoped_lock(Committees_lock_);
+		LOCK_WLOCK(Committees_);
 		Committees_.clear();
 	}
 }
@@ -167,6 +167,9 @@ bool Storage::init(const po::variables_map &vm,
 {
 	MT_EB
 	MT_FUNC("Storage::init" << "(const po::variables_map &) vm");
+
+	if (!check_old_new<unsigned int>("storage.password-hash", opt_config, vm))
+		hasher = mantra::Hasher((mantra::Hasher::HashType) vm["storage.password-hash"].as<unsigned int>());
 
 	std::string oldstorage;
 	if (opt_config.count("storage"))
@@ -1042,35 +1045,6 @@ bool Storage::init(const po::variables_map &vm,
 	MT_EE
 }
 
-class NextNumber
-{
-	mantra::Storage *storage;
-	std::string table, column;
-public:
-	NextNumber(mantra::Storage *s, const std::string &t, const std::string &c)
-		: storage(s), table(t), column(c) {}
-
-	mantra::StorageValue operator()() const
-	{
-		mantra::Storage::DataSet data;
-		mantra::Storage::FieldSet fields;
-		fields.insert(column);
-		storage->RetrieveRow(table, data, mantra::ComparisonSet(), fields);
-
-		boost::uint32_t max = 0;
-		mantra::Storage::DataSet::const_iterator i;
-		for (i=data.begin(); i!=data.end(); ++i)
-		{
-			mantra::Storage::RecordMap::const_iterator j = i->find(column);
-			if (j == i->end())
-				continue; // huh?
-			if (boost::get<boost::uint32_t>(j->second) > max)
-				max = boost::get<boost::uint32_t>(j->second);
-		}
-		return (max + 1);
-	}
-};
-
 static mantra::StorageValue GetCurrentDateTime()
 {
 	return mantra::GetCurrentDateTime();
@@ -1107,16 +1081,11 @@ void Storage::init()
 	mantra::Storage::ColumnProperties_t cp;
 
 	// TABLE: users
-	if (backend_.first->support_blank_default())
-		cp.Assign<boost::uint32_t>(false, true);
-	else
-		cp.Assign<boost::uint32_t>(false, NextNumber(backend_.first, "users", "id"));
+	cp.Assign<boost::uint32_t>(false);
 	backend_.first->DefineColumn("users", "id", cp);
 
 	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("users", "last_update", cp);
-	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 32);
-	backend_.first->DefineColumn("users", "last_online", cp);
 
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 64);
 	backend_.first->DefineColumn("users", "password", cp);
@@ -1148,7 +1117,7 @@ void Storage::init()
 	cp.Assign<boost::posix_time::ptime>(true);
 	backend_.first->DefineColumn("users", "suspend_time", cp);
 
-	cp.Assign<std::string>(true);
+	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 16);
 	backend_.first->DefineColumn("users", "language", cp);
 	cp.Assign<bool>(true);
 	backend_.first->DefineColumn("users", "protect", cp);
@@ -1159,6 +1128,8 @@ void Storage::init()
 	backend_.first->DefineColumn("users", "noexpire", cp);
 	cp.Assign<boost::uint32_t>(true);
 	backend_.first->DefineColumn("users", "picture", cp);
+	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 8);
+	backend_.first->DefineColumn("users", "picture_ext", cp);
 	cp.Assign<bool>(true);
 	backend_.first->DefineColumn("users", "lock_language", cp);
 	backend_.first->DefineColumn("users", "lock_protect", cp);
@@ -1460,7 +1431,7 @@ void Storage::init()
 	backend_.first->DefineColumn("forbidden", "last_update", cp);
 
 	// TABLE: akills
-	cp.Assign<boost::uint32_t>(false, NextNumber(backend_.first, "akills", "number"));
+	cp.Assign<boost::uint32_t>(false);
 	backend_.first->DefineColumn("akills", "number", cp);
 	cp.Assign<mantra::duration>(false);
 	backend_.first->DefineColumn("akills", "length", cp);
@@ -1475,7 +1446,7 @@ void Storage::init()
 	backend_.first->DefineColumn("akills", "last_update", cp);
 
 	// TABLE: clones
-	cp.Assign<boost::uint32_t>(false, NextNumber(backend_.first, "clones", "number"));
+	cp.Assign<boost::uint32_t>(false);
 	backend_.first->DefineColumn("clones", "number", cp);
 	backend_.first->DefineColumn("clones", "value", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 350);
@@ -1489,7 +1460,7 @@ void Storage::init()
 	backend_.first->DefineColumn("clones", "last_update", cp);
 
 	// TABLE: operdenies
-	cp.Assign<boost::uint32_t>(false, NextNumber(backend_.first, "operdenies", "number"));
+	cp.Assign<boost::uint32_t>(false);
 	backend_.first->DefineColumn("operdenies", "number", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 350);
 	backend_.first->DefineColumn("operdenies", "mask", cp);
@@ -1502,7 +1473,7 @@ void Storage::init()
 	backend_.first->DefineColumn("operdenies", "last_update", cp);
 
 	// TABLE: ignores
-	cp.Assign<boost::uint32_t>(false, NextNumber(backend_.first, "ignores", "number"));
+	cp.Assign<boost::uint32_t>(false);
 	backend_.first->DefineColumn("ignores", "number", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 350);
 	backend_.first->DefineColumn("ignores", "mask", cp);
@@ -1565,6 +1536,16 @@ void Storage::Save()
 	MT_EE
 }
 
+std::string Storage::CryptPassword(const std::string &in) const
+{
+	MT_EB
+	MT_FUNC("std::string Storage::CryptPassword" << in);
+
+	return hasher(in.data(), in.size());
+
+	MT_EE
+}
+
 unsigned int StorageInterface::RowExists(const mantra::ComparisonSet &search) const throw(mantra::storage_exception)
 {
 	return ROOT->data.backend_.first->RowExists(table_, search);
@@ -1602,6 +1583,19 @@ unsigned int StorageInterface::RemoveRow(const mantra::ComparisonSet &search) th
 {
 	return ROOT->data.backend_.first->RemoveRow(table_, search);
 }
+
+StorageValue StorageInterface::Minimum(const std::string &column,
+				const mantra::ComparisonSet &search) throw(mantra::storage_exception)
+{
+	return ROOT->data.backend_.first->Minimum(table_, column, search);
+}
+
+StorageValue StorageInterface::Maximum(const std::string &column,
+				const mantra::ComparisonSet &search) throw(mantra::storage_exception)
+{
+	return ROOT->data.backend_.first->Maximum(table_, column, search);
+}
+
 
 // Aliases that use the above.
 bool StorageInterface::GetRow(const mantra::ComparisonSet &search, mantra::Storage::RecordMap &data)

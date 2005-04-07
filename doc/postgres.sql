@@ -23,7 +23,6 @@ DROP TABLE users;
 CREATE TABLE users (
 		id integer PRIMARY KEY
 		last_update timestamp NOT NULL DEFAULT current_timestamp,
-		last_online varchar(32),
 		password varchar(64) NOT NULL,
 		email varchar(320), -- Max length of an email (according to RFC)
 		website varchar(2048), -- Max length of a URL that IE will support
@@ -46,6 +45,7 @@ CREATE TABLE users (
 		privmsg boolean,
 		noexpire boolean,
 		picture integer,
+		picture_ext varchar(8),
 		lock_language boolean,
 		lock_protect boolean,
 		lock_secure boolean,

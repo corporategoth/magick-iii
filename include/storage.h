@@ -39,6 +39,8 @@ RCSID(magick__storage_h, "@(#) $Id$");
 #include <map>
 #include <ostream>
 
+#include <mantra/core/hasher.h>
+#include <mantra/core/sync.h>
 #include <mantra/storage/interface.h>
 #include <mantra/storage/stage.h>
 
@@ -63,20 +65,15 @@ class Storage
 	std::pair<mantra::Storage *, void (*)(mantra::Storage *)> backend_;
 	unsigned int event_;
 	void *handle_, *crypt_handle_, *compress_handle_;
+	mantra::Hasher hasher;
 
-	boost::read_write_mutex LiveUsers_lock_;
-	std::map<std::string, boost::shared_ptr<LiveUser> > LiveUsers_;
-	boost::read_write_mutex LiveChannels_lock_;
-	std::map<std::string, boost::shared_ptr<LiveChannel> > LiveChannels_;
+	std::map<std::string, boost::shared_ptr<LiveUser> > RWSYNC(LiveUsers_);
+	std::map<std::string, boost::shared_ptr<LiveChannel> > RWSYNC(LiveChannels_);
 
-	boost::read_write_mutex StoredUsers_lock_;
-	std::map<boost::uint32_t, boost::shared_ptr<StoredUser> > StoredUsers_;
-	boost::read_write_mutex StoredNicks_lock_;
-	std::map<std::string, boost::shared_ptr<StoredNick> > StoredNicks_;
-	boost::read_write_mutex StoredChannels_lock_;
-	std::map<std::string, boost::shared_ptr<StoredChannel> > StoredChannels_;
-	boost::read_write_mutex Committees_lock_;
-	std::map<std::string, boost::shared_ptr<Committee> > Committees_;
+	std::map<boost::uint32_t, boost::shared_ptr<StoredUser> > RWSYNC(StoredUsers_);
+	std::map<std::string, boost::shared_ptr<StoredNick> > RWSYNC(StoredNicks_);
+	std::map<std::string, boost::shared_ptr<StoredChannel> > RWSYNC(StoredChannels_);
+	std::map<std::string, boost::shared_ptr<Committee> > RWSYNC(Committees_);
 
 	void init();
 	void reset();
@@ -90,6 +87,7 @@ public:
 	void ClearLive();
 	void Load();
 	void Save();
+	std::string CryptPassword(const std::string &in) const;
 
 	void Add_LiveUser(const boost::shared_ptr<LiveUser> &entry);
 	void Del_LiveUser(const std::string &name);
@@ -144,6 +142,10 @@ public:
 				const mantra::ComparisonSet &search = mantra::ComparisonSet(),
 				const mantra::Storage::FieldSet &fields = mantra::Storage::FieldSet()) throw(mantra::storage_exception);
 	virtual unsigned int RemoveRow(const mantra::ComparisonSet &search = mantra::ComparisonSet()) throw(mantra::storage_exception);
+	virtual mantra::StorageValue Minimum(const std::string &column,
+				const mantra::ComparisonSet &search = mantra::ComparisonSet()) throw(mantra::storage_exception);
+	virtual mantra::StorageValue Maximum(const std::string &column,
+				const mantra::ComparisonSet &search = mantra::ComparisonSet()) throw(mantra::storage_exception);
 
 	// Aliases that use the above.
 	inline bool GetRow(const std::string &key, mantra::Storage::RecordMap &data)
