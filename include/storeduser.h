@@ -74,8 +74,7 @@ class StoredUser : private boost::noncopyable, public boost::totally_ordered1<St
 	void Picture(boost::uint32_t in, const std::string &ext);
 
 	// use if_StoredUser_StoredNick
-	StoredUser(const std::string &password,
-			   const boost::shared_ptr<StoredNick> &nick);
+	StoredUser(const std::string &password);
 	void Online(const boost::shared_ptr<LiveUser> &user);
 	void Offline(const boost::shared_ptr<LiveUser> &user);
 	void Add(const boost::shared_ptr<StoredNick> &nick);
@@ -189,10 +188,9 @@ class if_StoredUser_StoredNick
 	if_StoredUser_StoredNick(StoredUser &b) : base(b) {}
 	if_StoredUser_StoredNick(const boost::shared_ptr<StoredUser> &b) : base(*(b.get())) {}
 
-	static inline boost::shared_ptr<StoredUser> create(const std::string &password,
-													   const boost::shared_ptr<StoredNick> &nick)
+	static inline boost::shared_ptr<StoredUser> create(const std::string &password)
 	{
-		boost::shared_ptr<StoredUser> rv(new StoredUser(password, nick));
+		boost::shared_ptr<StoredUser> rv(new StoredUser(password));
 		rv->self = rv;
 		return rv;
 	}

@@ -165,7 +165,7 @@ boost::shared_ptr<StoredNick> StoredUser::Last_Online() const
 	MT_EB
 	MT_FUNC("StoredUser::Last_Online");
 
-	boost::shared_ptr<StoredNick> rv = if_StoredNick_StoredUser::Last_Seen(id_);
+	boost::shared_ptr<StoredNick> rv = if_StoredNick_StoredUser::Last_Seen(self.lock());
 
 	MT_RET(rv);
 	MT_EE

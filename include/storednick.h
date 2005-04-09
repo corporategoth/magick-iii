@@ -53,28 +53,22 @@ class StoredNick : public boost::noncopyable, public boost::totally_ordered1<Sto
 	std::string name_;
 	boost::shared_ptr<StoredUser> user_;
 
-	boost::mutex lock_;
-	boost::shared_ptr<LiveUser> live_;
+	boost::shared_ptr<LiveUser> SYNC(live_);
 
 	// use if_StoredNick_LiveUser
-	void Live(const boost::shared_ptr<LiveUser> &user);
+	void Live(const boost::shared_ptr<LiveUser> &live);
 	void Quit(const std::string &reason);
 
 	// use if_StoredNick_StoredUser
-	static boost::shared_ptr<StoredNick> Last_Seen(boost::uint32_t id);
+	static boost::shared_ptr<StoredNick> Last_Seen(const boost::shared_ptr<StoredUser> &user);
 
 	StoredNick(const std::string &name, const boost::shared_ptr<StoredUser> &user);
 public:
 	// This will also create the relevant StoredUser
-	static inline boost::shared_ptr<StoredNick> create(const std::string &name,
-													   const std::string &password);
-	static inline boost::shared_ptr<StoredNick> create(const std::string &name,
-													   const boost::shared_ptr<StoredUser> &user)
-	{
-		boost::shared_ptr<StoredNick> rv(new StoredNick(name, user));
-		rv->self = rv;
-		return rv;
-	}
+	static boost::shared_ptr<StoredNick> create(const std::string &name,
+												const std::string &password);
+	static boost::shared_ptr<StoredNick> create(const std::string &name,
+												const boost::shared_ptr<StoredUser> &user);
 
 	const std::string &Name() const { return name_; }
 	const boost::shared_ptr<StoredUser> &User() const { return user_; }
@@ -119,8 +113,8 @@ class if_StoredNick_StoredUser
 	if_StoredNick_StoredUser(StoredNick &b) : base(b) {}
 	if_StoredNick_StoredUser(const boost::shared_ptr<StoredNick> &b) : base(*(b.get())) {}
 
-	inline static boost::shared_ptr<StoredNick> Last_Seen(boost::uint32_t id)
-		{ return StoredNick::Last_Seen(id); }
+	static inline boost::shared_ptr<StoredNick> Last_Seen(const boost::shared_ptr<StoredUser> &user)
+		{ return StoredNick::Last_Seen(user); }
 };
 
 // Used for tracing mainly.
