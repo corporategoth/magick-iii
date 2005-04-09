@@ -134,6 +134,8 @@ void StoredUser::Del(const boost::shared_ptr<StoredNick> &nick)
 
 	SYNC_LOCK(StoredUser);
 	my_nicks_.erase(nick);
+	if (my_nicks_.empty())
+		if_StorageDeleter<StoredUser>(ROOT->data).Del(self.lock());
 
 	MT_EE
 }

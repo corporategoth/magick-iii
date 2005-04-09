@@ -33,7 +33,27 @@ RCSID(magick__storedchannel_cpp, "@(#)$Id$");
 ** ======================================================================= */
 
 #include "magick.h"
+#include "storedchannel.h"
+#include "livechannel.h"
+#include "storednick.h"
+#include "livenick.h"
 
 #include <mantra/core/trace.h>
 
+StoredChannel::StoredChannel(const std::string &name,
+							 const std::string &password,
+							 const boost::shared_ptr<StoredUser> &founder)
+	: name_(name)
+{
+	MT_EB
+	MT_FUNC("StoredChannel::StoredChannel" << name << password << founder);
+
+	mantra::Storage::RecordMap rec;
+	rec["name"] = name;
+	rec["password"] = ROOT->data.CryptPassword(password);
+	rec["founder"] = founder->ID();
+	storage.InsertRow(rec);
+
+	MT_EE
+}
 

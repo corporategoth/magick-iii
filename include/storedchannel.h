@@ -48,6 +48,8 @@ class StoredChannel : private boost::noncopyable, public boost::totally_ordered1
 	friend class if_StoredChannel_LiveUser;
 	friend class if_StoredChannel_LiveChannel;
 
+	typedef std::set<boost::shared_ptr<LiveUser> > identified_users_t;
+
 	boost::weak_ptr<StoredChannel> self;
 	static StorageInterface storage;
 
@@ -55,7 +57,7 @@ class StoredChannel : private boost::noncopyable, public boost::totally_ordered1
 
 	boost::mutex lock_;
 	boost::shared_ptr<LiveChannel> live_;
-	std::set<boost::shared_ptr<LiveUser> > identified_users_;
+	identified_users_t identified_users_;
 
 	// use if_StoredChannel_LiveUser
 	void Identify(const boost::shared_ptr<LiveUser> &user);

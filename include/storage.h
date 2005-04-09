@@ -47,6 +47,7 @@ RCSID(magick__storage_h, "@(#) $Id$");
 #include <boost/noncopyable.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/read_write_mutex.hpp>
+#include <boost/mpl/identity.hpp>
 
 class LiveUser;
 class StoredUser;
@@ -58,6 +59,7 @@ class Committee;
 class Storage
 {
 	friend class StorageInterface;
+	template<typename T> friend class if_StorageDeleter;
 
 	boost::mutex lock_;
 	std::pair<mantra::FinalStage *, void (*)(mantra::FinalStage *)> finalstage_;
@@ -78,6 +80,13 @@ class Storage
 	void init();
 	void reset();
 
+	void Del(const boost::shared_ptr<LiveUser> &entry);
+	void Del(const boost::shared_ptr<LiveChannel> &entry);
+	void Del(const boost::shared_ptr<StoredUser> &entry);
+	void Del(const boost::shared_ptr<StoredNick> &entry);
+	void Del(const boost::shared_ptr<StoredChannel> &entry);
+	void Del(const boost::shared_ptr<Committee> &entry);
+
 public:
 	Storage();
 	~Storage();
@@ -89,28 +98,18 @@ public:
 	void Save();
 	std::string CryptPassword(const std::string &in) const;
 
-	void Add_LiveUser(const boost::shared_ptr<LiveUser> &entry);
-	void Del_LiveUser(const std::string &name);
+	void Add(const boost::shared_ptr<LiveUser> &entry);
+	void Add(const boost::shared_ptr<LiveChannel> &entry);
+	void Add(const boost::shared_ptr<StoredUser> &entry);
+	void Add(const boost::shared_ptr<StoredNick> &entry);
+	void Add(const boost::shared_ptr<StoredChannel> &entry);
+	void Add(const boost::shared_ptr<Committee> &entry);
+
 	boost::shared_ptr<LiveUser> Get_LiveUser(const std::string &name) const;
-
-	void Add_LiveChannel(const boost::shared_ptr<LiveChannel> &entry);
-	void Del_LiveChannel(const std::string &name);
 	boost::shared_ptr<LiveChannel> Get_LiveChannel(const std::string &name) const;
-
-	void Add_StoredUser(const boost::shared_ptr<StoredUser> &entry);
-	void Del_StoredUser(boost::uint32_t id);
 	boost::shared_ptr<StoredUser> Get_StoredUser(boost::uint32_t id) const;
-
-	void Add_StoredNick(const boost::shared_ptr<StoredNick> &entry);
-	void Del_StoredNick(const std::string &name);
 	boost::shared_ptr<StoredNick> Get_StoredNick(const std::string &name) const;
-
-	void Add_StoredChannel(const boost::shared_ptr<StoredChannel> &entry);
-	void Del_StoredChannel(const std::string &name);
 	boost::shared_ptr<StoredChannel> Get_StoredChannel(const std::string &name) const;
-
-	void Add_Committee(const boost::shared_ptr<Committee> &entry);
-	void Del_Committee(const std::string &name);
 	boost::shared_ptr<Committee> Get_Committee(const std::string &name) const;
 
 };
@@ -162,6 +161,20 @@ public:
 		{ return PutField(mantra::Comparison<mantra::C_EqualToNC>::make(key_, key), column, value); }
 	inline bool PutField(const boost::uint32_t &key, const std::string &column, const mantra::StorageValue &value)
 		{ return PutField(mantra::Comparison<mantra::C_EqualTo>::make(key_, key), column, value); }
+};
+
+template<typename T>
+class if_StorageDeleter
+{
+	// This is a hack, friend class T doesn't work.
+	friend class boost::mpl::identity<T>::type;
+	Storage &base;
+
+	if_StorageDeleter(Storage &b) : base(b) {}
+	if_StorageDeleter(const Storage *b) : base(*b) {}
+
+	inline void Del(const boost::shared_ptr<T> &in) const
+		{ base.Del(in); }
 };
 
 template<typename T>

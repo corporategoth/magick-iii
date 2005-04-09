@@ -46,6 +46,11 @@ StoredNick::StoredNick(const std::string &name,
 	MT_EB
 	MT_FUNC("StoredNick::StoredNick" << name << user);
 
+	mantra::Storage::RecordMap rec;
+	rec["name"] = name;
+	rec["id"] = user->ID();
+	storage.InsertRow(rec);
+
 	MT_EE
 }
 
@@ -57,7 +62,7 @@ boost::shared_ptr<StoredNick> StoredNick::create(const std::string &name,
 
 	boost::shared_ptr<StoredNick> rv =
 		create(name, if_StoredUser_StoredNick::create(password));
-	ROOT->data.Add_StoredUser(rv->user_);
+	ROOT->data.Add(rv->user_);
 
 	MT_RET(rv);
 	MT_EE
@@ -254,7 +259,11 @@ void StoredNick::Drop()
 	MT_EB
 	MT_FUNC("StoredNick::Drop");
 
+	if_StorageDeleter<StoredNick>(ROOT->data).Del(self.lock());
 	if_StoredUser_StoredNick(user_).Del(self.lock());
+	SYNC_LOCK(live_);
+	if (live_)
+		if_LiveUser_StoredNick(live_).Stored(boost::shared_ptr<StoredNick>());
 
 	MT_EE
 }
