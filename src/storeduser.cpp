@@ -48,15 +48,11 @@ RCSID(magick__storeduser_cpp, "@(#)$Id$");
  * application might, but thats Bad Form (tm).
  * 
  * @param password Password the user will use (stored in hashed form).
- * @param nick Nickname that registered this user.
  */
-StoredUser::StoredUser(const std::string &password,
-					   const boost::shared_ptr<StoredNick> &nick)
+StoredUser::StoredUser(const std::string &password)
 {
 	MT_EB
-	MT_FUNC("StoredUser::StoredUser" << password << nick);
-
-	my_nicks_.insert(nick);
+	MT_FUNC("StoredUser::StoredUser" << password);
 
 	static boost::mutex id_lock;
 	boost::mutex::scoped_lock sl(id_lock);
