@@ -122,19 +122,19 @@ void Storage::reset()
 	}
 
 	{
-		LOCK_WLOCK(StoredUsers_);
+		SYNC_WLOCK(StoredUsers_);
 		StoredUsers_.clear();
 	}
 	{
-		LOCK_WLOCK(StoredNicks_);
+		SYNC_WLOCK(StoredNicks_);
 		StoredNicks_.clear();
 	}
 	{
-		LOCK_WLOCK(StoredChannels_);
+		SYNC_WLOCK(StoredChannels_);
 		StoredChannels_.clear();
 	}
 	{
-		LOCK_WLOCK(Committees_);
+		SYNC_WLOCK(Committees_);
 		Committees_.clear();
 	}
 }
@@ -1584,13 +1584,13 @@ unsigned int StorageInterface::RemoveRow(const mantra::ComparisonSet &search) th
 	return ROOT->data.backend_.first->RemoveRow(table_, search);
 }
 
-StorageValue StorageInterface::Minimum(const std::string &column,
+mantra::StorageValue StorageInterface::Minimum(const std::string &column,
 				const mantra::ComparisonSet &search) throw(mantra::storage_exception)
 {
 	return ROOT->data.backend_.first->Minimum(table_, column, search);
 }
 
-StorageValue StorageInterface::Maximum(const std::string &column,
+mantra::StorageValue StorageInterface::Maximum(const std::string &column,
 				const mantra::ComparisonSet &search) throw(mantra::storage_exception)
 {
 	return ROOT->data.backend_.first->Maximum(table_, column, search);
