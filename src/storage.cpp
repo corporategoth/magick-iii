@@ -1234,7 +1234,7 @@ void Storage::init()
 	backend_.first->DefineColumn("channels", "mlock_on", cp);
 	backend_.first->DefineColumn("channels", "mlock_off", cp);
 	backend_.first->DefineColumn("channels", "mlock_key", cp);
-	cp.Assign<boost::int32_t>(true);
+	cp.Assign<boost::uint32_t>(true);
 	backend_.first->DefineColumn("channels", "mlock_limit", cp);
 
 	cp.Assign<bool>(true);

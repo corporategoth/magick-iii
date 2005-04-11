@@ -435,12 +435,10 @@ bool LiveUser::Identify(const boost::shared_ptr<StoredChannel> &channel,
 	SYNC_LOCK(channel_identified_);
 	if (channel_identified_.find(channel) != channel_identified_.end())
 		MT_RET(true);
-	if (channel->CheckPassword(in))
+	if (if_StoredChannel_LiveUser(channel).Identify(self.lock(), in))
 	{
 		channel_identified_.insert(channel);
 		channel_password_fails_.erase(channel);
-		SYNC_UNLOCK(channel_identified_);
-		if_StoredChannel_LiveUser(channel).Identify(self.lock());
 		MT_RET(true);
 	}
 	else

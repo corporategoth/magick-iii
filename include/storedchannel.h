@@ -60,7 +60,8 @@ class StoredChannel : private boost::noncopyable, public boost::totally_ordered1
 	identified_users_t identified_users_;
 
 	// use if_StoredChannel_LiveUser
-	void Identify(const boost::shared_ptr<LiveUser> &user);
+	bool Identify(const boost::shared_ptr<LiveUser> &user,
+				  const std::string &password);
 	void UnIdentify(const boost::shared_ptr<LiveUser> &user);
 
 	// use if_StoredChannel_LiveChannel
@@ -84,7 +85,8 @@ public:
 			R_Ban2, // *!user@port.host
 			R_Ban3, // *!user@*.host
 			R_Ban4, // *!*@port.host
-			R_Ban5  // *!*@*.host
+			R_Ban5, // *!*@*.host
+			R_MAX
 		};
 
 	static inline boost::shared_ptr<StoredChannel> create(const std::string &name,
@@ -122,6 +124,8 @@ public:
 	void Comment(const std::string &in);
 	std::string Comment() const;
 
+	void Topic(const boost::shared_ptr<LiveUser> &user,
+			   const std::string &topic);
 	std::string Topic() const;
 	std::string Topic_Setter() const;
 	boost::posix_time::ptime Topic_Set_Time() const;
@@ -144,7 +148,7 @@ public:
 	bool Restricted() const;
 	void CJoin(const boost::logic::tribool &in);
 	bool CJoin() const;
-	void NoExpire(const bool &in);
+	void NoExpire(const boost::logic::tribool &in);
 	bool NoExpire() const;
 	void BanTime(const mantra::duration &in);
 	mantra::duration BanTime() const;
@@ -181,12 +185,14 @@ public:
 	bool LOCK_BanTime() const;
 	void LOCK_PartTime(const bool &in);
 	bool LOCK_PartTime() const;
+	void LOCK_Revenge(const bool &in);
+	bool LOCK_Revenge() const;
 
 	void LOCK_ModeLock(const std::string &in);
 	std::string LOCK_ModeLock_On() const;
 	std::string LOCK_ModeLock_Off() const;
 
-	void Suspend(const boost::shared_ptr<LiveUser> &user,
+	void Suspend(const boost::shared_ptr<StoredNick> &user,
 				 const std::string &reason);
 	void Unsuspend();
 	std::string Suspended_By() const;
@@ -440,8 +446,9 @@ class if_StoredChannel_LiveUser
 	if_StoredChannel_LiveUser(StoredChannel &b) : base(b) {}
 	if_StoredChannel_LiveUser(const boost::shared_ptr<StoredChannel> &b) : base(*(b.get())) {}
 
-	inline void Identify(const boost::shared_ptr<LiveUser> &user)
-		{ base.Identify(user); }
+	inline bool Identify(const boost::shared_ptr<LiveUser> &user,
+						 const std::string &password)
+		{ return base.Identify(user, password); }
 	inline void UnIdentify(const boost::shared_ptr<LiveUser> &user)
 		{ base.UnIdentify(user); }
 };
