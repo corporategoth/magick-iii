@@ -34,6 +34,13 @@ RCSID(magick__storage_cpp, "@(#)$Id$");
 
 #include "magick.h"
 
+#include "liveuser.h"
+#include "livechannel.h"
+#include "storeduser.h"
+#include "storednick.h"
+#include "storedchannel.h"
+#include "committee.h"
+
 #include <dlfcn.h>
 
 #include <mantra/storage/filestage.h>
@@ -1648,6 +1655,290 @@ bool StorageInterface::PutField(const mantra::ComparisonSet &search, const std::
 	unsigned int rv = ChangeRow(data, search);
 
 	MT_RET(rv == 1u);
+	MT_EE
+}
+
+/****************************************************************************
+ * The add/del/retrieve functions for all data.
+ ****************************************************************************/
+
+void Storage::Add(const boost::shared_ptr<LiveUser> &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Add" << entry);
+
+	SYNC_WLOCK(LiveUsers_);
+	LiveUsers_[entry->Name()] = entry;
+
+	MT_EE
+}
+
+void Storage::Add(const boost::shared_ptr<LiveChannel> &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Add" << entry);
+
+	SYNC_WLOCK(LiveChannels_);
+	LiveChannels_[entry->Name()] = entry;
+
+	MT_EE
+}
+
+void Storage::Add(const boost::shared_ptr<StoredUser> &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Add" << entry);
+
+	SYNC_WLOCK(StoredUsers_);
+	StoredUsers_[entry->ID()] = entry;
+
+	MT_EE
+}
+
+void Storage::Add(const boost::shared_ptr<StoredNick> &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Add" << entry);
+
+	SYNC_WLOCK(StoredNicks_);
+	StoredNicks_[entry->Name()] = entry;
+
+	MT_EE
+}
+
+void Storage::Add(const boost::shared_ptr<StoredChannel> &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Add" << entry);
+
+	SYNC_WLOCK(StoredChannels_);
+	StoredChannels_[entry->Name()] = entry;
+
+	MT_EE
+}
+
+void Storage::Add(const boost::shared_ptr<Committee> &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Add" << entry);
+
+	SYNC_WLOCK(Committees_);
+	Committees_[entry->Name()] = entry;
+
+	MT_EE
+}
+
+// --------------------------------------------------------------------------
+
+boost::shared_ptr<LiveUser> Storage::Get_LiveUser(const std::string &name) const
+{
+	MT_EB
+	MT_FUNC("Storage::Get_LiveUser" << name);
+
+	SYNC_RLOCK(LiveUsers_);
+	LiveUsers_t::const_iterator i = LiveUsers_.find(name);
+	boost::shared_ptr<LiveUser> ret;
+	if (i == LiveUsers_.end())
+		MT_RET(ret);
+	ret = i->second;
+	MT_RET(ret);
+
+	MT_EE
+}
+
+boost::shared_ptr<LiveChannel> Storage::Get_LiveChannel(const std::string &name) const
+{
+	MT_EB
+	MT_FUNC("Storage::Get_LiveChannel" << name);
+
+	SYNC_RLOCK(LiveChannels_);
+	LiveChannels_t::const_iterator i = LiveChannels_.find(name);
+	boost::shared_ptr<LiveChannel> ret;
+	if (i == LiveChannels_.end())
+		MT_RET(ret);
+	ret = i->second;
+	MT_RET(ret);
+
+	MT_EE
+}
+
+boost::shared_ptr<StoredUser> Storage::Get_StoredUser(boost::uint32_t id, bool deep) const
+{
+	MT_EB
+	MT_FUNC("Storage::Get_StoredUser" << id << deep);
+
+	SYNC_RWLOCK(StoredUsers_);
+	StoredUsers_t::const_iterator i = StoredUsers_.find(id);
+	boost::shared_ptr<StoredUser> ret;
+	if (i == StoredUsers_.end())
+	{
+		if (deep)
+		{
+			// look for entry ...
+		}
+		MT_RET(ret);
+	}
+	ret = i->second;
+	MT_RET(ret);
+
+	MT_EE
+}
+
+boost::shared_ptr<StoredNick> Storage::Get_StoredNick(const std::string &name, bool deep) const
+{
+	MT_EB
+	MT_FUNC("Storage::Get_StoredNick" << name << deep);
+
+	SYNC_RWLOCK(StoredNicks_);
+	StoredNicks_t::const_iterator i = StoredNicks_.find(name);
+	boost::shared_ptr<StoredNick> ret;
+	if (i == StoredNicks_.end())
+	{
+		if (deep)
+		{
+			// look for entry ...
+		}
+		MT_RET(ret);
+	}
+	ret = i->second;
+	MT_RET(ret);
+
+	MT_EE
+}
+
+boost::shared_ptr<StoredChannel> Storage::Get_StoredChannel(const std::string &name, bool deep) const
+{
+	MT_EB
+	MT_FUNC("Storage::Get_StoredChannel" << name << deep);
+
+	SYNC_RWLOCK(StoredChannels_);
+	StoredChannels_t::const_iterator i = StoredChannels_.find(name);
+	boost::shared_ptr<StoredChannel> ret;
+	if (i == StoredChannels_.end())
+	{
+		if (deep)
+		{
+			// look for entry ...
+		}
+		MT_RET(ret);
+	}
+	ret = i->second;
+	MT_RET(ret);
+
+	MT_EE
+}
+
+boost::shared_ptr<Committee> Storage::Get_Committee(const std::string &name, bool deep) const
+{
+	MT_EB
+	MT_FUNC("Storage::Get_Committee" << name << deep);
+
+	SYNC_RWLOCK(Committees_);
+	Committees_t::const_iterator i = Committees_.find(name);
+	boost::shared_ptr<Committee> ret;
+	if (i == Committees_.end())
+	{
+		if (deep)
+		{
+			// look for entry ...
+		}
+		MT_RET(ret);
+	}
+	ret = i->second;
+	MT_RET(ret);
+
+	MT_EE
+}
+
+// --------------------------------------------------------------------------
+
+void Storage::Del(const boost::shared_ptr<LiveUser> &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Del" << entry);
+
+	SYNC_WLOCK(LiveUsers_);
+	LiveUsers_t::iterator i = LiveUsers_.find(entry->Name());
+	if (i != LiveUsers_.end() && i->second == entry)
+		LiveUsers_.erase(i);
+
+	MT_EE
+}
+
+void Storage::Del(const boost::shared_ptr<LiveChannel> &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Del" << entry);
+
+	SYNC_WLOCK(LiveChannels_);
+	LiveChannels_t::iterator i = LiveChannels_.find(entry->Name());
+	if (i != LiveChannels_.end() && i->second == entry)
+		LiveChannels_.erase(i);
+
+	MT_EE
+}
+
+void Storage::Del(const boost::shared_ptr<StoredUser> &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Del" << entry);
+
+	SYNC_WLOCK(StoredUsers_);
+	StoredUsers_t::iterator i = StoredUsers_.find(entry->ID());
+	if (i != StoredUsers_.end() && i->second == entry)
+	{
+		StoredUsers_.erase(i);
+		// Now get rid of it from the DB ...
+	}
+
+	MT_EE
+}
+
+void Storage::Del(const boost::shared_ptr<StoredNick> &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Del" << entry);
+
+	SYNC_WLOCK(StoredNicks_);
+	StoredNicks_t::iterator i = StoredNicks_.find(entry->Name());
+	if (i != StoredNicks_.end() && i->second == entry)
+	{
+		StoredNicks_.erase(i);
+		// Now get rid of it from the DB ...
+	}
+
+	MT_EE
+}
+
+void Storage::Del(const boost::shared_ptr<StoredChannel> &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Del" << entry);
+
+	SYNC_WLOCK(StoredChannels_);
+	StoredChannels_t::iterator i = StoredChannels_.find(entry->Name());
+	if (i != StoredChannels_.end() && i->second == entry)
+	{
+		StoredChannels_.erase(i);
+		// Now get rid of it from the DB ...
+	}
+
+	MT_EE
+}
+
+void Storage::Del(const boost::shared_ptr<Committee> &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Del" << entry);
+
+	SYNC_WLOCK(Committees_);
+	Committees_t::iterator i = Committees_.find(entry->Name());
+	if (i != Committees_.end() && i->second == entry)
+	{
+		Committees_.erase(i);
+		// Now get rid of it from the DB ...
+	}
+
 	MT_EE
 }
 

@@ -41,6 +41,8 @@ RCSID(magick__storedchannel_cpp, "@(#)$Id$");
 
 #include <mantra/core/trace.h>
 
+StorageInterface StoredChannel::storage("channels", "name", "last_update");
+
 StoredChannel::StoredChannel(const std::string &name,
 							 const std::string &password,
 							 const boost::shared_ptr<StoredUser> &founder)

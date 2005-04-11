@@ -39,6 +39,8 @@ RCSID(magick__storednick_cpp, "@(#)$Id$");
 
 #include <mantra/core/trace.h>
 
+StorageInterface StoredNick::storage("nicks", "name");
+
 StoredNick::StoredNick(const std::string &name,
 					   const boost::shared_ptr<StoredUser> &user)
 	: name_(name), user_(user)

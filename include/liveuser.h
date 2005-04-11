@@ -154,7 +154,6 @@ public:
 		rv->self = rv;
 		return rv;
 	}
-	~LiveUser();
 
 	void Name(const std::string &in);
 	inline std::string Name() const

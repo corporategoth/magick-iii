@@ -61,6 +61,13 @@ class Storage
 	friend class StorageInterface;
 	template<typename T> friend class if_StorageDeleter;
 
+	typedef std::map<std::string, boost::shared_ptr<LiveUser>, mantra::iless<std::string> > LiveUsers_t;
+	typedef std::map<std::string, boost::shared_ptr<LiveChannel>, mantra::iless<std::string> > LiveChannels_t;
+	typedef std::map<boost::uint32_t, boost::shared_ptr<StoredUser> > StoredUsers_t;
+	typedef std::map<std::string, boost::shared_ptr<StoredNick>, mantra::iless<std::string> > StoredNicks_t;
+	typedef std::map<std::string, boost::shared_ptr<StoredChannel>, mantra::iless<std::string> > StoredChannels_t;
+	typedef std::map<std::string, boost::shared_ptr<Committee>, mantra::iless<std::string> > Committees_t;
+
 	boost::mutex lock_;
 	std::pair<mantra::FinalStage *, void (*)(mantra::FinalStage *)> finalstage_;
 	std::vector<std::pair<mantra::Stage *, void (*)(mantra::Stage *)> > stages_;
@@ -69,13 +76,13 @@ class Storage
 	void *handle_, *crypt_handle_, *compress_handle_;
 	mantra::Hasher hasher;
 
-	std::map<std::string, boost::shared_ptr<LiveUser> > RWSYNC(LiveUsers_);
-	std::map<std::string, boost::shared_ptr<LiveChannel> > RWSYNC(LiveChannels_);
+	LiveUsers_t RWSYNC(LiveUsers_);
+	LiveChannels_t RWSYNC(LiveChannels_);
 
-	std::map<boost::uint32_t, boost::shared_ptr<StoredUser> > RWSYNC(StoredUsers_);
-	std::map<std::string, boost::shared_ptr<StoredNick> > RWSYNC(StoredNicks_);
-	std::map<std::string, boost::shared_ptr<StoredChannel> > RWSYNC(StoredChannels_);
-	std::map<std::string, boost::shared_ptr<Committee> > RWSYNC(Committees_);
+	StoredUsers_t RWSYNC(StoredUsers_);
+	StoredNicks_t RWSYNC(StoredNicks_);
+	StoredChannels_t RWSYNC(StoredChannels_);
+	Committees_t RWSYNC(Committees_);
 
 	void init();
 	void reset();
@@ -107,10 +114,10 @@ public:
 
 	boost::shared_ptr<LiveUser> Get_LiveUser(const std::string &name) const;
 	boost::shared_ptr<LiveChannel> Get_LiveChannel(const std::string &name) const;
-	boost::shared_ptr<StoredUser> Get_StoredUser(boost::uint32_t id) const;
-	boost::shared_ptr<StoredNick> Get_StoredNick(const std::string &name) const;
-	boost::shared_ptr<StoredChannel> Get_StoredChannel(const std::string &name) const;
-	boost::shared_ptr<Committee> Get_Committee(const std::string &name) const;
+	boost::shared_ptr<StoredUser> Get_StoredUser(boost::uint32_t id, bool deep = false) const;
+	boost::shared_ptr<StoredNick> Get_StoredNick(const std::string &name, bool deep = false) const;
+	boost::shared_ptr<StoredChannel> Get_StoredChannel(const std::string &name, bool deep = false) const;
+	boost::shared_ptr<Committee> Get_Committee(const std::string &name, bool deep = false) const;
 
 };
 

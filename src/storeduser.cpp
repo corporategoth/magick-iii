@@ -40,6 +40,10 @@ RCSID(magick__storeduser_cpp, "@(#)$Id$");
 
 #include <mantra/core/trace.h>
 
+StorageInterface StoredUser::storage("users", "id", "last_update");
+StorageInterface StoredUser::storage_access("users_access", std::string(), "last_update");
+StorageInterface StoredUser::storage_ignore("users_ignore", std::string(), "last_update");
+
 /** 
  * @brief Create a new StoredUser record.
  * This process includes inserting the record into the database.  A private
