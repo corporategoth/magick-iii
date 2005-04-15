@@ -457,9 +457,9 @@ bool Committee::IsMember(const boost::shared_ptr<LiveUser> &user) const
 	MT_FUNC("Committee::IsMember" << user);
 
 	bool rv = false;
-	boost::shared_ptr<StoredNick> nick = user->Stored();
-	if (nick)
-		rv = MEMBER_Exists(nick->User());
+//    boost::shared_ptr<StoredNick> nick = user->Stored();
+//    if (nick)
+//        rv = MEMBER_Exists(nick->User());
 
 	MT_RET(rv);
 	MT_EE
