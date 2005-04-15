@@ -50,46 +50,34 @@ class StoredUser;
 class Committee : private boost::noncopyable, public boost::totally_ordered1<Committee>
 {
 	friend class if_Committee_LiveUser;
+	friend class if_Committee_Storage;
+
+	typedef std::set<boost::shared_ptr<LiveUser> > online_members_t;
 
 	boost::weak_ptr<Committee> self;
 	static StorageInterface storage;
 
 	std::string name_;
 
-	boost::mutex lock_;
-	std::set<boost::shared_ptr<LiveUser> > online_members_;
+	NSYNC(Committee);
+	online_members_t online_members_;
 
 	// use if_Committee_LiveUser
 	void Online(const boost::shared_ptr<LiveUser> &in);
 	void Offline(const boost::shared_ptr<LiveUser> &in);
 
-	Committee(const std::string &name);
-	Committee(const std::string &name, const boost::shared_ptr<Committee> &head);
-	Committee(const std::string &name, const boost::shared_ptr<StoredUser> &head);
+	// use if_Committee_Storage
+	static boost::shared_ptr<Committee> load(const std::string &name);
+	void DropInternal();
+
+	Committee(const std::string &name) : name_(name) {}
 
 public:
-	static inline boost::shared_ptr<Committee> create(const std::string &name)
-	{
-		boost::shared_ptr<Committee> rv(new Committee(name));
-		rv->self = rv;
-		return rv;
-	}
-
-	static inline boost::shared_ptr<Committee> create(const std::string &name,
-			const boost::shared_ptr<Committee> &head)
-	{
-		boost::shared_ptr<Committee> rv(new Committee(name, head));
-		rv->self = rv;
-		return rv;
-	}
-
-	static inline boost::shared_ptr<Committee> create(const std::string &name,
-			const boost::shared_ptr<StoredUser> &head)
-	{
-		boost::shared_ptr<Committee> rv(new Committee(name, head));
-		rv->self = rv;
-		return rv;
-	}
+	static boost::shared_ptr<Committee> create(const std::string &name);
+	static boost::shared_ptr<Committee> create(const std::string &name,
+			const boost::shared_ptr<Committee> &head);
+	static boost::shared_ptr<Committee> create(const std::string &name,
+			const boost::shared_ptr<StoredUser> &head);
 
 	const std::string &Name() const { return name_; }
 
@@ -98,18 +86,20 @@ public:
 
 	void Head(const boost::shared_ptr<StoredUser> &in);
 	void Head(const boost::shared_ptr<Committee> &in);
-	boost::shared_ptr<StoredUser> &HeadUser() const;
-	boost::shared_ptr<Committee> &HeadCommittee() const;
+	boost::shared_ptr<StoredUser> HeadUser() const;
+	boost::shared_ptr<Committee> HeadCommittee() const;
 
-	boost::posix_time::ptime Registered() const;
-	boost::posix_time::ptime Last_Update() const;
+	boost::posix_time::ptime Registered() const
+		{ return boost::get<boost::posix_time::ptime>(storage.GetField(name_, "registered")); }
+	boost::posix_time::ptime Last_Update() const
+		{ return boost::get<boost::posix_time::ptime>(storage.GetField(name_, "last_update")); }
 
 	void Description(const std::string &in);
 	std::string Description() const;
 	void Email(const std::string &in);
 	std::string Email() const;
-	void Webpage(const std::string &in);
-	std::string Webpage() const;
+	void Website(const std::string &in);
+	std::string Website() const;
 
 	void Private(const boost::logic::tribool &in);
 	bool Private() const;
@@ -199,6 +189,8 @@ public:
 	void MESSAGE_Get(std::set<Message> &fill) const;
 
 	bool IsMember(const boost::shared_ptr<LiveUser> &user) const;
+
+	void Drop();
 };
 
 // Special interface used by LiveUser.
@@ -215,6 +207,22 @@ class if_Committee_LiveUser
 		{ base.Online(user); }
 	inline void Offline(const boost::shared_ptr<LiveUser> &user)
 		{ base.Offline(user); }
+};
+
+// Special interface used by Storage.
+class if_Committee_Storage
+{
+	friend class Storage;
+	Committee &base;
+
+	// This is INTENTIONALLY private ...
+	if_Committee_Storage(Committee &b) : base(b) {}
+	if_Committee_Storage(const boost::shared_ptr<Committee> &b) : base(*(b.get())) {}
+
+	static inline boost::shared_ptr<Committee> load(const std::string &name)
+		{ return Committee::load(name); }
+	inline void DropInternal()
+		{ base.DropInternal(); }
 };
 
 // Used for tracing mainly.

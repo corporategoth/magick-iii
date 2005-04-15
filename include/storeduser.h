@@ -50,6 +50,7 @@ class StoredUser : private boost::noncopyable, public boost::totally_ordered1<St
 	friend class if_StoredUser_LiveUser;
 	friend class if_StoredUser_StoredNick;
 	friend class if_StoredUser_StoredChannel;
+	friend class if_StoredUser_Storage;
 
 	typedef std::set<boost::shared_ptr<LiveUser> > online_users_t;
 	typedef std::set<boost::shared_ptr<StoredNick> > my_nicks_t;
@@ -74,7 +75,7 @@ class StoredUser : private boost::noncopyable, public boost::totally_ordered1<St
 	void Picture(boost::uint32_t in, const std::string &ext);
 
 	// use if_StoredUser_StoredNick
-	StoredUser(const std::string &password);
+	static boost::shared_ptr<StoredUser> create(const std::string &password);
 	void Online(const boost::shared_ptr<LiveUser> &user);
 	void Offline(const boost::shared_ptr<LiveUser> &user);
 	void Add(const boost::shared_ptr<StoredNick> &nick);
@@ -84,6 +85,11 @@ class StoredUser : private boost::noncopyable, public boost::totally_ordered1<St
 	void Add(const boost::shared_ptr<StoredChannel> &channel);
 	void Del(const boost::shared_ptr<StoredChannel> &channel);
 
+	// use if_StoredUser_Storage
+	static boost::shared_ptr<StoredUser> load(boost::uint32_t id);
+	void DropInternal();
+
+	StoredUser(boost::uint32_t id) : id_(id) {}
 public:
 
 	boost::uint32_t ID() const { return id_; }
@@ -189,12 +195,7 @@ class if_StoredUser_StoredNick
 	if_StoredUser_StoredNick(const boost::shared_ptr<StoredUser> &b) : base(*(b.get())) {}
 
 	static inline boost::shared_ptr<StoredUser> create(const std::string &password)
-	{
-		boost::shared_ptr<StoredUser> rv(new StoredUser(password));
-		rv->self = rv;
-		return rv;
-	}
-
+		{ return StoredUser::create(password); }
 	inline void Online(const boost::shared_ptr<LiveUser> &user)
 		{ base.Online(user); }
 	inline void Offline(const boost::shared_ptr<LiveUser> &user)
@@ -215,6 +216,26 @@ class if_StoredUser_StoredChannel
 	if_StoredUser_StoredChannel(StoredUser &b) : base(b) {}
 	if_StoredUser_StoredChannel(const boost::shared_ptr<StoredUser> &b) : base(*(b.get())) {}
 
+	inline void Add(const boost::shared_ptr<StoredChannel> &channel)
+		{ base.Add(channel); }
+	inline void Del(const boost::shared_ptr<StoredChannel> &channel)
+		{ base.Del(channel); }
+};
+
+// Special interface used by StoredChannel.
+class if_StoredUser_Storage
+{
+	friend class Storage;
+	StoredUser &base;
+
+	// This is INTENTIONALLY private ...
+	if_StoredUser_Storage(StoredUser &b) : base(b) {}
+	if_StoredUser_Storage(const boost::shared_ptr<StoredUser> &b) : base(*(b.get())) {}
+
+	static inline boost::shared_ptr<StoredUser> load(boost::uint32_t id)
+		{ return StoredUser::load(id); }
+	inline void DropInternal()
+		{ base.DropInternal(); }
 	inline void Add(const boost::shared_ptr<StoredChannel> &channel)
 		{ base.Add(channel); }
 	inline void Del(const boost::shared_ptr<StoredChannel> &channel)

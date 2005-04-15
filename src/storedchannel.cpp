@@ -43,19 +43,46 @@ RCSID(magick__storedchannel_cpp, "@(#)$Id$");
 
 StorageInterface StoredChannel::storage("channels", "name", "last_update");
 
-StoredChannel::StoredChannel(const std::string &name,
-							 const std::string &password,
-							 const boost::shared_ptr<StoredUser> &founder)
-	: name_(name)
+boost::shared_ptr<StoredChannel> StoredChannel::create(const std::string &name,
+	  const std::string &password, const boost::shared_ptr<StoredUser> &founder)
 {
 	MT_EB
-	MT_FUNC("StoredChannel::StoredChannel" << name << password << founder);
+	MT_FUNC("StoredChannel::create" << name << password << founder);
 
 	mantra::Storage::RecordMap rec;
 	rec["name"] = name;
 	rec["password"] = ROOT->data.CryptPassword(password);
 	rec["founder"] = founder->ID();
 	storage.InsertRow(rec);
+	
+	boost::shared_ptr<StoredChannel> rv = load(name);
+
+	MT_RET(rv);
+	MT_EE
+}
+
+boost::shared_ptr<StoredChannel> StoredChannel::load(const std::string &name)
+{
+	MT_EB
+	MT_FUNC("StoredChannel::load" << name);
+
+	boost::shared_ptr<StoredChannel> rv(new StoredChannel(name));
+	rv->self = rv;
+
+	if (rv->live_)
+		if_LiveChannel_StoredChannel(rv->live_).Stored(rv);
+
+	MT_RET(rv);
+	MT_EE
+}
+
+StoredChannel::StoredChannel(const std::string &name)
+	: name_(name)
+{
+	MT_EB
+	MT_FUNC("StoredChannel::StoredChannel" << name);
+
+	live_ = ROOT->data.Get_LiveChannel(name);
 
 	MT_EE
 }
@@ -1368,6 +1395,33 @@ boost::posix_time::ptime StoredChannel::Suspend_Time() const
 	ret = boost::get<boost::posix_time::ptime>(rv);
 
 	MT_RET(ret);
+	MT_EE
+}
+
+void StoredChannel::DropInternal()
+{
+	MT_EB
+	MT_FUNC("StoredChannel::DropInternal");
+
+	boost::mutex::scoped_lock sl(lock_);
+	if (live_)
+		if_LiveChannel_StoredChannel(live_).Stored(boost::shared_ptr<StoredChannel>());
+
+	identified_users_t::const_iterator i;
+	for (i=identified_users_.begin(); i!=identified_users_.end(); ++i)
+		(*i)->UnIdentify(self.lock());
+	identified_users_.clear();
+
+	MT_EE
+}
+
+void StoredChannel::Drop()
+{
+	MT_EB
+	MT_FUNC("StoredChannel::Drop");
+
+	if_StorageDeleter<StoredChannel>(ROOT->data).Del(self.lock());
+
 	MT_EE
 }
 

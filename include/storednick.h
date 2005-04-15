@@ -46,6 +46,7 @@ class StoredNick : public boost::noncopyable, public boost::totally_ordered1<Sto
 {
 	friend class if_StoredNick_LiveUser;
 	friend class if_StoredNick_StoredUser;
+	friend class if_StoredNick_Storage;
 
 	boost::weak_ptr<StoredNick> self;
 	static StorageInterface storage;
@@ -62,7 +63,13 @@ class StoredNick : public boost::noncopyable, public boost::totally_ordered1<Sto
 	// use if_StoredNick_StoredUser
 	static boost::shared_ptr<StoredNick> Last_Seen(const boost::shared_ptr<StoredUser> &user);
 
-	StoredNick(const std::string &name, const boost::shared_ptr<StoredUser> &user);
+	// use if_StoredNick_Storage
+	void DropInternal();
+	static boost::shared_ptr<StoredNick> load(const std::string &name,
+											  const boost::shared_ptr<StoredUser> &user);
+
+	StoredNick(const std::string &name, const boost::shared_ptr<StoredUser> &user)
+		: name_(name), user_(user) {}
 public:
 	// This will also create the relevant StoredUser
 	static boost::shared_ptr<StoredNick> create(const std::string &name,
@@ -78,7 +85,9 @@ public:
 
 	boost::shared_ptr<LiveUser> Live() const;
 
-	boost::posix_time::ptime Registered() const;
+	boost::posix_time::ptime Registered() const
+		{ return boost::get<boost::posix_time::ptime>(storage.GetField(name_, "registered")); }
+
 	std::string Last_RealName() const;
 	std::string Last_Mask() const;
 	std::string Last_Quit() const;
@@ -115,6 +124,23 @@ class if_StoredNick_StoredUser
 
 	static inline boost::shared_ptr<StoredNick> Last_Seen(const boost::shared_ptr<StoredUser> &user)
 		{ return StoredNick::Last_Seen(user); }
+};
+
+// Special interface used by Storage.
+class if_StoredNick_Storage
+{
+	friend class Storage;
+	StoredNick &base;
+
+	// This is INTENTIONALLY private ...
+	if_StoredNick_Storage(StoredNick &b) : base(b) {}
+	if_StoredNick_Storage(const boost::shared_ptr<StoredNick> &b) : base(*(b.get())) {}
+
+	static inline boost::shared_ptr<StoredNick> load(const std::string &name,
+													 const boost::shared_ptr<StoredUser> &user)
+		{ return StoredNick::load(name, user); }
+	inline void DropInternal()
+		{ base.DropInternal(); }
 };
 
 // Used for tracing mainly.

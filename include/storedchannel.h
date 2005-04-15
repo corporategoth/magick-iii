@@ -47,6 +47,7 @@ class StoredChannel : private boost::noncopyable, public boost::totally_ordered1
 {
 	friend class if_StoredChannel_LiveUser;
 	friend class if_StoredChannel_LiveChannel;
+	friend class if_StoredChannel_Storage;
 
 	typedef std::set<boost::shared_ptr<LiveUser> > identified_users_t;
 
@@ -72,8 +73,11 @@ class StoredChannel : private boost::noncopyable, public boost::totally_ordered1
 	void Kick(const boost::shared_ptr<LiveUser> &user,
 			  const boost::shared_ptr<LiveUser> &kicker);
 
-	StoredChannel(const std::string &name, const std::string &password,
-				  const boost::shared_ptr<StoredUser> &founder);
+	// use if_StoredChannel_Storage
+	void DropInternal();
+	static boost::shared_ptr<StoredChannel> load(const std::string &name);
+
+	StoredChannel(const std::string &name);
 public:
 	enum Revenge_t {
 			R_None,
@@ -89,13 +93,8 @@ public:
 			R_MAX
 		};
 
-	static inline boost::shared_ptr<StoredChannel> create(const std::string &name,
-		  const std::string &password, const boost::shared_ptr<StoredUser> &founder)
-	{
-		boost::shared_ptr<StoredChannel> rv(new StoredChannel(name, password, founder));
-		rv->self = rv;
-		return rv;
-	}
+	static boost::shared_ptr<StoredChannel> create(const std::string &name,
+		  const std::string &password, const boost::shared_ptr<StoredUser> &founder);
 
 	const std::string &Name() const { return name_; }
 	const boost::shared_ptr<LiveChannel> &Live() const;
@@ -434,6 +433,8 @@ public:
 	void NEWS_Del(boost::uint32_t num);
 	News NEWS_Get(boost::uint32_t num) const;
 	void NEWS_Get(std::set<News> &fill) const;
+
+	void Drop();
 };
 
 // Special interface used by LiveUser.
@@ -473,6 +474,22 @@ class if_StoredChannel_LiveChannel
 	inline void Kick(const boost::shared_ptr<LiveUser> &user,
 					 const boost::shared_ptr<LiveUser> &kicker)
 		{ base.Kick(user, kicker); }
+};
+
+// Special interface used by Storage.
+class if_StoredChannel_Storage
+{
+	friend class Storage;
+	StoredChannel &base;
+
+	// This is INTENTIONALLY private ...
+	if_StoredChannel_Storage(StoredChannel &b) : base(b) {}
+	if_StoredChannel_Storage(const boost::shared_ptr<StoredChannel> &b) : base(*(b.get())) {}
+
+	static inline boost::shared_ptr<StoredChannel> load(const std::string &name)
+		{ return StoredChannel::load(name); }
+	inline void DropInternal()
+		{ base.DropInternal(); }
 };
 
 // Used for tracing mainly.

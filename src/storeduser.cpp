@@ -44,32 +44,42 @@ StorageInterface StoredUser::storage("users", "id", "last_update");
 StorageInterface StoredUser::storage_access("users_access", std::string(), "last_update");
 StorageInterface StoredUser::storage_ignore("users_ignore", std::string(), "last_update");
 
-/** 
- * @brief Create a new StoredUser record.
- * This process includes inserting the record into the database.  A private
- * lock is held here to ensure that once we retrieve the Maximum ID (and add
- * one), no other user creations will change this ID (of course, an external
- * application might, but thats Bad Form (tm).
- * 
- * @param password Password the user will use (stored in hashed form).
- */
-StoredUser::StoredUser(const std::string &password)
+boost::shared_ptr<StoredUser> StoredUser::create(const std::string &password)
 {
 	MT_EB
-	MT_FUNC("StoredUser::StoredUser" << password);
+	MT_FUNC("StoredUser::create" << password);
 
 	static boost::mutex id_lock;
-	boost::mutex::scoped_lock sl(id_lock);
-	mantra::StorageValue rv = storage.Maximum("id");
-	if (rv.type() == typeid(mantra::NullValue))
-		id_ = 1;
-	else
-		id_ = boost::get<boost::uint32_t>(rv) + 1;
 
-	mantra::Storage::RecordMap rec;
-	rec["id"] = id_;
-	rec["password"] = ROOT->data.CryptPassword(password);
-	storage.InsertRow(rec);
+	boost::uint32_t id;
+	{
+		boost::mutex::scoped_lock sl(id_lock);
+		mantra::StorageValue rv = storage.Maximum("id");
+		if (rv.type() == typeid(mantra::NullValue))
+			id = 1;
+		else
+			id = boost::get<boost::uint32_t>(rv) + 1;
+
+		mantra::Storage::RecordMap rec;
+		rec["id"] = id;
+		rec["password"] = ROOT->data.CryptPassword(password);
+		storage.InsertRow(rec);
+	}
+
+	boost::shared_ptr<StoredUser> rv = load(id);
+
+	MT_RET(rv);
+	MT_EE
+}
+
+boost::shared_ptr<StoredUser> StoredUser::load(boost::uint32_t id)
+{
+	MT_EB
+	MT_FUNC("StoredUser::load");
+
+	boost::shared_ptr<StoredUser> rv(new StoredUser(id));
+	rv->self = rv;
+	MT_RET(rv);
 
 	MT_EE
 }
@@ -1200,6 +1210,21 @@ void StoredUser::IGNORE_Get(std::map<boost::uint32_t, std::pair<boost::shared_pt
 		fill[boost::get<boost::uint32_t>((*i)["number"])] =
 			std::make_pair(user, boost::get<boost::posix_time::ptime>((*i)["last_update"]));
 	}
+
+	MT_EE
+}
+
+void StoredUser::DropInternal()
+{
+	MT_EB
+	MT_FUNC("StoredUser::DropInternal");
+
+	// This function is pretty much a no-op right now.  Its all handled
+	// by the DB function anyway (it will already drop nicknames for us).
+
+	online_users_.clear();
+	my_nicks_.clear();
+	my_channels_.clear();
 
 	MT_EE
 }

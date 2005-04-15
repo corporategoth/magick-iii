@@ -41,21 +41,6 @@ RCSID(magick__storednick_cpp, "@(#)$Id$");
 
 StorageInterface StoredNick::storage("nicks", "name");
 
-StoredNick::StoredNick(const std::string &name,
-					   const boost::shared_ptr<StoredUser> &user)
-	: name_(name), user_(user)
-{
-	MT_EB
-	MT_FUNC("StoredNick::StoredNick" << name << user);
-
-	mantra::Storage::RecordMap rec;
-	rec["name"] = name;
-	rec["id"] = user->ID();
-	storage.InsertRow(rec);
-
-	MT_EE
-}
-
 boost::shared_ptr<StoredNick> StoredNick::create(const std::string &name,
 												 const std::string &password)
 {
@@ -76,9 +61,36 @@ boost::shared_ptr<StoredNick> StoredNick::create(const std::string &name,
 	MT_EB
 	MT_FUNC("StoredNick::create" << name << user);
 
+	mantra::Storage::RecordMap rec;
+	rec["name"] = name;
+	rec["id"] = user->ID();
+	storage.InsertRow(rec);
+
+	boost::shared_ptr<StoredNick> rv = load(name, user);
+
+	MT_RET(rv);
+	MT_EE
+}
+
+boost::shared_ptr<StoredNick> StoredNick::load(const std::string &name,
+											   const boost::shared_ptr<StoredUser> &user)
+{
+	MT_EB
+	MT_FUNC("StoredNick::load" << name << user);
+
 	boost::shared_ptr<StoredNick> rv(new StoredNick(name, user));
 	rv->self = rv;
+
 	if_StoredUser_StoredNick(user).Add(rv);
+	boost::shared_ptr<LiveUser> live = ROOT->data.Get_LiveUser(name);
+	if (live)
+	{
+		if (user->ACCESS_Matches(live) && !user->Secure())
+		{
+			if_LiveUser_StoredNick(live).Stored(rv);
+			if_StoredUser_StoredNick(user).Online(live);
+		}
+	}
 
 	MT_RET(rv);
 	MT_EE
@@ -181,21 +193,6 @@ boost::shared_ptr<LiveUser> StoredNick::Live() const
 	MT_EE
 }
 
-boost::posix_time::ptime StoredNick::Registered() const
-{
-	MT_EB
-	MT_FUNC("StoredNick::Registered");
-
-	boost::posix_time::ptime ret(boost::date_time::not_a_date_time);
-	mantra::StorageValue rv = storage.GetField(name_, "registered");
-	if (rv.type() == typeid(mantra::NullValue))
-		MT_RET(ret);
-	ret = boost::get<boost::posix_time::ptime>(rv);
-	MT_RET(ret);
-
-	MT_EE
-}
-
 std::string StoredNick::Last_RealName() const
 {
 	MT_EB
@@ -256,17 +253,28 @@ boost::posix_time::ptime StoredNick::Last_Seen() const
 	MT_EE
 }
 
+void StoredNick::DropInternal()
+{
+	MT_EB
+	MT_FUNC("StoredNick::DropInternal");
+
+	SYNC_LOCK(live_);
+	if (live_)
+	{
+		if_LiveUser_StoredNick(live_).Stored(boost::shared_ptr<StoredNick>());
+		live_ = boost::shared_ptr<LiveUser>();
+	}
+
+	MT_EE
+}
+
 void StoredNick::Drop()
 {
 	MT_EB
 	MT_FUNC("StoredNick::Drop");
 
-	if_StorageDeleter<StoredNick>(ROOT->data).Del(self.lock());
 	if_StoredUser_StoredNick(user_).Del(self.lock());
-	SYNC_LOCK(live_);
-	if (live_)
-		if_LiveUser_StoredNick(live_).Stored(boost::shared_ptr<StoredNick>());
+	if_StorageDeleter<StoredNick>(ROOT->data).Del(self.lock());
 
 	MT_EE
 }
-

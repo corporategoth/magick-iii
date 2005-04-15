@@ -459,6 +459,10 @@ static void add_storage_options(po::options_description &opts)
 						+ std::make_pair("RIPEMD", mantra::Hasher::RIPEMD)
 #endif
 					), "hash algorithm to use on stored passwords")
+		("storage.deep-lookup", mantra::value<bool>()->default_value(false),
+		 			"will we try to do a DB lookup if a map lookup fails")
+		("storage.load-after-save", mantra::value<bool>()->default_value(false),
+		 			"reload the database after the 'save' is done")
 	;
 	
 	opts.add_options()

@@ -86,12 +86,19 @@ class Storage
 
 	void init();
 	void reset();
+	void sync();
 
 	void Del(const boost::shared_ptr<LiveUser> &entry);
 	void Del(const boost::shared_ptr<LiveChannel> &entry);
+
+	void DelInternal(const boost::shared_ptr<StoredUser> &entry);
 	void Del(const boost::shared_ptr<StoredUser> &entry);
+	void DelInternal(const boost::shared_ptr<StoredNick> &entry);
 	void Del(const boost::shared_ptr<StoredNick> &entry);
+	void DelInternal(const boost::shared_ptr<StoredChannel> &entry);
 	void Del(const boost::shared_ptr<StoredChannel> &entry);
+	void DelInternalRecurse(const std::vector<mantra::StorageValue> &ent);
+	void DelInternal(const boost::shared_ptr<Committee> &entry);
 	void Del(const boost::shared_ptr<Committee> &entry);
 
 public:
@@ -114,10 +121,14 @@ public:
 
 	boost::shared_ptr<LiveUser> Get_LiveUser(const std::string &name) const;
 	boost::shared_ptr<LiveChannel> Get_LiveChannel(const std::string &name) const;
-	boost::shared_ptr<StoredUser> Get_StoredUser(boost::uint32_t id, bool deep = false) const;
-	boost::shared_ptr<StoredNick> Get_StoredNick(const std::string &name, bool deep = false) const;
-	boost::shared_ptr<StoredChannel> Get_StoredChannel(const std::string &name, bool deep = false) const;
-	boost::shared_ptr<Committee> Get_Committee(const std::string &name, bool deep = false) const;
+	boost::shared_ptr<StoredUser> Get_StoredUser(boost::uint32_t id,
+			 boost::logic::tribool deep = boost::logic::indeterminate) const;
+	boost::shared_ptr<StoredNick> Get_StoredNick(const std::string &name,
+			 boost::logic::tribool deep = boost::logic::indeterminate) const;
+	boost::shared_ptr<StoredChannel> Get_StoredChannel(const std::string &name,
+			 boost::logic::tribool deep = boost::logic::indeterminate) const;
+	boost::shared_ptr<Committee> Get_Committee(const std::string &name,
+			 boost::logic::tribool deep = boost::logic::indeterminate) const;
 
 };
 

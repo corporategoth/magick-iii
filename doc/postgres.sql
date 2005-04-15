@@ -21,7 +21,7 @@ DROP TABLE users_access;
 DROP TABLE users;
 
 CREATE TABLE users (
-		id integer PRIMARY KEY
+		id integer PRIMARY KEY,
 		last_update timestamp NOT NULL DEFAULT current_timestamp,
 		password varchar(64) NOT NULL,
 		email varchar(320), -- Max length of an email (according to RFC)
