@@ -221,7 +221,7 @@ bool LiveChannel::RecentPart(const boost::shared_ptr<LiveUser> &user) const
 void LiveChannel::Users(std::map<boost::shared_ptr<LiveUser>, std::string> &users) const
 {
 	MT_EB
-	MT_FUNC("LiveChannel::Users" << "(std::map<boost::shared_ptr<LiveUser>, std::string> &) users");
+	MT_FUNC("LiveChannel::Users" << users);
 
 	SYNC_RLOCK(users_);
 	users = users_;
@@ -259,7 +259,7 @@ std::string LiveChannel::User(const boost::shared_ptr<LiveUser> &user) const
 void LiveChannel::Splits(std::map<boost::shared_ptr<LiveUser>, std::string> &splits) const
 {
 	MT_EB
-	MT_FUNC("LiveChannel::Splits" << "(std::map<boost::shared_ptr<LiveSplit>, std::string> &) splits");
+	MT_FUNC("LiveChannel::Splits" << splits);
 
 	SYNC_RLOCK(users_);
 	splits = splits_;
@@ -297,7 +297,7 @@ std::string LiveChannel::Split(const boost::shared_ptr<LiveUser> &split) const
 void LiveChannel::Bans(std::map<std::string, boost::posix_time::ptime> &bans) const
 {
 	MT_EB
-	MT_FUNC("LiveChannel::Bans" << "(std::map<std::string, boost::posix_time::ptime> &) bans");
+	MT_FUNC("LiveChannel::Bans" << bans);
 
 	SYNC_RLOCK(bans_);
 	bans_t::const_iterator i;
@@ -337,7 +337,7 @@ bool LiveChannel::MatchBan(const boost::shared_ptr<LiveUser> &in) const
 void LiveChannel::Exempts(std::set<std::string> &exempts) const
 {
 	MT_EB
-	MT_FUNC("LiveChannel::Exempts" << "(std::map<std::string, boost::posix_time::ptime> &) exempts");
+	MT_FUNC("LiveChannel::Exempts" << exempts);
 
 	SYNC_RLOCK(exempts_);
 	exempts = exempts_;

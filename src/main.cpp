@@ -149,7 +149,7 @@ static int create_instance(int prv, const boost::function0<bool> &check,
 	catch (std::exception &e)
 	{
 		MT_FLUSH();
-		std::cout << "Caught exception " << typeid(e).name() << ": " << e.what() << std::endl;
+		std::cout << "Caught exception " << boost::type_info(typeid(e)).name() << ": " << e.what() << std::endl;
 		return -rv;
 	}
 

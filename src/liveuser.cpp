@@ -59,7 +59,7 @@ LiveUser::LiveUser(const Service *service, const std::string &name,
 	  last_memo_(boost::date_time::not_a_date_time)
 {
 	MT_EB
-	MT_FUNC("LiveUser::LiveUser" << "(const Service *) service" << name << server << id);
+	MT_FUNC("LiveUser::LiveUser" << service << name << server << id);
 
 	if (ROOT->ConfigExists("services.user"))
 		user_ = ROOT->ConfigValue<std::string>("services.user");

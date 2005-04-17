@@ -139,7 +139,7 @@ void StoredNick::Quit(const std::string &reason)
 boost::shared_ptr<StoredNick> StoredNick::Last_Seen(const boost::shared_ptr<StoredUser> &user)
 {
 	MT_EB
-	MT_FUNC("StoredNick::Last_Seen");
+	MT_FUNC("StoredNick::Last_Seen" << user);
 
 	mantra::Storage::DataSet data;
 	mantra::Storage::FieldSet fields;

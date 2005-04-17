@@ -48,7 +48,7 @@ std::string Message::print() const
 	if (!params_.empty())
 	{
 		size_t i;
-		for (i=0; i+1<params_.size(); ++i)
+		for (i=0; i<params_.size()-1; ++i)
 			os << " " << params_[i];
 		if (params_[i].find(' ') != std::string::npos)
 			os << " :";

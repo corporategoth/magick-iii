@@ -1067,18 +1067,18 @@ std::pair<std::string, boost::posix_time::ptime> StoredUser::ACCESS_Get(boost::u
 	std::pair<std::string, boost::posix_time::ptime> rv;
 			// (std::string(), boost::posix_time::ptime(not_a_date_time));
 	if (data.size() != 1)
-		MT_NRET(std::pair<std::string. boost::posix_time::ptime>, rv);
+		MT_RET(rv);
 	rv = std::make_pair(boost::get<std::string>(data.front()["mask"]),
 						boost::get<boost::posix_time::ptime>(data.front()["last_update"]));
 
-	MT_NRET(std::pair<std::string. boost::posix_time::ptime>, rv);
+	MT_RET(rv);
 	MT_EE
 }
 
 void StoredUser::ACCESS_Get(std::map<boost::uint32_t, std::pair<std::string, boost::posix_time::ptime> > &fill) const
 {
 	MT_EB
-	MT_FUNC("StoredUser::ACCESS_Get" << "(std::map<boost::uint32_t, std::pair<std::string, boost::posix_time::ptime> > &) fill");
+	MT_FUNC("StoredUser::ACCESS_Get" << fill);
 
 	mantra::Storage::DataSet data;
 	storage_access.RetrieveRow(data, mantra::Comparison<mantra::C_EqualTo>::make("id", id_));
@@ -1182,21 +1182,21 @@ std::pair<boost::shared_ptr<StoredUser>, boost::posix_time::ptime> StoredUser::I
 	std::pair<boost::shared_ptr<StoredUser>, boost::posix_time::ptime> rv;
 			// (boost::shared_ptr<StoredUser>(), boost::posix_time::ptime(boost::date_time::not_a_date_time));
 	if (data.size() != 1)
-		MT_NRET(std::pair<boost::shared_ptr<StoredUser>. boost::posix_time::ptime>, rv);
+		MT_RET(rv);
 	boost::uint32_t uid = boost::get<boost::uint32_t>(data.front()["entry"]);
 	boost::shared_ptr<StoredUser> user = ROOT->data.Get_StoredUser(uid);
 	if (!user)
-		MT_NRET(std::pair<boost::shared_ptr<StoredUser>. boost::posix_time::ptime>, rv);
+		MT_RET(rv);
 	rv = std::make_pair(user, boost::get<boost::posix_time::ptime>(data.front()["last_update"]));
 
-	MT_NRET(std::pair<boost::shared_ptr<StoredUser>. boost::posix_time::ptime>, rv);
+	MT_RET(rv);
 	MT_EE
 }
 
 void StoredUser::IGNORE_Get(std::map<boost::uint32_t, std::pair<boost::shared_ptr<StoredUser>, boost::posix_time::ptime> > &fill) const
 {
 	MT_EB
-	MT_FUNC("StoredUser::IGNORE_Get" << "(std::map<boost::uint32_t, std::pair<boost::shared_ptr<StoredUser>, boost::posix_time::ptime> > &) fill");
+	MT_FUNC("StoredUser::IGNORE_Get" << fill);
 
 	mantra::Storage::DataSet data;
 	storage_ignore.RetrieveRow(data, mantra::Comparison<mantra::C_EqualTo>::make("id", id_));

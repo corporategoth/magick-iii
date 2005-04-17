@@ -45,7 +45,7 @@ Service::~Service()
 void Service::Set(const std::vector<std::string> &nicks)
 {
 	MT_EB
-	MT_FUNC("Service::Set" << "(const std::vector<std::string> &) nicks");
+	MT_FUNC("Service::Set" << nicks);
 
 	std::set<std::string, mantra::iless<std::string> > signoff;
 	if (!nicks.empty())

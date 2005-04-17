@@ -74,7 +74,7 @@ void Magick::LogHex(mantra::LogLevel::Level_t level, const void *buf,
 					size_t len, const std::string &prefix)
 {
 	MT_EB
-	MT_FUNC("Magick::LogHex" << level << "(const void *) buf" << len << prefix);
+	MT_FUNC("Magick::LogHex" << level << buf << len << prefix);
 
 	boost::read_write_mutex::scoped_read_lock lock(logger_lock);
 	if (loggers.empty())
@@ -97,7 +97,7 @@ void Magick::LogHex(mantra::LogLevel::Level_t level, const void *buf,
 void Magick::run(const boost::function0<bool> &check)
 {
 	MT_EB
-	MT_FUNC("Magick::run" << "(const boost::function0<bool> &) check");
+	MT_FUNC("Magick::run" << check);
 
 	while (check())
 	{

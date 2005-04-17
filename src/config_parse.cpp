@@ -50,8 +50,7 @@ inline bool check_old_new(const char *entry, const po::variables_map &old_vm,
 						  const po::variables_map &new_vm)
 {
 	MT_EB
-	MT_FUNC("check_old_new" << entry << "(const po::variables_map &) old_vm"
-									 << "(const po::variables_map &) new_vm");
+	MT_FUNC("check_old_new" << entry << old_vm << new_vm);
 
 	if (old_vm.count(entry) != new_vm.count(entry))
 		MT_RET(false);
@@ -71,7 +70,7 @@ inline bool check_old_new(const char *entry, const po::variables_map &old_vm,
 bool Magick::set_config(const po::variables_map &vm)
 {
 	MT_EB
-	MT_FUNC("Magick::set_config" << "(const po::variables_map &) vm");
+	MT_FUNC("Magick::set_config" << vm);
 
 	bool dodisconnect = false, dorestart = false;
 

@@ -77,7 +77,7 @@ Server::~Server()
 void Server::Connect(const boost::shared_ptr<Server> &s)
 {
 	MT_EB
-	MT_FUNC("Server::Connect" << "(const boost::shared_ptr<Server> &) s");
+	MT_FUNC("Server::Connect" << s);
 
 	s->parent_ = this;
 	children_.push_back(s);
@@ -265,7 +265,7 @@ public:
 	void operator()(const Uplink &start)
 	{
 		MT_EB
-		MT_FUNC("RecursiveOperation::operator()" << "(const Uplink &) start");
+		MT_FUNC("RecursiveOperation::operator()" << start);
 
 		std::stack<std::pair<std::list<boost::shared_ptr<Server> >::const_iterator,
 					std::list<boost::shared_ptr<Server> >::const_iterator> > is;
@@ -309,7 +309,7 @@ class FindServer : public RecursiveOperation
 	virtual bool visitor(const boost::shared_ptr<Server> &s)
 	{
 		MT_EB
-		MT_FUNC("FindServer::visitor" << "(const boost::shared_ptr<Server> &) s");
+		MT_FUNC("FindServer::visitor" << s);
 
 		if (s->Name() == name_)
 		{
@@ -334,7 +334,7 @@ boost::shared_ptr<Server> Uplink::Find(const std::string &name) const
 	FindServer fs(name);
 	fs(*this);
 	boost::shared_ptr<Server> rv = fs.Result();
-	MT_NRET(boost::shared_ptr<Server>, rv);
+	MT_RET(rv);
 
 	MT_EE
 }
@@ -347,7 +347,7 @@ class FindServerID : public RecursiveOperation
 	virtual bool visitor(const boost::shared_ptr<Server> &s)
 	{
 		MT_EB
-		MT_FUNC("FindServerID::visitor" << "(const boost::shared_ptr<Server> &) s");
+		MT_FUNC("FindServerID::visitor" << s);
 
 		if (s->ID() == id_)
 		{
@@ -372,7 +372,7 @@ boost::shared_ptr<Server> Uplink::FindID(const std::string &id) const
 	FindServerID fs(id);
 	fs(*this);
 	boost::shared_ptr<Server> rv = fs.Result();
-	MT_NRET(boost::shared_ptr<Server>, rv);
+	MT_RET(rv);
 
 	MT_EE
 }
@@ -382,7 +382,7 @@ class ServerPing : public RecursiveOperation
 	virtual bool visitor(const boost::shared_ptr<Server> &s)
 	{
 		MT_EB
-		MT_FUNC("ServerPing::visitor" << "(const boost::shared_ptr<Server> &) s");
+		MT_FUNC("ServerPing::visitor" << s);
 
 		s->Ping();
 		MT_RET(true);
@@ -420,7 +420,7 @@ bool Uplink::Write()
 void Uplink::Push(const std::deque<Message> &in)
 {
 	MT_EB
-	MT_FUNC("Uplink::Push" << "(const std::deque<Message> &) in");
+	MT_FUNC("Uplink::Push" << in);
 
 	std::deque<Message>::const_iterator i;
 	for (i=in.begin(); i!=in.end(); ++i)

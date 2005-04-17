@@ -72,8 +72,7 @@ std::basic_istream<C,T> &operator>>(std::basic_istream<C,T> &is,
 									remote_connection &rc)
 {
 	MT_EB
-	MT_FUNC("&operator>>" << "(std::basic_istream<C,T> &) is"
-						  << "(remote_connection &) rc");
+	MT_FUNC("&operator>>" << &is << rc);
 
 	std::ios_base::fmtflags orig_flags = is.flags();
 	is.flags(orig_flags | std::ios_base::skipws);
@@ -89,7 +88,7 @@ std::basic_istream<C,T> &operator>>(std::basic_istream<C,T> &is,
 		is.setstate(std::ios_base::failbit);
 	is.flags(orig_flags);
 
-	MT_NRET(std::basic_istream<C_T> &, is);
+	MT_RET(is);
 	MT_EE
 }
 
@@ -118,7 +117,7 @@ public:
 			throw po::invalid_option_value(s);
 
 		boost::any rv = boost::any(s);
-		MT_NRET(boost::any, rv);
+		MT_RET(rv);
 		MT_EE
 	}
 };
@@ -141,11 +140,11 @@ public:
 			std::basic_string<charT> rv = s;
 			rv.replace(0, 1, 1, '#');
 			boost::any ret = boost::any(rv);
-			MT_NRET(boost::any, ret);
+			MT_RET(ret);
 		}
 
 		boost::any ret = boost::any(s);
-		MT_NRET(boost::any, ret);
+		MT_RET(ret);
 		MT_EE
 	}
 };
@@ -229,7 +228,7 @@ public:
 			throw po::invalid_option_value(s);
 
 		boost::any rv = boost::any(s);
-		MT_NRET(boost::any, rv);
+		MT_RET(rv);
 		MT_EE
 	}
 };
@@ -350,7 +349,7 @@ void Magick::init_config()
 static void add_stage_options(po::options_description &opts, const std::string &prefix)
 {
 	MT_EB
-	MT_FUNC("add_stage_options" << "(po::options_description &) opts" << prefix);
+	MT_FUNC("add_stage_options" << opts << prefix);
 
 	opts.add_options()
 		((prefix + ".stage.verify.offset").c_str(), mantra::value<boost::uint64_t>()->default_value(0u),
@@ -434,7 +433,7 @@ static void add_stage_options(po::options_description &opts, const std::string &
 static void add_storage_options(po::options_description &opts)
 {
 	MT_EB
-	MT_FUNC("add_storage_options" << "(po::options_description &) opts");
+	MT_FUNC("add_storage_options" << opts);
 
 	opts.add_options()
 		("storage.password-hash", mantra::value<unsigned int>()->default_value(mantra::Hasher::NONE)->parser(
@@ -568,7 +567,7 @@ static void add_standard_log_options(const std::string &prefix,
 									 po::options_description &opts)
 {
 	MT_EB
-	MT_FUNC("add_standard_log_options" << prefix << "(po::options_description &) opts");
+	MT_FUNC("add_standard_log_options" << prefix << opts);
 
 	opts.add_options()
 		((prefix + ".utc").c_str(), mantra::value<bool>()->default_value(false),
@@ -601,7 +600,7 @@ static void add_standard_log_options(const std::string &prefix,
 static void add_log_options(po::options_description &opts)
 {
 	MT_EB
-	MT_FUNC("add_log_options" << "(po::options_description &) opts");
+	MT_FUNC("add_log_options" << opts);
 
 	opts.add_options()
 		("log.file.name", mantra::value<std::string>(),
@@ -668,7 +667,7 @@ static void add_log_options(po::options_description &opts)
 static void add_services_options(po::options_description &opts)
 {
 	MT_EB
-	MT_FUNC("add_services_options" << "(po::options_description &) opts");
+	MT_FUNC("add_services_options" << opts);
 
 	static boost::regex nick_rx("^([[:alpha:]\\x5B-\\x60\\x7B-\\x7D][-[:alnum:]\\x5B-\\x60\\x7B-\\x7D]*[[:space:]]*)*$");
 
@@ -715,7 +714,7 @@ static void add_services_options(po::options_description &opts)
 static void add_filesystem_options(po::options_description &opts)
 {
 	MT_EB
-	MT_FUNC("add_filesystem_options" << "(po::options_description &) opts");
+	MT_FUNC("add_filesystem_options" << opts);
 
 	opts.add_options()
 		("filesystem.picture-dir", mantra::value<std::string>()->default_value("files/pic"),
@@ -758,7 +757,7 @@ static void add_filesystem_options(po::options_description &opts)
 static void add_general_options(po::options_description &opts)
 {
 	MT_EB
-	MT_FUNC("add_general_options" << "(po::options_description &) opts");
+	MT_FUNC("add_general_options" << opts);
 
 	opts.add_options()
 		("general.connection-timeout", mantra::value<mantra::duration>()->default_value(mantra::duration("30s")),
@@ -799,7 +798,7 @@ static void add_general_options(po::options_description &opts)
 static void add_nickserv_options(po::options_description &opts)
 {
 	MT_EB
-	MT_FUNC("add_nickserv_options" << "(po::options_description &) opts");
+	MT_FUNC("add_nickserv_options" << opts);
 
 	opts.add_options()
 		("nickserv.append", mantra::value<bool>()->default_value(false),
@@ -846,7 +845,7 @@ static void add_nickserv_options(po::options_description &opts)
 static void add_chanserv_options(po::options_description &opts)
 {
 	MT_EB
-	MT_FUNC("add_chanserv_options" << "(po::options_description &) opts");
+	MT_FUNC("add_chanserv_options" << opts);
 
 	opts.add_options()
 		("chanserv.hide", mantra::value<bool>()->default_value(false),
@@ -945,7 +944,7 @@ static void add_chanserv_options(po::options_description &opts)
 static void add_memoserv_options(po::options_description &opts)
 {
 	MT_EB
-	MT_FUNC("add_memoserv_options" << "(po::options_description &) opts");
+	MT_FUNC("add_memoserv_options" << opts);
 
 	opts.add_options()
 		("memoserv.news-expire", mantra::value<mantra::duration>()->default_value(mantra::duration("3w")),
@@ -966,7 +965,7 @@ static void add_memoserv_options(po::options_description &opts)
 static void add_operserv_options(po::options_description &opts)
 {
 	MT_EB
-	MT_FUNC("add_operserv_options" << "(po::options_description &) opts");
+	MT_FUNC("add_operserv_options" << opts);
 
 	opts.add_options()
 		("operserv.services-admin", mantra::value<std::vector<std::string> >()->composing()->parser(mantra::validate_regex<std::string, char>("^[[:alpha:]\\x5B-\\x60\\x7B-\\x7D][-[:alnum:]\\x5B-\\x60\\x7B-\\x7D]*$")),
@@ -1042,7 +1041,7 @@ static void add_operserv_options(po::options_description &opts)
 static void add_commserv_options(po::options_description &opts)
 {
 	MT_EB
-	MT_FUNC("add_commserv_options" << "(po::options_description &) opts");
+	MT_FUNC("add_commserv_options" << opts);
 
 	static boost::regex usermode_rx("^\\+?[[:alpha:]]+$");
 	static boost::regex committee_rx("^[[:print:]]+$");
@@ -1117,7 +1116,7 @@ static void add_commserv_options(po::options_description &opts)
 bool Magick::parse_config(const std::vector<std::string> &args)
 {
 	MT_EB
-	MT_FUNC("Magick::parse_config" << "(const std::vector<std::string> &) args");
+	MT_FUNC("Magick::parse_config" << args);
 
 	po::options_description cmdline;
 	cmdline.add(opt_command_line_only).add(opt_common);

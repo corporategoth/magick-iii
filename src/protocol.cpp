@@ -43,8 +43,7 @@ std::basic_istream<C,T> &operator>>(std::basic_istream<C,T> &is,
 									std::pair<std::string, std::string> &t)
 {
 	MT_EB
-	MT_FUNC("operator>>" << "(std::basic_istream<C,T> &) is" <<
-							"(std::pair<std::string, std::string> &) t");
+	MT_FUNC("operator>>" << is << t);
 
 	std::ios::fmtflags orig_flags = is.flags();
 	is.flags(orig_flags | std::ios::skipws);
@@ -52,7 +51,7 @@ std::basic_istream<C,T> &operator>>(std::basic_istream<C,T> &is,
 	if (t.first.empty() || t.second.empty())
 		is.setstate(std::ios::failbit);
 	is.flags(orig_flags);
-	MT_NRET(std::basic_istream<C_T> &, is);
+	MT_RET(is);
 
 	MT_EE
 }
@@ -274,7 +273,7 @@ const std::string &Protocol::tokenise(const std::string &in) const
 void Protocol::addline(std::string &out, const std::string &in) const
 {
 	MT_EB
-	MT_FUNC("Protocol::addline" << "(std::string &) out" << in);
+	MT_FUNC("Protocol::addline" << &out << in);
 
 	LOG(Debug+1, "Sending message: %1%", in);
 	out.append(in);
@@ -286,7 +285,7 @@ void Protocol::addline(std::string &out, const std::string &in) const
 void Protocol::addline(const Uplink &s, std::string &out, const std::string &in) const
 {
 	MT_EB
-	MT_FUNC("Protocol::addline" << "(const Uplink &) s" << "(std::string &) out" << in);
+	MT_FUNC("Protocol::addline" << s << &out << in);
 
 	addline(out, ":" + s.Name() + " " + in);
 
@@ -296,7 +295,7 @@ void Protocol::addline(const Uplink &s, std::string &out, const std::string &in)
 void Protocol::addline(const Jupe &s, std::string &out, const std::string &in) const
 {
 	MT_EB
-	MT_FUNC("Protocol::addline" << "(const Jupe &) s" << "(std::string &) out" << in);
+	MT_FUNC("Protocol::addline" << s << &out << in);
 
 	addline(out, ":" + s.Name() + " " + in);
 
@@ -306,7 +305,7 @@ void Protocol::addline(const Jupe &s, std::string &out, const std::string &in) c
 bool Protocol::send(const char *buf, boost::uint64_t len)
 {
 	MT_EB
-	MT_FUNC("Protocol::send" << "(const char *) buf" << len);
+	MT_FUNC("Protocol::send" << &buf << len);
 
 	if (!ROOT->uplink)
 		MT_RET(false);
@@ -396,7 +395,10 @@ unsigned int Protocol::IDToNumeric(const std::string &id)
 void Protocol::Decode(std::string &in, std::deque<Message> &out, bool usetokens)
 {
 	MT_EB
-	MT_FUNC("Protocol::Decode" << in << "(std::deque<Message> &) out" << usetokens);
+	MT_FUNC("Protocol::Decode" << in << out << usetokens);
+
+	static boost::char_separator<char> sep("\r\n");
+	static boost::char_separator<char> sep2(" \t");
 
 	std::string::size_type offs = in.find_last_of("\r\n");
 	if (offs == std::string::npos)
@@ -404,7 +406,6 @@ void Protocol::Decode(std::string &in, std::deque<Message> &out, bool usetokens)
 
 	typedef boost::tokenizer<boost::char_separator<char>,
 			std::string::const_iterator, std::string> tokenizer;
-	boost::char_separator<char> sep("\r\n");
 	tokenizer tokens(in.begin(), in.begin() + offs + 1, sep);
 	for (tokenizer::const_iterator i = tokens.begin(); i != tokens.end(); ++i)
 	{
@@ -451,8 +452,8 @@ void Protocol::Decode(std::string &in, std::deque<Message> &out, bool usetokens)
 		if (pos != std::string::npos)
 		{
 			epos = i->find(":", pos);
-			boost::char_separator<char> sep2(" \t");
-			tokenizer tokens2(i->substr(pos, epos-pos), sep2);
+			std::string str(i->substr(pos, epos-pos));
+			tokenizer tokens2(str, sep2);
 			m.params_.assign(tokens2.begin(), tokens2.end());
 			if (epos != std::string::npos && epos < i->size() - 1)
 				m.params_.push_back(i->substr(epos+1));
@@ -468,7 +469,7 @@ void Protocol::Decode(std::string &in, std::deque<Message> &out, bool usetokens)
 bool Protocol::Connect(const Uplink &s, const std::string &password)
 {
 	MT_EB
-	MT_FUNC("Protocol::Connect" << "(const Uplink &) s" << password);
+	MT_FUNC("Protocol::Connect" << s << password);
 
 	std::string out;
 
@@ -515,7 +516,7 @@ bool Protocol::Connect(const Uplink &s, const std::string &password)
 bool Protocol::SQUIT(const Uplink &s, const std::string &reason)
 {
 	MT_EB
-	MT_FUNC("Protocol::SQUIT" << "(const Uplink &) s" << reason);
+	MT_FUNC("Protocol::SQUIT" << s << reason);
 
 	std::string out;
 	addline(out, tokenise("SQUIT") + " :" + reason);

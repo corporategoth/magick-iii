@@ -497,8 +497,7 @@ inline bool check_old_new(const char *entry, const po::variables_map &old_vm,
 						  const po::variables_map &new_vm)
 {
 	MT_EB
-	MT_FUNC("check_old_new" << entry << "(const po::variables_map &) old_vm"
-									 << "(const po::variables_map &) new_vm");
+	MT_FUNC("check_old_new" << entry << old_vm << new_vm);
 
 	if (old_vm.count(entry) != new_vm.count(entry))
 		MT_RET(false);
@@ -518,7 +517,7 @@ bool Storage::init(const po::variables_map &vm,
 				   const po::variables_map &opt_config)
 {
 	MT_EB
-	MT_FUNC("Storage::init" << "(const po::variables_map &) vm");
+	MT_FUNC("Storage::init" << vm);
 
 	if (!check_old_new<unsigned int>("storage.password-hash", opt_config, vm))
 		hasher = mantra::Hasher((mantra::Hasher::HashType) vm["storage.password-hash"].as<unsigned int>());
@@ -1960,7 +1959,7 @@ mantra::StorageValue StorageInterface::Maximum(const std::string &column,
 bool StorageInterface::GetRow(const mantra::ComparisonSet &search, mantra::Storage::RecordMap &data)
 {
 	MT_EB
-	MT_FUNC("StorageInterface::GetRow" <<  "(const mantra::ComparisonSet &) search" << "(mantra::Storage::RecordMap &) data");
+	MT_FUNC("StorageInterface::GetRow" << search << data);
 
 	mantra::Storage::DataSet ds;
 	RetrieveRow(ds, search);
@@ -1977,7 +1976,7 @@ bool StorageInterface::GetRow(const mantra::ComparisonSet &search, mantra::Stora
 mantra::StorageValue StorageInterface::GetField(const mantra::ComparisonSet &search, const std::string &column)
 {
 	MT_EB
-	MT_FUNC("StorageInterface::GetField" <<  "(const mantra::ComparisonSet &) search" << column);
+	MT_FUNC("StorageInterface::GetField" << search << column);
 
 	static mantra::NullValue nv;
 
@@ -2000,7 +1999,7 @@ mantra::StorageValue StorageInterface::GetField(const mantra::ComparisonSet &sea
 bool StorageInterface::PutField(const mantra::ComparisonSet &search, const std::string &column, const mantra::StorageValue &value)
 {
 	MT_EB
-	MT_FUNC("StorageInterface::PutField" << "(const mantra::ComparisonSet &) search" << column << value);
+	MT_FUNC("StorageInterface::PutField" << search << column << value);
 
 	mantra::Storage::RecordMap data;
 	data[column] = value;
@@ -2527,7 +2526,7 @@ void Storage::Del(const boost::shared_ptr<StoredChannel> &entry)
 void Storage::DelInternalRecurse(const std::vector<mantra::StorageValue> &entries)
 {
 	MT_EB
-	MT_FUNC("Storage::DelInternalRecurse" << "(const std::vector<mantra::StorageValue> &) entry");
+	MT_FUNC("Storage::DelInternalRecurse" << entries);
 
 	if (entries.empty())
 		return;
