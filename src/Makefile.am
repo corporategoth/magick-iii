@@ -7,7 +7,7 @@ VERSION_COMPILED := $(shell expr $(VERSION_MAJOR) + $(VERSION_MINOR)):$(VERSION_
 
 LIBS = @LIBINTL@ @LIBS@
 
-#magick_LDFLAGS	= -export-dynamic -version-info $(VERSION_COMPILED)
+magick_LDFLAGS	= -rdynamic
 magick_SOURCES	= main.cpp magick.cpp config_init.cpp config_parse.cpp \
 				  protocol.cpp storage.cpp server.cpp message.cpp service.cpp \
 				  dependency.cpp liveuser.cpp livechannel.cpp storeduser.cpp \

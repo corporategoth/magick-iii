@@ -33,6 +33,7 @@ RCSID(magick__service_cpp, "@(#)$Id$");
 ** ======================================================================= */
 
 #include "magick.h"
+#include "liveuser.h"
 
 Service::Service()
 	: SYNC_NRWINIT(func_map_, reader_priority)
