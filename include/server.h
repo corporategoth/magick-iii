@@ -85,6 +85,8 @@ public:
 	void Disconnect(const std::string &name);
 
 	virtual void Ping();
+	void Pong();
+
 	size_t Users() const;
 	size_t Opers() const;
 };
@@ -92,6 +94,12 @@ public:
 class Jupe : public Server
 {
 	void Connect(const boost::shared_ptr<Server> &s);
+protected:
+	// Passthrough for Uplink :)
+	Jupe(const std::string &name, const std::string &desc,
+		 const std::string &id, const std::string &altname)
+		 : Server(name, desc, id, altname) {}
+
 public:
 	Jupe(const std::string &name, const std::string &reason,
 		const std::string id = std::string())
@@ -99,10 +107,13 @@ public:
 	virtual ~Jupe() {}
 
 	// PING is disabled for juped servers
-	void Ping() {}
+	virtual void Ping() {}
+
+	void Connect(const boost::shared_ptr<Jupe> &s)
+		{ Server::Connect(s); }
 };
 
-class Uplink : public Server
+class Uplink : public Jupe
 {
 	friend class Protocol;
 	friend class Magick;
@@ -112,10 +123,11 @@ class Uplink : public Server
 	boost::condition cond_;
 	std::deque<Message> pending_;
 	std::list<boost::thread *> workers_;
+	std::string password_;
 
 	DependencyEngine de_;
 
-	bool write_, tokens_;
+	bool write_;
 	mantra::FileBuffer flack_;
 
 	void operator()();
@@ -123,15 +135,19 @@ class Uplink : public Server
 	// Assumes classification is done, and pushes it for processing.
 	void Push(const Message &in);
 public:
-	Uplink(const std::string &id = std::string());
+	Uplink(const std::string &password,
+		   const std::string &id = std::string());
 	virtual ~Uplink();
 
 	boost::shared_ptr<Server> Find(const std::string &name) const;
 	boost::shared_ptr<Server> FindID(const std::string &id) const;
 
-	bool Tokens() const { return tokens_; }
 	virtual void Ping();
+	void Connect(const boost::shared_ptr<Server> &s)
+		{ Server::Connect(s); }
+
 	bool Write();
+	bool CheckPassword(const std::string &password) const;
 
 	// Pushes it onto the stack to be classified.
 	void Push(const std::deque<Message> &in);

@@ -35,6 +35,7 @@ RCSID(magick__service_cpp, "@(#)$Id$");
 #include "magick.h"
 
 Service::Service()
+	: SYNC_NRWINIT(func_map_, reader_priority)
 {
 }
 
@@ -92,6 +93,39 @@ void Service::Check()
 	if (!ROOT->getUplink())
 		return;
 
+	MT_EE
+}
+
+unsigned int Service::PushCommand(const boost::regex &rx,
+								  const Service::functor &func)
+{
+	MT_EB
+	MT_FUNC("Service::PushCommand" << rx << func);
+
+	SYNC_WLOCK(func_map_);
+	static unsigned int id = 0;
+	func_map_.push_front(Command_t());
+	func_map_.front().id = ++id;
+	func_map_.front().rx = rx;
+	func_map_.front().func = func;
+
+	MT_RET(id);
+	MT_EE
+}
+
+void Service::DelCommand(unsigned int id)
+{
+	MT_EB
+	MT_FUNC("Service::DelCommand" << id);
+
+	SYNC_WLOCK(func_map_);
+	func_map_t::iterator i;
+	for (i = func_map_.begin(); i != func_map_.end(); ++i)
+		if (i->id == id)
+		{
+			func_map_.erase(i);
+			break;
+		}
 
 	MT_EE
 }
@@ -143,3 +177,53 @@ void Service::ANNOUNCE(const std::string &source, const boost::format &message)
 
 	MT_EE
 }
+
+bool Service::CommandMerge::operator()(const boost::shared_ptr<LiveUser> &serv,
+									   const boost::shared_ptr<LiveUser> &user,
+									   const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("Service::CommandMerge::operator()" << serv << user << params);
+
+	if (params.size() <= primary || params.size() <= secondary)
+		MT_RET(false);
+
+	std::vector<std::string> p = params;
+	p[primary].append(" " + p[secondary]);
+	p.erase(p.begin() + secondary);
+
+	bool rv = service.Execute(serv, user, p, primary);
+
+	MT_RET(rv);
+	MT_EE
+}
+
+bool Service::Execute(const boost::shared_ptr<LiveUser> &service,
+					  const boost::shared_ptr<LiveUser> &user,
+					  const std::vector<std::string> &params,
+					  unsigned int key) const
+{
+	MT_EB
+	MT_FUNC("ServiceExecute" << service << user << params << key);
+
+	functor f;
+	{
+		SYNC_RLOCK(func_map_);
+		func_map_t::const_iterator i;
+		for (i = func_map_.begin(); i != func_map_.end(); ++i)
+		{
+			if (boost::regex_match(params[key], i->rx))
+			{
+				f = i->func;
+				break;
+			}
+		}
+	}
+	if (!f)
+		MT_RET(true);
+
+	bool rv = f(service, user, params);
+	MT_RET(rv);
+	MT_EE
+}
+

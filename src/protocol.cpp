@@ -58,7 +58,7 @@ std::basic_istream<C,T> &operator>>(std::basic_istream<C,T> &is,
 
 namespace po = boost::program_options;
 
-Protocol::Protocol() : enc_bits(0)
+Protocol::Protocol() : usetokens(false), enc_bits(0)
 {
 	MT_EB
 	MT_FUNC("Protocol::Protocol");
@@ -184,9 +184,6 @@ Protocol::Protocol() : enc_bits(0)
 					"characters to use for encoding numeric.")
 	;
 
-	classes["PASS"] = Message::ServerSignon;
-	classes["SERVER"] = Message::ServerSignon;
-
 	MT_EE
 }
 
@@ -258,7 +255,7 @@ const std::string &Protocol::tokenise(const std::string &in) const
 	MT_EB
 	MT_FUNC("Protocol::tokenise");
 
-	if (rev_tokens.empty() || !ROOT->uplink || !ROOT->uplink->Tokens())
+	if (rev_tokens.empty() || !ROOT->uplink || !usetokens)
 		MT_RET(in);
 
 	std::map<std::string, std::string, mantra::iless<std::string> >::const_iterator iter =
@@ -267,6 +264,26 @@ const std::string &Protocol::tokenise(const std::string &in) const
 		MT_RET(in);
 
 	MT_RET(iter->second);
+	MT_EE
+}
+
+std::string Protocol::assemble(const std::vector<std::string> &in) const
+{
+	MT_EB
+	MT_FUNC("Protocol::assemble" << in);
+
+	if (in.empty())
+		return std::string();
+
+	std::string rv;
+	for (size_t i=0; i<in.size() - 1; ++i)
+		rv += " " + in[i];
+	if (in.back().find(" ") != std::string::npos)
+		rv += " :" + in.back();
+	else
+		rv += " " + in.back();
+
+	MT_RET(rv);
 	MT_EE
 }
 
@@ -282,16 +299,6 @@ void Protocol::addline(std::string &out, const std::string &in) const
 	MT_EE
 }
 
-void Protocol::addline(const Uplink &s, std::string &out, const std::string &in) const
-{
-	MT_EB
-	MT_FUNC("Protocol::addline" << s << &out << in);
-
-	addline(out, ":" + s.Name() + " " + in);
-
-	MT_EE
-}
-
 void Protocol::addline(const Jupe &s, std::string &out, const std::string &in) const
 {
 	MT_EB
@@ -302,7 +309,7 @@ void Protocol::addline(const Jupe &s, std::string &out, const std::string &in) c
 	MT_EE
 }
 
-bool Protocol::send(const char *buf, boost::uint64_t len)
+bool Protocol::send(const char *buf, boost::uint64_t len) const
 {
 	MT_EB
 	MT_FUNC("Protocol::send" << &buf << len);
@@ -320,7 +327,7 @@ bool Protocol::send(const char *buf, boost::uint64_t len)
 	MT_EE
 }
 
-bool Protocol::IsServer(const std::string &in)
+bool Protocol::IsServer(const std::string &in) const
 {
 	MT_EB
 	MT_FUNC("Protocol::IsServer" << in);
@@ -331,7 +338,7 @@ bool Protocol::IsServer(const std::string &in)
 	MT_EE
 }
 
-bool Protocol::IsChannel(const std::string &in)
+bool Protocol::IsChannel(const std::string &in) const
 {
 	MT_EB
 	MT_FUNC("Protocol::IsChannel" << in);
@@ -348,7 +355,7 @@ bool Protocol::IsChannel(const std::string &in)
 	MT_EE
 }
 
-std::string Protocol::NumericToID(unsigned int numeric)
+std::string Protocol::NumericToID(unsigned int numeric) const
 {
 	MT_EB
 	MT_FUNC("Protocol::NumericToID" << numeric);
@@ -377,7 +384,7 @@ std::string Protocol::NumericToID(unsigned int numeric)
 	MT_EE
 }
 
-unsigned int Protocol::IDToNumeric(const std::string &id)
+unsigned int Protocol::IDToNumeric(const std::string &id) const
 {
 	MT_EB
 	MT_FUNC("Protocol::IDToNumeric" << id);
@@ -386,16 +393,16 @@ unsigned int Protocol::IDToNumeric(const std::string &id)
 	for (size_t i=0; i<id.size(); ++i)
 	{
 		rv <<= enc_bits;
-		rv += rev_encoding[id[i]];
+		rv += rev_encoding[(size_t) id[i]];
 	}
 	MT_RET(rv);
 	MT_EE
 }
 
-void Protocol::Decode(std::string &in, std::deque<Message> &out, bool usetokens)
+void Protocol::Decode(std::string &in, std::deque<Message> &out) const
 {
 	MT_EB
-	MT_FUNC("Protocol::Decode" << in << out << usetokens);
+	MT_FUNC("Protocol::Decode" << in << out);
 
 	static boost::char_separator<char> sep("\r\n");
 	static boost::char_separator<char> sep2(" \t");
@@ -412,7 +419,6 @@ void Protocol::Decode(std::string &in, std::deque<Message> &out, bool usetokens)
 		LOG(Debug+1, "Received message: %1%", *i);
 
 		std::string source, id;
-		Message::Class_t c;
 		std::string::size_type epos, pos = 0;
 		
 		// Source ...
@@ -442,8 +448,7 @@ void Protocol::Decode(std::string &in, std::deque<Message> &out, bool usetokens)
 		}
 
 		boost::algorithm::to_upper(id);
-		std::map<std::string, Message::Class_t>::const_iterator j = classes.find(id);
-		Message m((j != classes.end() ? j->second : Message::Unknown), source, id);
+		Message m(source, id);
 
 		if (epos != std::string::npos)
 			pos = i->find_first_not_of(" \t", epos);
@@ -466,13 +471,14 @@ void Protocol::Decode(std::string &in, std::deque<Message> &out, bool usetokens)
 	MT_EE
 }
 
-bool Protocol::Connect(const Uplink &s, const std::string &password)
+bool Protocol::Connect(const Uplink &s)
 {
 	MT_EB
-	MT_FUNC("Protocol::Connect" << s << password);
+	MT_FUNC("Protocol::Connect" << s);
 
 	std::string out;
 
+	usetokens = false;
 	if (opt_protocol.count("capabilities"))
 		addline(out, opt_protocol["capabilities"].as<std::string>());
 
@@ -486,7 +492,7 @@ bool Protocol::Connect(const Uplink &s, const std::string &password)
 			tmp = " :TS";
 	}
 
-	addline(out, "PASS " + password + tmp);
+	addline(out, "PASS " + s.password_ + tmp);
 
 	boost::posix_time::ptime curr = boost::posix_time::second_clock::local_time();
 	struct tm tm_curr = boost::posix_time::to_tm(curr);
@@ -513,16 +519,58 @@ bool Protocol::Connect(const Uplink &s, const std::string &password)
 	MT_EE
 }
 
-bool Protocol::SQUIT(const Uplink &s, const std::string &reason)
+bool Protocol::SQUIT(const Jupe &s, const std::string &reason) const
 {
 	MT_EB
 	MT_FUNC("Protocol::SQUIT" << s << reason);
 
 	std::string out;
-	addline(out, tokenise("SQUIT") + " :" + reason);
+	addline(s, out, tokenise("SQUIT") + " :" + reason);
 	bool rv = send(out);
 	MT_RET(rv);
 
+	MT_EE
+}
+
+bool Protocol::RAW(const Jupe &s, const std::string &cmd,
+				   const std::vector<std::string> &args) const
+{
+	MT_EB
+	MT_FUNC("Protocol::RAW" << s << cmd << args);
+
+	std::string ostr;
+	addline(s, ostr, tokenise(cmd) + assemble(args));
+	bool rv = send(ostr);
+
+	MT_RET(rv);
+	MT_EE
+}
+
+bool Protocol::NUMERIC(Protocol::Numeric_t num, const std::string &target,
+					   const std::vector<std::string> &args) const
+{
+	MT_EB
+	MT_FUNC("Protocol::NUMERIC" << num << target << args);
+
+	std::string ostr, istr = boost::lexical_cast<std::string>(num) + " " +
+								target + assemble(args);
+	addline(*(ROOT->uplink), ostr, istr);
+	bool rv = send(ostr);
+
+	MT_RET(rv);
+	MT_EE
+}
+
+bool Protocol::ERROR(const std::string &arg) const
+{
+	MT_EB
+	MT_FUNC("Protocol::ERROR" << arg);
+
+	std::string ostr;
+	addline(*(ROOT->uplink), ostr, tokenise("ERROR") + " :" + arg);
+	bool rv = send(ostr);
+
+	MT_RET(rv);
 	MT_EE
 }
 

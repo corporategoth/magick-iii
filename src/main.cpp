@@ -33,6 +33,7 @@ RCSID(magick__main_cpp, "@(#)$Id$");
 ** ======================================================================= */
 
 #include "magick.h"
+#include "message.h"
 
 #include <fstream>
 
@@ -45,6 +46,8 @@ static int prelim_check(int prv, const boost::function0<bool> &check,
 static int init_trace(int prv, const boost::function0<bool> &check,
 						   const std::vector<std::string> &args);
 #endif
+static int init_messages(int prv, const boost::function0<bool> &check,
+						   const std::vector<std::string> &args);
 static int create_instance(int prv, const boost::function0<bool> &check,
 						   const std::vector<std::string> &args);
 static int start_threads(int prv, const boost::function0<bool> &check,
@@ -69,6 +72,7 @@ int main(int argc, const char *argv[])
 #ifdef MANTRA_TRACING
 	flow->pushStartFunction(init_trace);
 #endif
+	flow->pushStartFunction(init_messages);
 	flow->pushStartFunction(create_instance);
 	flow->pushStartFunction(start_threads);
 	flow->pushRunFunction(run);
@@ -128,6 +132,13 @@ static int init_trace(int prv, const boost::function0<bool> &check,
 	return prv;
 }
 #endif
+
+static int init_messages(int prv, const boost::function0<bool> &check,
+						   const std::vector<std::string> &args)
+{
+	Message::ResetCommands();
+	return prv;
+}
 
 static int create_instance(int prv, const boost::function0<bool> &check,
 						   const std::vector<std::string> &args)

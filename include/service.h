@@ -37,8 +37,10 @@ RCSID(magick__service_h, "@(#) $Id$");
 
 #include <set>
 #include <string>
+#include <vector>
 
 #include <mantra/core/algorithms.h>
+#include <mantra/core/sync.h>
 
 #include <boost/format.hpp>
 #include <boost/bind.hpp>
@@ -47,9 +49,26 @@ class LiveUser;
 
 class Service
 {
+public:
+	typedef boost::function3<bool, const boost::shared_ptr<LiveUser> &,
+							 const boost::shared_ptr<LiveUser> &,
+							 const std::vector<std::string> &> functor;
+
+private:
+	struct Command_t
+	{
+		unsigned int id;
+		boost::regex rx;
+		functor func;
+	};
+
+	typedef std::deque<Command_t> func_map_t;
+
 	std::string primary_;
 	std::set<std::string, mantra::iless<std::string> > nicks_;
 	std::set<boost::shared_ptr<LiveUser> > users_;
+
+	func_map_t RWSYNC(func_map_);
 
 public:
 	Service();
@@ -63,6 +82,9 @@ public:
 
 	bool IsNick(const std::string &nick) const
 		{ return (nicks_.find(nick) != nicks_.end()); }
+
+	unsigned int PushCommand(const boost::regex &rx, const functor &func);
+	void DelCommand(unsigned int id);
 
 	void QUIT(const std::string &source, const std::string &message = std::string());
 	void MASSQUIT(const std::string &message = std::string())
@@ -82,6 +104,25 @@ public:
 	void ANNOUNCE(const std::string &source, const boost::format &message);
 	void ANNOUNCE(const boost::format &message)
 		{ ANNOUNCE(primary_, message); }
+
+	class CommandMerge
+	{
+		const Service &service;
+		unsigned int primary, secondary;
+
+	public:
+		CommandMerge(const Service &serv, unsigned int p, unsigned int s)
+			: service(serv), primary(p), secondary(s) {}
+
+		bool operator()(const boost::shared_ptr<LiveUser> &service,
+						const boost::shared_ptr<LiveUser> &user,
+						const std::vector<std::string> &params);
+	};
+
+	bool Execute(const boost::shared_ptr<LiveUser> &service,
+				 const boost::shared_ptr<LiveUser> &user,
+				 const std::vector<std::string> &params,
+				 unsigned int key = 0) const;
 };
 
 

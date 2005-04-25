@@ -37,7 +37,13 @@ RCSID(magick__message_h, "@(#) $Id$");
 
 #include <string>
 #include <vector>
+#include <map>
 #include <ostream>
+
+#include <mantra/core/algorithms.h>
+
+#include <boost/thread/mutex.hpp>
+#include <boost/function/function1.hpp>
 
 class Message
 {
@@ -45,28 +51,29 @@ class Message
 	friend std::ostream &operator<<(std::ostream &os, const Message &in);
 
 public:
-	enum Class_t { Unknown = -1, Ignore, ServerSignon };
+	typedef boost::function1<bool, const Message &> functor;
 
 private:
+	typedef std::map<std::string, functor, mantra::iless<std::string> > func_map_t;
+	static func_map_t func_map;
 
-	Class_t class_;	
 	std::string source_;
 	std::string id_;
 	std::vector<std::string> params_;
 
-	Message(Class_t c, const std::string &source, const std::string &id)
-		: class_(c), source_(source), id_(id) {}
+	Message(const std::string &source, const std::string &id)
+		: source_(source), id_(id) {}
 	std::string print() const;
 public:
-	Message() : class_(Ignore) {}
+	Message() {}
 	Message(const Message &in) { *this = in; }
 	~Message() {}
 
-	Class_t Class() const { return class_; }
 	const std::string &Source() const { return source_; }
 	const std::string &ID() const { return id_; }
 	const std::vector<std::string> &Params() const { return params_; }
 
+	static void ResetCommands();
 	bool Process();
 };
 

@@ -50,7 +50,6 @@ Magick::~Magick()
 {
 }
 
-
 void Magick::Log(mantra::LogLevel::Level_t level, const boost::format &out)
 {
 	MT_EB
@@ -212,9 +211,10 @@ void Magick::run(const boost::function0<bool> &check)
 							LOG(Info, _("Connection established to %1%[%2%]."),
 										remote.host % remote.port);
 
-							uplink = new Uplink(proto.NumericToID(remote.numeric));
+							uplink = new Uplink(remote.password,
+												proto.NumericToID(remote.numeric));
 							sg.SetRead(sock, true);
-							proto.Connect(*uplink, remote.password);
+							proto.Connect(*uplink);
 						}
 					}
 					else
@@ -286,7 +286,7 @@ void Magick::run(const boost::function0<bool> &check)
 					while (rv == 1024);
 					if (!sock.Valid())
 						break;
-					proto.Decode(uin, msgs, uplink->Tokens());
+					proto.Decode(uin, msgs);
 				}
 
 				if (res.begin()->second & mantra::SocketGroup::Read)
@@ -317,7 +317,7 @@ void Magick::run(const boost::function0<bool> &check)
 					while (rv == 1024);
 					if (!sock.Valid())
 						break;
-					proto.Decode(in, msgs, uplink->Tokens());
+					proto.Decode(in, msgs);
 				}
 				if (!msgs.empty())
 					uplink->Push(msgs);

@@ -186,7 +186,7 @@ public:
 	bool AltMatches(const std::string &mask) const
 		{ return mantra::glob_match(mask, Name() + "!" + User() + "@" + AltHost(), true); }
 
-	void Away(const std::string &in);
+	void Away(const std::string &in = std::string());
 	std::string Away() const;
 
 	// The following alters modes, it doesn't outright set them.

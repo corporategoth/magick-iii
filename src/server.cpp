@@ -111,6 +111,20 @@ void Server::Ping()
 	MT_EE
 }
 
+void Server::Pong()
+{
+	MT_EB
+	MT_FUNC("Server::Pong");
+
+	if (last_ping_.is_special())
+		return;
+
+	lag_ = mantra::GetCurrentDateTime() - last_ping_;
+	last_ping_ = boost::date_time::not_a_date_time;
+
+	MT_EE
+}
+
 size_t Server::Users() const
 {
 	MT_EB
@@ -131,9 +145,10 @@ size_t Server::Opers() const
 	MT_EE
 }
 
-Uplink::Uplink(const std::string &id)
-	: Server(::ROOT->ConfigValue<std::string>("server-name"),
-			 ::ROOT->ConfigValue<std::string>("server-desc"), id),
+Uplink::Uplink(const std::string &password, const std::string &id)
+	: Jupe(::ROOT->ConfigValue<std::string>("server-name"),
+		   ::ROOT->ConfigValue<std::string>("server-desc"), id,
+		   std::string()), password_(password),
 	  flack_(ROOT->ConfigValue<std::string>("filesystem.flack-dir"),
 			 ROOT->ConfigValue<unsigned int>("filesystem.flack-memory"))
 {
@@ -239,8 +254,6 @@ void Uplink::operator()()
 			m = pending_.front();
 			pending_.pop_front();
 		}
-		if (m.Class() == Message::Ignore)
-			continue;
 
 		if (!m.Process())
 		{
@@ -414,6 +427,18 @@ bool Uplink::Write()
 	write_ = false;
 	MT_RET(rv);
 
+	MT_EE
+}
+
+bool Uplink::CheckPassword(const std::string &password) const
+{
+	MT_EB
+	MT_FUNC("Uplink::CheckPassword");
+
+	if (password == password_)
+		MT_RET(true);
+
+	MT_RET(false);
 	MT_EE
 }
 

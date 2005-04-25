@@ -57,9 +57,9 @@ class Protocol
 	boost::program_options::options_description opt_protocol_config_file;
 	boost::program_options::variables_map opt_protocol;
 
+	bool usetokens;
 	std::map<std::string, std::string> fwd_tokens;
 	std::map<std::string, std::string, mantra::iless<std::string> > rev_tokens;
-	std::map<std::string, Message::Class_t> classes;
 	unsigned char enc_bits, encoding[128], rev_encoding[256];
 
 	Protocol();
@@ -67,27 +67,63 @@ class Protocol
 	bool reload(const std::string &file);
 
 	const std::string &tokenise(const std::string &in) const;
+	std::string assemble(const std::vector<std::string> &in) const;
+
 	void addline(std::string &out, const std::string &in) const;
 	void addline(const Jupe &server, std::string &out, const std::string &in) const;
-	void addline(const Uplink &server, std::string &out, const std::string &in) const;
-	bool send(const char *buf, boost::uint64_t len);
-	bool send(const std::string &in) { return send(in.data(), in.size()); }
+
+	bool send(const char *buf, boost::uint64_t len) const;
+	inline bool send(const std::string &in) const
+		{ return send(in.data(), in.size()); }
 public:
+	enum Numeric_t
+		{
+			ADMINME = 256,
+			ADMINLOC1 = 257,
+			ADMINLOC2 = 258,
+			ADMINEMAIL = 259,
+			NOSUCHNICK = 401,
+			NOSUCHSERVER = 402,
+			NOSUCHCHANNEL = 403,
+			NEED_MORE_PARAMS = 461,
+			INCORRECT_PASSWORD = 464
+		};
 
-	bool IsServer(const std::string &in);
-	bool IsChannel(const std::string &in);
+	bool IsServer(const std::string &in) const;
+	bool IsChannel(const std::string &in) const;
 
-	std::string NumericToID(unsigned int numeric);
-	unsigned int IDToNumeric(const std::string &id);
+	std::string NumericToID(unsigned int numeric) const;
+	unsigned int IDToNumeric(const std::string &id) const;
 
-	void Decode(std::string &in, std::deque<Message> &out, bool usetokens = false);
+	void UseTokens() { usetokens = true; }
+	void Decode(std::string &in, std::deque<Message> &out) const;
 
-	bool Connect(const Uplink &s, const std::string &password);
+	bool Connect(const Uplink &s);
 	bool Connect(const Jupe &s);
 
-	bool SQUIT(const Jupe &s, const std::string &reason = std::string());
-	bool SQUIT(const Uplink &s, const std::string &reason = std::string());
+	bool SQUIT(const Jupe &s, const std::string &reason = std::string()) const;
 
+	bool RAW(const Jupe &s, const std::string &cmd,
+			 const std::vector<std::string> &args) const;
+	inline bool RAW(const Jupe &s, const std::string &cmd,
+					const std::string &arg) const
+	{
+		std::vector<std::string> v;
+		v.push_back(arg);
+		return RAW(s, cmd, v);
+	}
+
+	bool NUMERIC(Numeric_t num, const std::string &target,
+				 const std::vector<std::string> &args) const;
+	inline bool NUMERIC(Numeric_t num, const std::string &target,
+						const std::string &arg) const
+	{
+		std::vector<std::string> v;
+		v.push_back(arg);
+		return NUMERIC(num, target, v);
+	}
+
+	bool ERROR(const std::string &arg) const;
 };
 
 #endif // _MAGICK_PROTOCOL_H
