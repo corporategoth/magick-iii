@@ -126,7 +126,16 @@ public:
 static int init_trace(int prv, const boost::function0<bool> &check,
 						   const std::vector<std::string> &args)
 {
+	mantra::mtrace::instance().RegisterType(MAGICK_TRACE_LOST, TraceHandler("trace_LOST.log"));
 	mantra::mtrace::instance().RegisterType(MAGICK_TRACE_MAIN, TraceHandler("trace_MAIN.log"));
+	mantra::mtrace::instance().RegisterType(MAGICK_TRACE_WORKER, TraceHandler("trace_WORKER.log"));
+	mantra::mtrace::instance().RegisterType(MAGICK_TRACE_NICKSERV, TraceHandler("trace_NICKSERV.log"));
+	mantra::mtrace::instance().RegisterType(MAGICK_TRACE_CHANSERV, TraceHandler("trace_CHANSERV.log"));
+	mantra::mtrace::instance().RegisterType(MAGICK_TRACE_MEMOSERV, TraceHandler("trace_MEMOSERV.log"));
+	mantra::mtrace::instance().RegisterType(MAGICK_TRACE_COMMSERV, TraceHandler("trace_COMMSERV.log"));
+	mantra::mtrace::instance().RegisterType(MAGICK_TRACE_OPERSERV, TraceHandler("trace_OPERSERV.log"));
+	mantra::mtrace::instance().RegisterType(MAGICK_TRACE_OTHER, TraceHandler("trace_OTHER.log"));
+	mantra::mtrace::instance().RegisterType(MAGICK_TRACE_DCC, TraceHandler("trace_DCC.log"));
 	
 	MT_ASSIGN(MAGICK_TRACE_MAIN);
 	return prv;

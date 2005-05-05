@@ -110,21 +110,21 @@ static bool biADMIN(const Message &m)
 	MT_EB
 	MT_FUNC("biADMIN" << m);
 
-	ROOT->proto.NUMERIC(Protocol::ADMINME, m.Source(),
+	ROOT->proto.NUMERIC(Protocol::nADMINME, m.Source(),
 						(boost::format("Administrative info about %1%") %
 						 ROOT->ConfigValue<std::string>("server-name")).str());
 
-	ROOT->proto.NUMERIC(Protocol::ADMINLOC1, m.Source(),
+	ROOT->proto.NUMERIC(Protocol::nADMINLOC1, m.Source(),
 						ROOT->ConfigValue<std::string>("server-desc"));
 
 	std::vector<std::string> v = ROOT->ConfigValue<std::vector<std::string> >("operserv.services-admin");
 	std::string admins;
 	for (size_t i=0; i<v.size(); ++i)
 		admins += " " + v[i];
-	ROOT->proto.NUMERIC(Protocol::ADMINLOC2, m.Source(),
+	ROOT->proto.NUMERIC(Protocol::nADMINLOC2, m.Source(),
 						(boost::format("Admins -%1%") % admins).str());
 
-	ROOT->proto.NUMERIC(Protocol::ADMINEMAIL, m.Source(), PACKAGE_STRING);
+	ROOT->proto.NUMERIC(Protocol::nADMINEMAIL, m.Source(), PACKAGE_STRING);
 
 	MT_RET(true);
 	MT_EE
@@ -141,7 +141,7 @@ static bool biAWAY(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Source());
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::NOSUCHNICK, m.Source(), v);
+		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v);
 		MT_RET(false);
 	}
 
@@ -151,7 +151,7 @@ static bool biAWAY(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Source());
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::NOSUCHNICK, m.Source(), v);
+		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v);
 		MT_RET(false);
 	}
 
@@ -206,7 +206,7 @@ static bool biCHGHOST(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.ID());
 		v.push_back(_("Not enough parameters"));
-		ROOT->proto.NUMERIC(Protocol::NEED_MORE_PARAMS, m.Source(), v);
+		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v);
 		MT_RET(false);
 	}
 
@@ -216,7 +216,7 @@ static bool biCHGHOST(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::NOSUCHNICK, m.Params()[0], v);
+		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Params()[0], v);
 		MT_RET(false);
 	}
 
@@ -226,7 +226,7 @@ static bool biCHGHOST(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::NOSUCHNICK, m.Params()[0], v);
+		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Params()[0], v);
 		MT_RET(false);
 	}
 
@@ -264,6 +264,16 @@ static bool biCYCLE(const Message &m)
 	MT_FUNC("biCYCLE" << m);
 
 	// TODO: Part/Join
+	if (m.Params().size() < 2)
+	{
+		std::vector<std::string> v;
+		v.push_back(m.ID());
+		v.push_back(_("Not enough parameters"));
+		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v);
+		MT_RET(false);
+	}
+
+	
 
 	MT_RET(true);
 	MT_EE
@@ -384,19 +394,23 @@ static bool biPASS(const Message &m)
 	MT_EB
 	MT_FUNC("biPASS" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	if (m.Params().size() < 1)
 	{
 		std::vector<std::string> v;
 		v.push_back(m.ID());
 		v.push_back(_("Not enough parameters"));
-		ROOT->proto.NUMERIC(Protocol::NEED_MORE_PARAMS, m.Source(), v);
+		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v);
 		MT_RET(false);
 	}
 
-	if (!ROOT->getUplink()->CheckPassword(m.Params()[0]))
+	if (!uplink->CheckPassword(m.Params()[0]))
 	{
 		ROOT->proto.ERROR(_("No Access (password mismatch)"));
-		ROOT->proto.NUMERIC(Protocol::INCORRECT_PASSWORD, m.Source(),
+		ROOT->proto.NUMERIC(Protocol::nINCORRECT_PASSWORD, m.Source(),
 							_("Password incorrect"));
 		MT_RET(false);
 	}
@@ -410,40 +424,52 @@ static bool biPING(const Message &m)
 	MT_EB
 	MT_FUNC("biPING" << m);
 
-	if (m.Params().size() < 2)
+	if (m.Params().size() < 1)
 	{
 		std::vector<std::string> v;
 		v.push_back(m.ID());
 		v.push_back(_("Not enough parameters"));
-		ROOT->proto.NUMERIC(Protocol::NEED_MORE_PARAMS, m.Source(), v);
+		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v);
 		MT_RET(false);
 	}
 
-	boost::shared_ptr<Server> remote = ROOT->getUplink()->Find(m.Params()[0]);
-	Jupe *ptr = dynamic_cast<Jupe *>(remote.get());
-	if (!remote || ptr)
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
+	boost::shared_ptr<Server> local, remote = uplink->Find(m.Params()[0]);
+	Jupe *jupe = dynamic_cast<Jupe *>(remote.get());
+	if (!remote || jupe)
 	{
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such server"));
-		ROOT->proto.NUMERIC(Protocol::NOSUCHSERVER, m.Source(), v);
+		ROOT->proto.NUMERIC(Protocol::nNOSUCHSERVER, m.Source(), v);
 		MT_RET(false);
 	}
 
-	boost::shared_ptr<Server> local = ROOT->getUplink()->Find(m.Params()[1]);
-	Jupe *jupe = dynamic_cast<Jupe *>(local.get());
+	if (m.Params().size() < 2)
+	{
+		local = uplink;
+		jupe = dynamic_cast<Jupe *>(local.get());
+	}
+	else
+	{
+		local = uplink->Find(m.Params()[1]);
+		jupe = dynamic_cast<Jupe *>(local.get());
+	}
 	if (!jupe)
 	{
 		std::vector<std::string> v;
 		v.push_back(m.Params()[1]);
 		v.push_back(_("No such server"));
-		ROOT->proto.NUMERIC(Protocol::NOSUCHSERVER, m.Source(), v);
+		ROOT->proto.NUMERIC(Protocol::nNOSUCHSERVER, m.Source(), v);
 		MT_RET(false);
 	}
 
 	std::vector<std::string> v;
-	v.push_back(m.Params()[1]);
-	v.push_back(m.Params()[0]);
+	v.push_back(jupe->Name());
+    v.push_back(m.Params()[0]);
 	ROOT->proto.RAW(*jupe, "PONG", v);
 
 	MT_RET(true);
@@ -460,18 +486,22 @@ static bool biPONG(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.ID());
 		v.push_back(_("Not enough parameters"));
-		ROOT->proto.NUMERIC(Protocol::NEED_MORE_PARAMS, m.Source(), v);
+		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v);
 		MT_RET(false);
 	}
 
-	boost::shared_ptr<Server> remote = ROOT->getUplink()->Find(m.Params()[0]);
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
+	boost::shared_ptr<Server> remote = uplink->Find(m.Params()[0]);
 	Jupe *ptr = dynamic_cast<Jupe *>(remote.get());
 	if (!remote || ptr)
 	{
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such server"));
-		ROOT->proto.NUMERIC(Protocol::NOSUCHSERVER, m.Source(), v);
+		ROOT->proto.NUMERIC(Protocol::nNOSUCHSERVER, m.Source(), v);
 		MT_RET(false);
 	}
 
@@ -522,6 +552,32 @@ static bool biSERVER(const Message &m)
 	MT_EB
 	MT_FUNC("biSERVER" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
+	boost::shared_ptr<Server> serv = ROOT->proto.ParseServer(m);
+	if (!serv)
+		MT_RET(false);
+
+	if (m.Source().empty())
+	{
+		uplink->Connect(serv);
+		LOG(Info, _("Server %1% linked to network via. %2%."), serv->Name() %
+															   uplink->Name());
+	}
+	else
+	{
+		boost::shared_ptr<Server> parent = uplink->Find(m.Source());
+		if (!parent)
+			MT_RET(false);
+		parent->Connect(serv);
+		LOG(Info, _("Server %1% linked to network via. %2%."), serv->Name() %
+															   parent->Name());
+	}
+
+	uplink->de.Satisfy(Dependency::ServerExists, serv->Name());
+
 	MT_RET(true);
 	MT_EE
 }
@@ -566,6 +622,9 @@ static bool biSUMMON(const Message &m)
 {
 	MT_EB
 	MT_FUNC("biSUMMON" << m);
+
+	ROOT->proto.NUMERIC(Protocol::nSUMMONDISABLED, m.Source(),
+						"SUMMON has been removed");
 
 	MT_RET(true);
 	MT_EE
@@ -639,6 +698,9 @@ static bool biUSER(const Message &m)
 	MT_EB
 	MT_FUNC("biUSER" << m);
 
+	ROOT->proto.NUMERIC(Protocol::nUSERSDISABLED, m.Source(),
+						"USERS has been removed");
+
 	MT_RET(true);
 	MT_EE
 }
@@ -656,6 +718,16 @@ static bool biVERSION(const Message &m)
 {
 	MT_EB
 	MT_FUNC("biVERSION" << m);
+
+	struct utsname un;
+	uname(&un);
+
+	std::vector<std::string> v;
+	v.push_back(PACKAGE + std::string("-") + PACKAGE_VERSION);
+	v.push_back(ROOT->ConfigValue<std::string>("server-name"));
+	v.push_back(un.sysname + std::string("/") + un.release +
+				std::string(" ") + un.release);
+	ROOT->proto.NUMERIC(Protocol::nVERSION, m.Source(), v);
 
 	MT_RET(true);
 	MT_EE
@@ -742,6 +814,7 @@ void Message::ResetCommands()
 	func_map["JUPITER"] = functor();
 	func_map["KNOCK"] = functor();
 	func_map["LAG"] = functor();
+	func_map["LUSERSLOCK"] = functor();
 	func_map["MKPASSWD"] = functor();
 	func_map["MODNICK"] = functor();
 	func_map["MODULE"] = functor();

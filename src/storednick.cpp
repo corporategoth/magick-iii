@@ -262,7 +262,7 @@ void StoredNick::DropInternal()
 	if (live_)
 	{
 		if_LiveUser_StoredNick(live_).Stored(boost::shared_ptr<StoredNick>());
-		live_ = boost::shared_ptr<LiveUser>();
+		live_.reset();
 	}
 
 	MT_EE

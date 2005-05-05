@@ -36,7 +36,9 @@ RCSID(magick__protocol_cpp, "@(#)$Id$");
 
 #include <fstream>
 
+#include <mantra/core/trace.h>
 #include <mantra/core/typed_value.h>
+#include <mantra/core/unformat.h>
 
 template<typename C, typename T>
 std::basic_istream<C,T> &operator>>(std::basic_istream<C,T> &is,
@@ -267,10 +269,10 @@ const std::string &Protocol::tokenise(const std::string &in) const
 	MT_EE
 }
 
-std::string Protocol::assemble(const std::vector<std::string> &in) const
+std::string Protocol::assemble(const std::vector<std::string> &in, bool forcecolon) const
 {
 	MT_EB
-	MT_FUNC("Protocol::assemble" << in);
+	MT_FUNC("Protocol::assemble" << in << forcecolon);
 
 	if (in.empty())
 		return std::string();
@@ -278,7 +280,7 @@ std::string Protocol::assemble(const std::vector<std::string> &in) const
 	std::string rv;
 	for (size_t i=0; i<in.size() - 1; ++i)
 		rv += " " + in[i];
-	if (in.back().find(" ") != std::string::npos)
+	if (forcecolon || in.back().find(" ") != std::string::npos)
 		rv += " :" + in.back();
 	else
 		rv += " " + in.back();
@@ -332,7 +334,7 @@ bool Protocol::IsServer(const std::string &in) const
 	MT_EB
 	MT_FUNC("Protocol::IsServer" << in);
 
-	bool rv (in.find('.') != std::string::npos);
+	bool rv = (in.find('.') != std::string::npos);
 	MT_RET(rv);
 
 	MT_EE
@@ -571,6 +573,60 @@ bool Protocol::ERROR(const std::string &arg) const
 	bool rv = send(ostr);
 
 	MT_RET(rv);
+	MT_EE
+}
+
+boost::shared_ptr<Server> Protocol::ParseServer(const Message &in) const
+{
+	MT_EB
+	MT_FUNC("Protocol::ParseServer");
+
+	static mantra::unformat unformatter;
+	if (unformatter.EmptyElementRegex())
+	{
+		static boost::mutex lock;
+		boost::mutex::scoped_lock scoped_lock(lock);
+		if (unformatter.EmptyElementRegex())
+		{
+			unformatter.ElementRegex(1, "(?:[[:alnum:]][-[:alnum:]]*\\.)*"
+									    "[[:alnum:]][-[:alnum:]]*"); // host
+			unformatter.ElementRegex(2, "[[:digit:]]+"); // hops
+			// unformatter.ElementRegex(3, ".*"); // desc
+			unformatter.ElementRegex(4, "[^[:space:]]+"); // numeric
+			unformatter.ElementRegex(5, "[[:digit:]]+"); // start time
+			unformatter.ElementRegex(6, "[[:digit:]]+"); // current time
+		}
+	}
+
+	boost::shared_ptr<Server> serv;
+	mantra::unformat::elem_map elems;
+	if (!unformatter(opt_protocol["server"].as<std::string>(),
+					 in.ID() + assemble(in.Params(), true), elems,
+					 mantra::unformat::MergeSpaces))
+		MT_RET(serv);
+
+	mantra::unformat::elem_map::iterator i = elems.find(1);
+	if (i == elems.end())
+		MT_RET(serv);
+	std::string name = i->second;
+
+	i = elems.find(3);
+	if (i == elems.end())
+		MT_RET(serv);
+	std::string desc = i->second;
+
+	std::string id;
+	i = elems.find(4);
+	if (i != elems.end())
+	{
+		if (opt_protocol["numeric.server-numeric"].as<bool>())
+			id = NumericToID(boost::lexical_cast<unsigned int>(i->second));
+		else
+			id = i->second;
+	}
+
+	serv.reset(new Server(name, desc, id));
+	MT_RET(serv);
 	MT_EE
 }
 

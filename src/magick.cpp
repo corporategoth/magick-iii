@@ -41,7 +41,7 @@ Magick::Magick()
 	  opt_common("Config File Overrides"),
 	  opt_config_file_only("Config File Only Options"),
 	  logger_lock(boost::read_write_scheduling_policy::reader_priority),
-	  disconnect(false), shutdown(false), uplink(NULL), event(NULL)
+	  disconnect(false), shutdown(false), event(NULL)
 {
 	init_config();
 }
@@ -211,8 +211,8 @@ void Magick::run(const boost::function0<bool> &check)
 							LOG(Info, _("Connection established to %1%[%2%]."),
 										remote.host % remote.port);
 
-							uplink = new Uplink(remote.password,
-												proto.NumericToID(remote.numeric));
+							uplink.reset(new Uplink(remote.password,
+													proto.NumericToID(remote.numeric)));
 							sg.SetRead(sock, true);
 							proto.Connect(*uplink);
 						}
@@ -331,8 +331,7 @@ void Magick::run(const boost::function0<bool> &check)
 			{
 				LOG(Info, _("Uplink connection to %1%[%2%] dropped."),
 						remote.host % remote.port);
-				delete uplink;
-				uplink = NULL;
+				uplink.reset();
 			}
 		}
 		else

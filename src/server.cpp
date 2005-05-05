@@ -171,13 +171,12 @@ Uplink::Uplink(const std::string &password, const std::string &id)
 	MT_EE
 }
 
-Uplink::~Uplink()
+void Uplink::Disconnect()
 {
 	MT_EB
-	MT_FUNC("Uplink::~Uplink");
+	MT_FUNC("Uplink::Disconnect");
 
-	ROOT->proto.SQUIT(*this);
-	Disconnect();
+	Server::Disconnect();
 
 	std::list<boost::thread *> workers;
 	{
@@ -185,6 +184,10 @@ Uplink::~Uplink()
 		workers.swap(workers_);
 		cond_.notify_all();
 	}
+
+	// This is not the first time ;)
+	if (!workers.empty())
+		ROOT->proto.SQUIT(*this);
 
 	std::list<boost::thread *>::iterator i;
 	for (i=workers.begin(); i!=workers.end(); ++i)
@@ -198,7 +201,7 @@ Uplink::~Uplink()
 
 void Uplink::operator()()
 {
-	MT_ASSIGN(MAGICK_TRACE_MAIN);
+	MT_ASSIGN(MAGICK_TRACE_WORKER);
 
 	MT_EB
 	MT_FUNC("Uplink::operator()");
@@ -286,10 +289,12 @@ public:
 		std::list<boost::shared_ptr<Server> >::const_iterator i = start.Children().begin();
 		std::list<boost::shared_ptr<Server> >::const_iterator ie = start.Children().end();
 
-		while (i != ie && !is.empty())
+		while (i != ie)
 		{
 			if (i == ie)
 			{
+				if (is.empty())
+					break;
 				i = is.top().first;
 				ie = is.top().second;
 				is.pop();
@@ -344,6 +349,9 @@ boost::shared_ptr<Server> Uplink::Find(const std::string &name) const
 	MT_EB
 	MT_FUNC("Uplink::Find" << name);
 
+	if (name == Name())
+		MT_RET(ROOT->getUplink());
+
 	FindServer fs(name);
 	fs(*this);
 	boost::shared_ptr<Server> rv = fs.Result();
@@ -381,6 +389,9 @@ boost::shared_ptr<Server> Uplink::FindID(const std::string &id) const
 {
 	MT_EB
 	MT_FUNC("Uplink::FindID" << id);
+
+	if (id == ID())
+		MT_RET(ROOT->getUplink());
 
 	FindServerID fs(id);
 	fs(*this);
@@ -449,7 +460,7 @@ void Uplink::Push(const std::deque<Message> &in)
 
 	std::deque<Message>::const_iterator i;
 	for (i=in.begin(); i!=in.end(); ++i)
-		de_.Add(*i);
+		de.Add(*i);
 
 	MT_EE
 }
