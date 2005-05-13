@@ -219,6 +219,17 @@ void LiveUser::Quit(const std::string &reason)
 	MT_EE
 }
 
+void LiveUser::Kill(const boost::shared_ptr<LiveUser> &killer,
+					const std::string &reason)
+{
+	MT_EB
+	MT_FUNC("LiveUser::Kill" << killer << reason);
+
+	Quit("Killed: " + reason);
+
+	MT_EE
+}
+
 void LiveUser::AltHost(const std::string &in)
 {
 	MT_EB

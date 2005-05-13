@@ -126,7 +126,7 @@ class LiveChannel : private boost::noncopyable, public boost::totally_ordered1<L
 				const std::string &id);
 public:
 	static inline boost::shared_ptr<LiveChannel> create(const std::string &name,
-			const boost::posix_time::ptime &created,
+			const boost::posix_time::ptime &created = mantra::GetCurrentDateTime(),
 			const std::string &id = std::string())
 	{
 		boost::shared_ptr<LiveChannel> rv(new LiveChannel(name, created, id));
@@ -143,7 +143,8 @@ public:
 	bool operator==(const LiveChannel &rhs) const { return Name() == rhs.Name(); }
 
 	void Join(const boost::shared_ptr<LiveUser> &user);
-	void Part(const boost::shared_ptr<LiveUser> &user, const std::string &reason);
+	void Part(const boost::shared_ptr<LiveUser> &user,
+			  const std::string &reason = std::string());
 	void Kick(const boost::shared_ptr<LiveUser> &user,
 			  const boost::shared_ptr<LiveUser> &kicker, const std::string &reason);
 
@@ -174,9 +175,9 @@ public:
 	boost::posix_time::ptime Topic_Set_Time() const;
 
 	void Modes(const boost::shared_ptr<LiveUser> &user,
-			   const std::string &in);
+			   const std::string &in, const std::string &params = std::string());
 	void SendModes(const boost::shared_ptr<LiveUser> &user,
-				   const std::string &in);
+				   const std::string &in, const std::string &params = std::string());
 	std::string Modes() const;
 	std::string Modes_Key() const;
 	unsigned int Modes_Limit() const;

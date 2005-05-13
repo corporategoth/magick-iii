@@ -515,6 +515,9 @@ bool Protocol::Connect(const Uplink &s)
 				std::mktime(&tm_curr)).str());
 	}
 
+	if (opt_protocol["burst-end"].as<std::string>().empty())
+		addline(out, "PING :" + s.Name());
+
 	bool rv = send(out);
 	MT_RET(rv);
 
@@ -535,13 +538,14 @@ bool Protocol::SQUIT(const Jupe &s, const std::string &reason) const
 }
 
 bool Protocol::RAW(const Jupe &s, const std::string &cmd,
-				   const std::vector<std::string> &args) const
+				   const std::vector<std::string> &args,
+				   bool forcecolon) const
 {
 	MT_EB
 	MT_FUNC("Protocol::RAW" << s << cmd << args);
 
 	std::string ostr;
-	addline(s, ostr, tokenise(cmd) + assemble(args));
+	addline(s, ostr, tokenise(cmd) + assemble(args, forcecolon));
 	bool rv = send(ostr);
 
 	MT_RET(rv);
@@ -549,13 +553,14 @@ bool Protocol::RAW(const Jupe &s, const std::string &cmd,
 }
 
 bool Protocol::NUMERIC(Protocol::Numeric_t num, const std::string &target,
-					   const std::vector<std::string> &args) const
+					   const std::vector<std::string> &args,
+					   bool forcecolon) const
 {
 	MT_EB
 	MT_FUNC("Protocol::NUMERIC" << num << target << args);
 
 	std::string ostr, istr = boost::lexical_cast<std::string>(num) + " " +
-								target + assemble(args);
+								target + assemble(args, forcecolon);
 	addline(*(ROOT->uplink), ostr, istr);
 	bool rv = send(ostr);
 
@@ -573,6 +578,28 @@ bool Protocol::ERROR(const std::string &arg) const
 	bool rv = send(ostr);
 
 	MT_RET(rv);
+	MT_EE
+}
+
+void Protocol::BurstEnd() const
+{
+	MT_EB
+	MT_FUNC("Protocol::BurstEnd");
+
+	boost::shared_ptr<Uplink> uplink = ROOT->uplink;
+	if (!uplink)
+		return;
+
+	{
+		boost::mutex::scoped_lock sl(uplink->lock_);
+		if (uplink->burst_)
+			return;
+
+		uplink->burst_ = true;
+	}
+
+
+
 	MT_EE
 }
 

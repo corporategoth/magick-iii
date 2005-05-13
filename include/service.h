@@ -44,6 +44,7 @@ RCSID(magick__service_h, "@(#) $Id$");
 
 #include <boost/format.hpp>
 #include <boost/bind.hpp>
+#include <boost/tokenizer.hpp>
 
 class LiveUser;
 
@@ -123,6 +124,18 @@ public:
 				 const boost::shared_ptr<LiveUser> &user,
 				 const std::vector<std::string> &params,
 				 unsigned int key = 0) const;
+
+	bool Execute(const boost::shared_ptr<LiveUser> &service,
+				 const boost::shared_ptr<LiveUser> &user,
+				 const std::string &params, unsigned int key = 0) const
+	{
+		boost::char_separator<char> sep(" \t");
+		typedef boost::tokenizer<boost::char_separator<char>,
+			std::string::const_iterator, std::string> tokenizer;
+		tokenizer tokens(params, sep);
+		std::vector<std::string> v(tokens.begin(), tokens.end());
+		return Execute(service, user, v, key);
+	}
 };
 
 

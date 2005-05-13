@@ -179,19 +179,32 @@ public:
 	// Everything below needs locking ...
 
 	boost::shared_ptr<StoredNick> Stored() const;
-	void Quit(const std::string &reason);
+	void Quit(const std::string &reason = std::string());
+	void Kill(const boost::shared_ptr<LiveUser> &killer,
+			  const std::string &reason);
 
 	void AltHost(const std::string &in);
 	std::string AltHost() const;
 	bool AltMatches(const std::string &mask) const
 		{ return mantra::glob_match(mask, Name() + "!" + User() + "@" + AltHost(), true); }
+	inline std::string PrefHost() const
+	{
+		std::string rv = AltHost();
+		if (rv.empty())
+			return Host();
+		return rv;
+	}
 
-	void Away(const std::string &in = std::string());
+	void Away(const std::string &in);
 	std::string Away() const;
 
 	// The following alters modes, it doesn't outright set them.
 	void Modes(const std::string &in);
 	std::string Modes() const;
+	inline bool Mode(const char c) const
+	{
+		return (Modes().find(c) != std::string::npos);
+	}
 
 	bool Action();
 	bool Ignored() const;

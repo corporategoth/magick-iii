@@ -52,13 +52,20 @@ public:
 			ChannelExists,
 			ChannelNotExists,
 			NickInChannel,
-			NickNotInChannel
+			NickNotInChannel,
+			TYPE_MAX
 		};
 
 private:
+	typedef std::multimap<Type_t, std::string> outstanding_t;
+
 	Message msg_;
-	std::multimap<Type_t, std::string> outstanding_;
+	outstanding_t outstanding_;
 	unsigned int event_;
+
+	bool Exists(Type_t type, const std::string &meta) const;
+	bool Add(Type_t type, const std::string &meta);
+	bool Add(Type_t type, const std::string &meta1, const std::string &meta2);
 
 	void operator()();
 public:
@@ -78,7 +85,7 @@ class DependencyEngine
 	friend class Dependency;
 
 	boost::mutex lock_;
-	std::map<Dependency::Type_t, std::multimap<std::string, boost::shared_ptr<Dependency> > > outstanding_;
+	std::multimap<std::string, boost::shared_ptr<Dependency> > outstanding_[Dependency::TYPE_MAX];
 
 public:
 	void Add(const Message &m);

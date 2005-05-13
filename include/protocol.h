@@ -67,7 +67,8 @@ class Protocol
 	bool reload(const std::string &file);
 
 	const std::string &tokenise(const std::string &in) const;
-	std::string assemble(const std::vector<std::string> &in) const;
+	std::string assemble(const std::vector<std::string> &in,
+						 bool forcecolon = false) const;
 
 	void addline(std::string &out, const std::string &in) const;
 	void addline(const Jupe &server, std::string &out, const std::string &in) const;
@@ -78,16 +79,39 @@ class Protocol
 public:
 	enum Numeric_t
 		{
-			ADMINME = 256,
-			ADMINLOC1 = 257,
-			ADMINLOC2 = 258,
-			ADMINEMAIL = 259,
-			NOSUCHNICK = 401,
-			NOSUCHSERVER = 402,
-			NOSUCHCHANNEL = 403,
-			NEED_MORE_PARAMS = 461,
-			INCORRECT_PASSWORD = 464
+			nSTATSEND = 219,
+			nADMINME = 256,
+			nADMINLOC1 = 257,
+			nADMINLOC2 = 258,
+			nADMINEMAIL = 259,
+			nTRACEEND = 262,
+			nUSERHOST = 302,
+			nISON = 303,
+			nVERSION = 351,
+			nLINKS = 365,
+			nLINKSEND = 365,
+			nNAMESEND = 366,
+			nINFO = 371,
+			nMOTD = 372,
+			nINFOSTART = 373,
+			nINFOEND = 374,
+			nMOTDSTART = 375,
+			nMOTDEND = 376,
+			nTIME = 391,
+			nNOSUCHNICK = 401,
+			nNOSUCHSERVER = 402,
+			nNOSUCHCHANNEL = 403,
+			nNEED_MORE_PARAMS = 461,
+			nINCORRECT_PASSWORD = 464,
+			nSUMMONDISABLED = 445,
+			nUSERSDISABLED = 446
 		};
+
+	bool ConfigExists(const char *key) const
+		{ return opt_protocol.count(key) != 0; }
+	template<typename T>
+	T ConfigValue(const char *key) const
+		{ return opt_protocol[key].template as<T>(); }
 
 	bool IsServer(const std::string &in) const;
 	bool IsChannel(const std::string &in) const;
@@ -104,26 +128,32 @@ public:
 	bool SQUIT(const Jupe &s, const std::string &reason = std::string()) const;
 
 	bool RAW(const Jupe &s, const std::string &cmd,
-			 const std::vector<std::string> &args) const;
+			 const std::vector<std::string> &args,
+			 bool forcecolon = false) const;
 	inline bool RAW(const Jupe &s, const std::string &cmd,
-					const std::string &arg) const
+					const std::string &arg, bool forcecolon = false) const
 	{
 		std::vector<std::string> v;
 		v.push_back(arg);
-		return RAW(s, cmd, v);
+		return RAW(s, cmd, v, forcecolon);
 	}
 
 	bool NUMERIC(Numeric_t num, const std::string &target,
-				 const std::vector<std::string> &args) const;
+				 const std::vector<std::string> &args,
+				 bool forcecolon = false) const;
 	inline bool NUMERIC(Numeric_t num, const std::string &target,
-						const std::string &arg) const
+						const std::string &arg,
+						bool forcecolon = false) const
 	{
 		std::vector<std::string> v;
 		v.push_back(arg);
-		return NUMERIC(num, target, v);
+		return NUMERIC(num, target, v, forcecolon);
 	}
 
 	bool ERROR(const std::string &arg) const;
+
+	void BurstEnd() const;
+	boost::shared_ptr<Server> ParseServer(const Message &in) const;
 };
 
 #endif // _MAGICK_PROTOCOL_H

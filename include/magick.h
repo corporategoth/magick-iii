@@ -100,6 +100,14 @@ enum TraceTypes_t
 	{
 		MAGICK_TRACE_LOST,
 		MAGICK_TRACE_MAIN,
+		MAGICK_TRACE_WORKER,
+		MAGICK_TRACE_NICKSERV,	// All of these are PRIVMSG stuff.
+		MAGICK_TRACE_CHANSERV,
+		MAGICK_TRACE_MEMOSERV,
+		MAGICK_TRACE_COMMSERV,
+		MAGICK_TRACE_OPERSERV,
+		MAGICK_TRACE_OTHER,		// Other services, still PRIVMSG
+		MAGICK_TRACE_DCC,
 		MAGICK_TRACE_SIZE
 	};
 
@@ -120,7 +128,7 @@ class Magick
 	std::list<mantra::Logger<char> *> loggers;
 
 	bool disconnect, shutdown;
-	Uplink *uplink;
+	boost::shared_ptr<Uplink> uplink;
 
 	Service nickserv, chanserv, memoserv, commserv, operserv, other;
 
@@ -145,7 +153,7 @@ public:
 	T ConfigValue(const char *key) const
 		{ return opt_config[key].template as<T>(); }
 
-	Uplink *getUplink() const { return uplink; }
+	const boost::shared_ptr<Uplink> &getUplink() const { return uplink; }
 	Protocol proto;
 
 	mantra::Events *event;

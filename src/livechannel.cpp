@@ -427,20 +427,20 @@ boost::posix_time::ptime LiveChannel::Topic_Set_Time() const
 }
 
 void LiveChannel::Modes(const boost::shared_ptr<LiveUser> &user,
-						const std::string &in)
+						const std::string &in, const std::string &params)
 {
 	MT_EB
-	MT_FUNC("LiveChannel::Modes" << user << in);
+	MT_FUNC("LiveChannel::Modes" << user << in << params);
 
 
 	MT_EE
 }
 
 void LiveChannel::SendModes(const boost::shared_ptr<LiveUser> &user,
-							const std::string &in)
+							const std::string &in, const std::string &params)
 {
 	MT_EB
-	MT_FUNC("LiveChannel::SendModes" << user << in);
+	MT_FUNC("LiveChannel::SendModes" << user << in << params);
 
 
 	MT_EE

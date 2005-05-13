@@ -62,7 +62,7 @@ class Server
 	std::list<boost::shared_ptr<Server> > children_;
 
 protected:
-	void Disconnect();
+	virtual void Disconnect();
 
 public:
 	Server(const std::string &name, const std::string &desc,
@@ -124,8 +124,7 @@ class Uplink : public Jupe
 	std::deque<Message> pending_;
 	std::list<boost::thread *> workers_;
 	std::string password_;
-
-	DependencyEngine de_;
+	bool burst_;
 
 	bool write_;
 	mantra::FileBuffer flack_;
@@ -137,7 +136,7 @@ class Uplink : public Jupe
 public:
 	Uplink(const std::string &password,
 		   const std::string &id = std::string());
-	virtual ~Uplink();
+	virtual ~Uplink() { this->Disconnect(); }
 
 	boost::shared_ptr<Server> Find(const std::string &name) const;
 	boost::shared_ptr<Server> FindID(const std::string &id) const;
@@ -146,8 +145,13 @@ public:
 	void Connect(const boost::shared_ptr<Server> &s)
 		{ Server::Connect(s); }
 
+	using Server::Disconnect;
+	void Disconnect();
+
 	bool Write();
 	bool CheckPassword(const std::string &password) const;
+
+	DependencyEngine de;
 
 	// Pushes it onto the stack to be classified.
 	void Push(const std::deque<Message> &in);
