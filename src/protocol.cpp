@@ -33,6 +33,7 @@ RCSID(magick__protocol_cpp, "@(#)$Id$");
 ** ======================================================================= */
 
 #include "magick.h"
+#include "liveuser.h"
 
 #include <fstream>
 
@@ -108,9 +109,10 @@ Protocol::Protocol() : usetokens(false), enc_bits(0)
 		("kill-after-akill", mantra::value<bool>()->default_value(true),
 					"is a KILL required after an AKILL message")
 
-		// %1% = nick     %4% = server            %7% = ident
-		// %2% = user     %5% = signon time       %8% = modes
-		// %3% = host     %6% = hops              %9% = realname
+		// %1% = nick     %5% = signon time       %9%  = realname
+		// %2% = user     %6% = hops              %10% = service flag
+		// %3% = host     %7% = ident             %11% = alt. host
+		// %4% = server   %8% = modes             %12% = current time
 		("nick", mantra::value<std::string>()->default_value("NICK %1% %2% %3% %4% :%9%"),
 					"syntax of the NICK command to use.")
 
@@ -606,7 +608,7 @@ void Protocol::BurstEnd() const
 boost::shared_ptr<Server> Protocol::ParseServer(const Message &in) const
 {
 	MT_EB
-	MT_FUNC("Protocol::ParseServer");
+	MT_FUNC("Protocol::ParseServer" << in);
 
 	static mantra::unformat unformatter;
 	if (unformatter.EmptyElementRegex())
@@ -654,6 +656,115 @@ boost::shared_ptr<Server> Protocol::ParseServer(const Message &in) const
 
 	serv.reset(new Server(name, desc, id));
 	MT_RET(serv);
+	MT_EE
+}
+
+boost::shared_ptr<LiveUser> Protocol::ParseUser(const Message &in) const
+{
+	MT_EB
+	MT_FUNC("Protocol::ParseUser" << in);
+
+	static mantra::unformat unformatter;
+	if (unformatter.EmptyElementRegex())
+	{
+		static boost::mutex lock;
+		boost::mutex::scoped_lock scoped_lock(lock);
+		if (unformatter.EmptyElementRegex())
+		{
+			unformatter.ElementRegex(1, "[[:alpha:]\\x5B-\\x60\\x7B-\\x7D][-[:alnum:]\\x5B-\\x60\\x7B-\\x7D]*"); // nick
+			unformatter.ElementRegex(2, "[^[:space:][:cntrl:]@]+"); // user
+			unformatter.ElementRegex(3, "[-.[:alnum:]]+"); // host (verify later)
+			unformatter.ElementRegex(4, "(?:[[:alnum:]][-[:alnum:]]*\\.)*"
+										"[[:alnum:]][-[:alnum:]]*"); // server
+			unformatter.ElementRegex(5, "[[:digit:]]+"); // signon time
+			unformatter.ElementRegex(6, "[[:digit:]]+"); // hops
+			unformatter.ElementRegex(7, "[^[:space:]]+"); // numeric
+			unformatter.ElementRegex(8, "\\+?[[:alpha:]]+"); // modes
+			// unformatter.ElementRegex(9, ".*"); // real name
+			unformatter.ElementRegex(10, "[[:digit:]]+"); // service flag
+			unformatter.ElementRegex(11, "[-.[:alnum:]]+"); // alt. host (verify later)
+			unformatter.ElementRegex(12, "[[:digit:]]+"); // current time
+		}
+	}
+
+	boost::shared_ptr<LiveUser> liveuser;
+	mantra::unformat::elem_map elems;
+	if (!unformatter(opt_protocol["nick"].as<std::string>(),
+					 in.ID() + assemble(in.Params(), true), elems,
+					 mantra::unformat::MergeSpaces))
+		MT_RET(liveuser);
+
+	mantra::unformat::elem_map::iterator i = elems.find(1);
+	if (i == elems.end())
+		MT_RET(liveuser);
+	std::string name = i->second;
+
+	i = elems.find(2);
+	if (i == elems.end())
+		MT_RET(liveuser);
+	std::string user = i->second;
+
+	i = elems.find(3);
+	if (i == elems.end())
+		MT_RET(liveuser);
+	std::string host = i->second;
+	if (!(mantra::is_hostname(host) ||
+		  mantra::is_inet_address(host) ||
+		  mantra::is_inet6_address(host)))
+		MT_RET(liveuser);
+
+	i = elems.find(9);
+	if (i == elems.end())
+		MT_RET(liveuser);
+	std::string real = i->second;
+
+	i = elems.find(4);
+	if (i == elems.end())
+		MT_RET(liveuser);
+	boost::shared_ptr<Server> serv = ROOT->getUplink()->Find(i->second);
+	if (!serv)
+		MT_RET(liveuser);
+
+	boost::posix_time::ptime signon(boost::date_time::not_a_date_time);
+	i = elems.find(5);
+	if (i != elems.end())
+		signon = boost::posix_time::from_time_t(boost::lexical_cast<time_t>(i->second));
+	else
+		signon = mantra::GetCurrentDateTime();
+
+	std::string id;
+	i = elems.find(7);
+	if (i != elems.end())
+	{
+		if (opt_protocol["numeric.server-numeric"].as<bool>())
+			id = NumericToID(boost::lexical_cast<unsigned int>(i->second));
+		else
+			id = i->second;
+	}
+
+	std::string modes;
+	i = elems.find(8);
+	if (i != elems.end())
+		modes = i->second;
+
+	std::string althost;
+	i = elems.find(11);
+	if (i != elems.end())
+	{
+		althost = i->second;
+		if (!(mantra::is_hostname(althost) ||
+			  mantra::is_inet_address(althost) ||
+			  mantra::is_inet6_address(althost)))
+			MT_RET(liveuser);
+	}
+
+	liveuser = LiveUser::create(name, real, user, host, serv, signon, id);
+	if (!modes.empty())
+		liveuser->Modes(modes);
+	if (!althost.empty())
+		liveuser->AltHost(althost);
+
+	MT_RET(liveuser);
 	MT_EE
 }
 

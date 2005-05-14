@@ -243,7 +243,19 @@ static bool biCLIENT(const Message &m)
 	MT_EB
 	MT_FUNC("biCLIENT" << m);
 
-	// TODO: Sign on user.
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
+	boost::shared_ptr<LiveUser> user = ROOT->proto.ParseUser(m);
+	if (!user)
+	{
+		LOG(Error, _("Failed to parse signon message: %1%"), m);
+		MT_RET(false);
+	}
+
+	ROOT->data.Add(user);
+	uplink->de.Satisfy(Dependency::NickExists, user->Name());
 
 	MT_RET(true);
 	MT_EE
@@ -253,6 +265,10 @@ static bool biCREATE(const Message &m)
 {
 	MT_EB
 	MT_FUNC("biCREATE" << m);
+
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
 
 	if (m.Params().size() < 1)
 	{
@@ -292,9 +308,12 @@ static bool biCREATE(const Message &m)
 		{
 			channel = LiveChannel::create(*i);
 			ROOT->data.Add(channel);
+			uplink->de.Satisfy(Dependency::ChannelExists, channel->Name());
 		}
 
 		channel->Join(user);
+		uplink->de.Satisfy(Dependency::NickInChannel, user->Name(),
+						   channel->Name());
 		channel->Modes(boost::shared_ptr<LiveUser>(), "+o", user->Name());
 	}
 
@@ -307,6 +326,10 @@ static bool biCYCLE(const Message &m)
 {
 	MT_EB
 	MT_FUNC("biCYCLE" << m);
+
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
 
 	if (m.Params().size() < 1)
 	{
@@ -345,8 +368,21 @@ static bool biCYCLE(const Message &m)
 		MT_RET(false);
 	}
 
+	if (!channel->IsUser(user))
+	{
+		std::vector<std::string> v;
+		v.push_back(m.Params()[0]);
+		v.push_back(_("You're not on that channel"));
+		ROOT->proto.NUMERIC(Protocol::nUSERNOTINCHANNEL, m.Source(), v, true);
+		MT_RET(false);
+	}
+
 	channel->Part(user);
+	uplink->de.Satisfy(Dependency::NickNotInChannel, user->Name(),
+					   channel->Name());
 	channel->Join(user);
+	uplink->de.Satisfy(Dependency::NickInChannel, user->Name(),
+					   channel->Name());
 
 	MT_RET(true);
 	MT_EE
@@ -401,6 +437,10 @@ static bool biJOIN(const Message &m)
 	MT_EB
 	MT_FUNC("biJOIN" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	if (m.Params().size() < 1)
 	{
 		std::vector<std::string> v;
@@ -439,9 +479,12 @@ static bool biJOIN(const Message &m)
 		{
 			channel = LiveChannel::create(*i);
 			ROOT->data.Add(channel);
+			uplink->de.Satisfy(Dependency::ChannelExists, channel->Name());
 		}
 
 		channel->Join(user);
+		uplink->de.Satisfy(Dependency::NickInChannel, user->Name(),
+						   channel->Name());
 	}
 
 	MT_RET(true);
@@ -684,7 +727,82 @@ static bool biNICK(const Message &m)
 	MT_EB
 	MT_FUNC("biNICK" << m);
 
-	// TODO: Nickname signon stuff ..
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
+	boost::shared_ptr<LiveUser> user = ROOT->proto.ParseUser(m);
+	if (!user)
+	{
+		LOG(Error, _("Failed to parse signon message: %1%"), m);
+		MT_RET(false);
+	}
+
+	ROOT->data.Add(user);
+	uplink->de.Satisfy(Dependency::NickExists, user->Name());
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool biPART(const Message &m)
+{
+	MT_EB
+	MT_FUNC("biPART" << m);
+
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
+	if (m.Params().size() < 1)
+	{
+		std::vector<std::string> v;
+		v.push_back(m.ID());
+		v.push_back(_("Not enough parameters"));
+		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v, true);
+		MT_RET(false);
+	}
+
+	// No use sending back a message they won't get.
+	if (ROOT->proto.IsServer(m.Source()) ||
+		ROOT->proto.IsChannel(m.Source()))
+		MT_RET(false);
+
+	boost::shared_ptr<LiveUser> user = ROOT->data.Get_LiveUser(m.Source());
+	if (!user)
+		MT_RET(false);
+
+	if (!ROOT->proto.IsChannel(m.Params()[0]))
+	{
+		std::vector<std::string> v;
+		v.push_back(m.Params()[0]);
+		v.push_back(_("No such channel"));
+		ROOT->proto.NUMERIC(Protocol::nNOSUCHCHANNEL, m.Source(), v, true);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<LiveChannel> channel = ROOT->data.Get_LiveChannel(m.Params()[0]);
+	if (!channel)
+	{
+		std::vector<std::string> v;
+		v.push_back(m.Params()[0]);
+		v.push_back(_("No such channel"));
+		ROOT->proto.NUMERIC(Protocol::nNOSUCHCHANNEL, m.Source(), v, true);
+		MT_RET(false);
+	}
+
+	if (!channel->IsUser(user))
+	{
+		std::vector<std::string> v;
+		v.push_back(m.Params()[0]);
+		v.push_back(_("You're not on that channel"));
+		ROOT->proto.NUMERIC(Protocol::nUSERNOTINCHANNEL, m.Source(), v, true);
+		MT_RET(false);
+	}
+
+	channel->Part(user);
+	uplink->de.Satisfy(Dependency::NickNotInChannel, user->Name(),
+					   channel->Name());
 
 	MT_RET(true);
 	MT_EE
@@ -1230,7 +1348,19 @@ static bool biUSER(const Message &m)
 	MT_EB
 	MT_FUNC("biUSER" << m);
 
-	// TODO: Another user signon *sigh*.
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
+	boost::shared_ptr<LiveUser> user = ROOT->proto.ParseUser(m);
+	if (!user)
+	{
+		LOG(Error, _("Failed to parse signon message: %1%"), m);
+		MT_RET(false);
+	}
+
+	ROOT->data.Add(user);
+	uplink->de.Satisfy(Dependency::NickExists, user->Name());
 
 	MT_RET(true);
 	MT_EE
@@ -1472,6 +1602,7 @@ void Message::ResetCommands()
 	func_map["MOTD"] = &biMOTD;
 	func_map["NAMES"] = &biNAMES;
 	func_map["NICK"] = &biNICK;
+	func_map["PART"] = &biPART;
 	func_map["PASS"] = &biPASS;
 	func_map["PING"] = &biPING;
 	func_map["PONG"] = &biPONG;

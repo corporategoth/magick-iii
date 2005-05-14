@@ -50,6 +50,7 @@ struct remote_connection
 	unsigned int numeric;
 };
 
+class LiveUser;
 class Protocol
 {
 	friend class Magick;
@@ -103,6 +104,7 @@ public:
 			nNOSUCHCHANNEL = 403,
 			nNEED_MORE_PARAMS = 461,
 			nINCORRECT_PASSWORD = 464,
+			nUSERNOTINCHANNEL = 442,
 			nSUMMONDISABLED = 445,
 			nUSERSDISABLED = 446
 		};
@@ -154,6 +156,7 @@ public:
 
 	void BurstEnd() const;
 	boost::shared_ptr<Server> ParseServer(const Message &in) const;
+	boost::shared_ptr<LiveUser> ParseUser(const Message &in) const;
 };
 
 #endif // _MAGICK_PROTOCOL_H
