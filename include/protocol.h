@@ -62,6 +62,7 @@ class Protocol
 	std::map<std::string, std::string> fwd_tokens;
 	std::map<std::string, std::string, mantra::iless<std::string> > rev_tokens;
 	unsigned char enc_bits, encoding[128], rev_encoding[256];
+	size_t param_server_name, param_server_id, param_nick_name, param_nick_id, param_nick_server;
 
 	Protocol();
 	void init();
@@ -114,6 +115,12 @@ public:
 	template<typename T>
 	T ConfigValue(const char *key) const
 		{ return opt_protocol[key].template as<T>(); }
+
+	size_t Param_Server_Name() const { return param_server_name; }
+	size_t Param_Server_ID() const { return param_server_id; }
+	size_t Param_Nick_Name() const { return param_nick_name; }
+	size_t Param_Nick_ID() const { return param_nick_id; }
+	size_t Param_Nick_Server() const { return param_nick_server; }
 
 	bool IsServer(const std::string &in) const;
 	bool IsChannel(const std::string &in) const;

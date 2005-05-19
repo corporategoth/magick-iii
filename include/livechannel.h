@@ -176,8 +176,12 @@ public:
 
 	void Modes(const boost::shared_ptr<LiveUser> &user,
 			   const std::string &in, const std::string &params = std::string());
+	void Modes(const boost::shared_ptr<LiveUser> &user,
+			   const std::string &in, const std::vector<std::string> &params);
 	void SendModes(const boost::shared_ptr<LiveUser> &user,
 				   const std::string &in, const std::string &params = std::string());
+	void SendModes(const boost::shared_ptr<LiveUser> &user,
+				   const std::string &in, const std::vector<std::string> &params);
 	std::string Modes() const;
 	std::string Modes_Key() const;
 	unsigned int Modes_Limit() const;

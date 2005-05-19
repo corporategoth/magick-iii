@@ -139,23 +139,11 @@ static bool biAWAY(const Message &m)
 
 	if (ROOT->proto.IsServer(m.Source()) ||
 		ROOT->proto.IsChannel(m.Source()))
-	{
-		std::vector<std::string> v;
-		v.push_back(m.Source());
-		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
 		MT_RET(false);
-	}
 
 	boost::shared_ptr<LiveUser> user = ROOT->data.Get_LiveUser(m.Source());
 	if (!user)
-	{
-		std::vector<std::string> v;
-		v.push_back(m.Source());
-		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
 		MT_RET(false);
-	}
 
 	if (m.Params().empty())
 		user->Away(std::string());
@@ -218,7 +206,7 @@ static bool biCHGHOST(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Params()[0], v, true);
+		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -228,7 +216,7 @@ static bool biCHGHOST(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Params()[0], v, true);
+		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -474,7 +462,7 @@ static bool biJOIN(const Message &m)
 			ROOT->proto.NUMERIC(Protocol::nNOSUCHCHANNEL, m.Source(), v, true);
 		}
 
-		boost::shared_ptr<LiveChannel> channel = ROOT->data.Get_LiveChannel(m.Params()[0]);
+		boost::shared_ptr<LiveChannel> channel = ROOT->data.Get_LiveChannel(*i);
 		if (!channel)
 		{
 			channel = LiveChannel::create(*i);
@@ -542,7 +530,7 @@ static bool biKICK(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[1]);
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Params()[1], v, true);
+		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -552,7 +540,7 @@ static bool biKICK(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[1]);
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Params()[1], v, true);
+		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -590,7 +578,7 @@ static bool biKILL(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Params()[0], v, true);
+		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -600,7 +588,7 @@ static bool biKILL(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Params()[0], v, true);
+		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -677,7 +665,7 @@ static bool biMODE(const Message &m)
 			std::vector<std::string> v;
 			v.push_back(m.Params()[0]);
 			v.push_back(_("No such nickname"));
-			ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Params()[0], v, true);
+			ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
 			MT_RET(false);
 		}
 
@@ -688,7 +676,7 @@ static bool biMODE(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Params()[0], v, true);
+		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -717,7 +705,6 @@ static bool biNAMES(const Message &m)
 	MT_EB
 	MT_FUNC("biNAMES" << m);
 
-
 	MT_RET(true);
 	MT_EE
 }
@@ -731,15 +718,45 @@ static bool biNICK(const Message &m)
 	if (!uplink)
 		MT_RET(false);
 
-	boost::shared_ptr<LiveUser> user = ROOT->proto.ParseUser(m);
-	if (!user)
+	if (m.Params().size() < 1)
 	{
-		LOG(Error, _("Failed to parse signon message: %1%"), m);
+		std::vector<std::string> v;
+		v.push_back(m.ID());
+		v.push_back(_("Not enough parameters"));
+		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v, true);
 		MT_RET(false);
 	}
 
-	ROOT->data.Add(user);
-	uplink->de.Satisfy(Dependency::NickExists, user->Name());
+	if (m.Params().size() < 4)
+	{
+		if (ROOT->proto.IsServer(m.Source()) ||
+			ROOT->proto.IsChannel(m.Source()))
+			MT_RET(false);
+
+		boost::shared_ptr<LiveUser> user = ROOT->data.Get_LiveUser(m.Source());
+		if (!user)
+			MT_RET(false);
+
+		user->Name(m.Params()[0]);
+		uplink->de.Satisfy(Dependency::NickNotExists, m.Source());
+		uplink->de.Satisfy(Dependency::NickExists, m.Params()[0]);
+	}
+	else
+	{
+		boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+		if (!uplink)
+			MT_RET(false);
+
+		boost::shared_ptr<LiveUser> user = ROOT->proto.ParseUser(m);
+		if (!user)
+		{
+			LOG(Error, _("Failed to parse signon message: %1%"), m);
+			MT_RET(false);
+		}
+
+		ROOT->data.Add(user);
+		uplink->de.Satisfy(Dependency::NickExists, user->Name());
+	}
 
 	MT_RET(true);
 	MT_EE
@@ -961,7 +978,7 @@ static bool biPRIVMSG(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Params()[0], v, true);
+		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -971,7 +988,7 @@ static bool biPRIVMSG(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Params()[0], v, true);
+		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -1082,7 +1099,7 @@ static bool biSERVICE(const Message &m)
 	MT_EB
 	MT_FUNC("biSERVICE" << m);
 
-	// TODO: Sign on
+	// TODO: Service user create.
 
 	MT_RET(true);
 	MT_EE
@@ -1093,7 +1110,151 @@ static bool biSJOIN(const Message &m)
 	MT_EB
 	MT_FUNC("biSJOIN" << m);
 
-	// TODO: Join on steroids.
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
+	if (ROOT->proto.IsServer(m.Source()))
+	{
+		if (!ROOT->proto.IsChannel(m.Params()[1]))
+		{
+			std::vector<std::string> v;
+			v.push_back(m.Params()[1]);
+			v.push_back(_("No such channel"));
+			ROOT->proto.NUMERIC(Protocol::nNOSUCHCHANNEL, m.Source(), v, true);
+		}
+
+		boost::shared_ptr<LiveChannel> channel = ROOT->data.Get_LiveChannel(m.Params()[1]);
+		if (!channel)
+		{
+			channel = LiveChannel::create(m.Params()[1]);
+			ROOT->data.Add(channel);
+			uplink->de.Satisfy(Dependency::ChannelExists, channel->Name());
+		}
+
+		std::string modes = m.Params()[2];
+		std::vector<std::string> mode_params;
+		if (m.Params().size() > 4)
+		{
+			if (m.Params()[3] != "<none>")
+				for (size_t i=3; i < m.Params().size()-1; ++i)
+					mode_params.push_back(m.Params()[i]);
+		}
+
+		boost::char_separator<char> sep(" \t");
+		typedef boost::tokenizer<boost::char_separator<char>,
+			std::string::const_iterator, std::string> tokenizer;
+		tokenizer tokens(m.Params()[m.Params().size()-1], sep);
+		tokenizer::iterator i;
+		for (i = tokens.begin(); i != tokens.end(); ++i)
+		{
+			bool nonuser = false;
+
+			for (size_t j=0; j<i->size(); ++j)
+			{
+				switch ((*i)[j])
+				{
+				case '@':
+					modes += 'o';
+					break;
+				case '%':
+					modes += 'h';
+					break;
+				case '+':
+					modes += 'v';
+					break;
+				case '*':
+					modes += 'q';
+					break;
+				case '.':
+					modes += 'u';
+					break;
+				case '~':
+					modes += 'a';
+					break;
+				case '&':
+					modes += 'b';
+					nonuser = true;
+					break;
+				case '"':
+					modes += 'e';
+					nonuser = true;
+					break;
+				default:
+					if (nonuser)
+					{
+						std::string param = i->substr(j);
+						for (size_t k=0; k<j; ++k)
+							mode_params.push_back(param);
+					}
+					else
+					{
+						std::string param = i->substr(j);
+						if (ROOT->proto.IsServer(param) ||
+							ROOT->proto.IsChannel(param))
+						{
+							std::vector<std::string> v;
+							v.push_back(param);
+							v.push_back(_("No such nickname"));
+							ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
+							break;
+						}
+
+						boost::shared_ptr<LiveUser> user = ROOT->data.Get_LiveUser(param);
+						if (!user)
+						{
+							std::vector<std::string> v;
+							v.push_back(param);
+							v.push_back(_("No such nickname"));
+							ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
+							break;
+						}
+
+						for (size_t k=0; k<j; ++k)
+							mode_params.push_back(param);
+
+						channel->Join(user);
+						uplink->de.Satisfy(Dependency::NickInChannel, user->Name(),
+										   channel->Name());
+
+					}
+					j = i->size();
+				}
+			}
+		}
+		if (!modes.empty())
+			channel->Modes(boost::shared_ptr<LiveUser>(), modes, mode_params);
+	}
+	else if (!ROOT->proto.IsChannel(m.Source()))
+	{
+		boost::shared_ptr<LiveUser> user = ROOT->data.Get_LiveUser(m.Source());
+		if (!user)
+			MT_RET(false);
+
+		for (size_t i=1; i<m.Params().size(); ++i)
+		{
+			if (!ROOT->proto.IsChannel(m.Params()[i]))
+			{
+				std::vector<std::string> v;
+				v.push_back(m.Params()[i]);
+				v.push_back(_("No such channel"));
+				ROOT->proto.NUMERIC(Protocol::nNOSUCHCHANNEL, m.Source(), v, true);
+				continue;
+			}
+
+			boost::shared_ptr<LiveChannel> channel = ROOT->data.Get_LiveChannel(m.Params()[i]);
+			if (!channel)
+			{
+				channel = LiveChannel::create(m.Params()[i]);
+				ROOT->data.Add(channel);
+				uplink->de.Satisfy(Dependency::ChannelExists, channel->Name());
+			}
+
+			channel->Join(user);
+			uplink->de.Satisfy(Dependency::NickInChannel, user->Name(),
+							   channel->Name());
+		}
+	}
 
 	MT_RET(true);
 	MT_EE
@@ -1221,7 +1382,7 @@ static bool biTMODE(const Message &m)
 			std::vector<std::string> v;
 			v.push_back(m.Params()[0]);
 			v.push_back(_("No such nickname"));
-			ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Params()[0], v, true);
+			ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
 			MT_RET(false);
 		}
 
@@ -1232,7 +1393,7 @@ static bool biTMODE(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Params()[0], v, true);
+		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
 		MT_RET(false);
 	}
 	MT_RET(true);
@@ -1388,7 +1549,7 @@ static bool biUSERHOST(const Message &m)
 			std::vector<std::string> v;
 			v.push_back(m.Params()[i]);
 			v.push_back(_("No such nickname"));
-			ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Params()[i], v, true);
+			ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
 			continue;
 		}
 

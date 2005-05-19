@@ -196,6 +196,7 @@ void LiveUser::Quit(const std::string &reason)
 
 	// Part channels
 	{
+		SYNC_LOCK(channel_joined_);
 		channel_joined_t::const_iterator i;
 		for (i=channel_joined_.begin(); i!=channel_joined_.end(); ++i)
 			if_LiveChannel_LiveUser(*i).Quit(self.lock());
@@ -203,6 +204,7 @@ void LiveUser::Quit(const std::string &reason)
 	}
 	// UnIdentify channels
 	{
+		SYNC_LOCK(channel_identified_);
 		channel_identified_t::const_iterator i;
 		for (i=channel_identified_.begin(); i!=channel_identified_.end(); ++i)
 			if_StoredChannel_LiveUser(*i).UnIdentify(self.lock());
@@ -212,9 +214,14 @@ void LiveUser::Quit(const std::string &reason)
 	// Tell nickname I quit
 	{
 		SYNC_WLOCK(stored_);
-		if_StoredNick_LiveUser(stored_).Quit(reason);
-		stored_.reset();
+		if (stored_)
+		{
+			if_StoredNick_LiveUser(stored_).Quit(reason);
+			stored_.reset();
+		}
 	}
+
+	if_StorageDeleter<LiveUser>(ROOT->data).Del(self.lock());
 
 	MT_EE
 }

@@ -176,6 +176,12 @@ void LiveChannel::Part(const boost::shared_ptr<LiveUser> &user,
 		if_StoredChannel_LiveChannel(stored_).Part(user);
 	}
 
+	{
+		SYNC_WLOCK(users_);
+		if (users_.empty())
+			if_StorageDeleter<LiveChannel>(ROOT->data).Del(self.lock());
+	}
+
 	MT_EE
 }
 
@@ -201,6 +207,12 @@ void LiveChannel::Kick(const boost::shared_ptr<LiveUser> &user,
 			recent_parts_[user] = ROOT->event->Schedule(ClearPart(self.lock(), user), d);
 		}
 		if_StoredChannel_LiveChannel(stored_).Kick(user, kicker);
+	}
+
+	{
+		SYNC_WLOCK(users_);
+		if (users_.empty())
+			if_StorageDeleter<LiveChannel>(ROOT->data).Del(self.lock());
 	}
 
 	MT_EE
@@ -436,8 +448,28 @@ void LiveChannel::Modes(const boost::shared_ptr<LiveUser> &user,
 	MT_EE
 }
 
+void LiveChannel::Modes(const boost::shared_ptr<LiveUser> &user,
+						const std::string &in, const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("LiveChannel::Modes" << user << in << params);
+
+
+	MT_EE
+}
+
 void LiveChannel::SendModes(const boost::shared_ptr<LiveUser> &user,
 							const std::string &in, const std::string &params)
+{
+	MT_EB
+	MT_FUNC("LiveChannel::SendModes" << user << in << params);
+
+
+	MT_EE
+}
+
+void LiveChannel::SendModes(const boost::shared_ptr<LiveUser> &user,
+							const std::string &in, const std::vector<std::string> &params)
 {
 	MT_EB
 	MT_FUNC("LiveChannel::SendModes" << user << in << params);

@@ -129,7 +129,6 @@ public:
 			 boost::logic::tribool deep = boost::logic::indeterminate) const;
 	boost::shared_ptr<Committee> Get_Committee(const std::string &name,
 			 boost::logic::tribool deep = boost::logic::indeterminate) const;
-
 };
 
 // Perfect way to do single-table access :)

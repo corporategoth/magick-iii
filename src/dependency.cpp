@@ -211,15 +211,106 @@ void Dependency::Update()
 			Add(NickExists, msg_.Source());
 	}
 
+	if (msg_.Params().empty())
+		return;
+
 	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
 	if (!uplink)
 		return;
 
-	if (msg_.ID() == "PING")
+	if (msg_.ID() == "CREATE")
 	{
-		if (msg_.Params().empty())
+		boost::char_separator<char> sep(",");
+		typedef boost::tokenizer<boost::char_separator<char>,
+			std::string::const_iterator, std::string> tokenizer;
+		tokenizer tokens(msg_.Params()[0], sep);
+		tokenizer::iterator i;
+		for (i = tokens.begin(); i != tokens.end(); ++i)
+			Add(ChannelNotExists, *i);
+	}
+	else if (msg_.ID() == "CYCLE")
+	{
+		if (ROOT->proto.IsServer(msg_.Source()) ||
+			ROOT->proto.IsChannel(msg_.Source()))
 			return;
 
+		Add(ChannelExists, msg_.Params()[0]);
+		Add(NickInChannel, msg_.Source(), msg_.Params()[0]);
+	}
+	else if (msg_.ID() == "JOIN")
+	{
+		boost::char_separator<char> sep(",");
+		typedef boost::tokenizer<boost::char_separator<char>,
+			std::string::const_iterator, std::string> tokenizer;
+		tokenizer tokens(msg_.Params()[0], sep);
+		tokenizer::iterator i;
+		for (i = tokens.begin(); i != tokens.end(); ++i)
+			Add(NickNotInChannel, msg_.Source(), *i);
+	}
+	else if (msg_.ID() == "KICK")
+	{
+		Add(ChannelExists, msg_.Params()[0]);
+		Add(NickExists, msg_.Params()[1]);
+		Add(NickInChannel, msg_.Params()[1], msg_.Params()[0]);
+	}
+	else if (msg_.ID() == "KILL")
+	{
+		Add(NickExists, msg_.Params()[0]);
+	}
+	else if (msg_.ID() == "MODE")
+	{
+		if (ROOT->proto.IsChannel(msg_.Params()[0]))
+		{
+			Add(ChannelExists, msg_.Params()[0]);
+
+			if (msg_.Params().size() > 2)
+			{
+				boost::char_separator<char> sep(" \t");
+				typedef boost::tokenizer<boost::char_separator<char>,
+					std::string::const_iterator, std::string> tokenizer;
+				tokenizer tokens(msg_.Params()[msg_.Params().size()-1], sep);
+				tokenizer::iterator j = tokens.begin();
+
+				std::string::const_iterator i;
+				for (i = msg_.Params()[1].begin(); i != msg_.Params()[1].end(); ++i)
+				{
+					if (ROOT->proto.ConfigValue<std::string>("channel-mode-params").find(*i) != std::string::npos)
+					{
+						switch (*i)
+						{
+						case 'o':
+						case 'h':
+						case 'v':
+						case 'q':
+						case 'u':
+						case 'a':
+							Add(NickInChannel, *j);
+							break;
+						}
+						++j;
+					}
+				}
+			}
+		}
+		else if (!ROOT->proto.IsServer(msg_.Params()[0]))
+			Add(NickExists, msg_.Params()[0]);
+	}
+	else if (msg_.ID() == "NICK")
+	{
+		if (msg_.Params().size() > ROOT->proto.Param_Nick_Name())
+			Add(NickNotExists, msg_.Params()[ROOT->proto.Param_Nick_Name()]);
+//        else if (msg_.Params().size() > ROOT->proto.Param_Nick_ID())
+//            Add(NickNotExists, msg_.Params()[ROOT->proto.Param_Nick_ID()]);
+		else if (msg_.Params().size() > ROOT->proto.Param_Nick_Server())
+			Add(ServerExists, msg_.Params()[ROOT->proto.Param_Nick_Server()]);
+	}
+	else if (msg_.ID() == "PART")
+	{
+		Add(ChannelExists, msg_.Params()[0]);
+		Add(NickInChannel, msg_.Source(), msg_.Params()[0]);
+	}
+	else if (msg_.ID() == "PING")
+	{
 		if (ROOT->proto.IsServer(msg_.Params()[0]))
 			Add(ServerExists, msg_.Params()[0]);
 		else if (!ROOT->proto.IsChannel(msg_.Params()[0]))
@@ -232,6 +323,116 @@ void Dependency::Update()
 			else if (!ROOT->proto.IsChannel(msg_.Params()[1]))
 				Add(NickExists, msg_.Params()[1]);
 		}
+	}
+	else if (msg_.ID() == "PONG")
+	{
+		if (ROOT->proto.IsServer(msg_.Params()[0]))
+			Add(ServerExists, msg_.Params()[0]);
+		else if (!ROOT->proto.IsChannel(msg_.Params()[0]))
+			Add(NickExists, msg_.Params()[0]);
+	}
+	else if (msg_.ID() == "PRIVMSG")
+	{
+		if (ROOT->proto.IsServer(msg_.Params()[0]))
+			Add(ServerExists, msg_.Params()[0]);
+		else if (!ROOT->proto.IsChannel(msg_.Params()[0]))
+			Add(NickExists, msg_.Params()[0]);
+		else
+			Add(ChannelExists, msg_.Params()[0]);
+	}
+	else if (msg_.ID() == "SERVER")
+	{
+		if (msg_.Params().size() > ROOT->proto.Param_Server_Name())
+			Add(ServerNotExists, msg_.Params()[ROOT->proto.Param_Server_Name()]);
+//        else if (msg_.Params().size() > ROOT->proto.Param_Server_ID())
+//            Add(ServerNotExists, msg_.Params()[ROOT->proto.Param_Server_ID()]);
+	}
+	else if (msg_.ID() == "SJOIN")
+	{
+		if (ROOT->proto.IsServer(msg_.Source()))
+		{
+			if (msg_.Params().size() > 3)
+			{
+				Add(ChannelNotExists, msg_.Params()[1]);
+				boost::char_separator<char> sep(" \t");
+				typedef boost::tokenizer<boost::char_separator<char>,
+					std::string::const_iterator, std::string> tokenizer;
+				tokenizer tokens(msg_.Params()[msg_.Params().size()-1], sep);
+				tokenizer::iterator i;
+				for (i = tokens.begin(); i != tokens.end(); ++i)
+				{
+					if (i->find("&\"") == std::string::npos)
+					{
+						std::string::size_type j = i->find_first_not_of("@%+*.~");
+						if (j == std::string::npos)
+							j = 0;
+						std::string user = i->substr(j);
+						Add(NickExists, user);
+						Add(NickNotInChannel, user);
+					}
+				}
+			}
+		}
+		else if (!ROOT->proto.IsChannel(msg_.Source()))
+		{
+			for (size_t i=1; i<msg_.Params().size(); ++i)
+				Add(NickNotInChannel, msg_.Params()[i]);
+		}
+	}
+	else if (msg_.ID() == "SQUIT")
+	{
+		Add(ServerExists, msg_.Params()[0]);
+	}
+	else if (msg_.ID() == "TMODE")
+	{
+		if (ROOT->proto.IsChannel(msg_.Params()[0]))
+		{
+			Add(ChannelExists, msg_.Params()[0]);
+
+			if (msg_.Params().size() > 3)
+			{
+				boost::char_separator<char> sep(" \t");
+				typedef boost::tokenizer<boost::char_separator<char>,
+					std::string::const_iterator, std::string> tokenizer;
+				tokenizer tokens(msg_.Params()[msg_.Params().size()-1], sep);
+				tokenizer::iterator j = tokens.begin();
+
+				std::string::const_iterator i;
+				for (i = msg_.Params()[2].begin(); i != msg_.Params()[2].end(); ++i)
+				{
+					if (ROOT->proto.ConfigValue<std::string>("channel-mode-params").find(*i) != std::string::npos)
+					{
+						switch (*i)
+						{
+						case 'o':
+						case 'h':
+						case 'v':
+						case 'q':
+						case 'u':
+						case 'a':
+							Add(NickInChannel, *j);
+							break;
+						}
+						++j;
+					}
+				}
+			}
+		}
+		else if (!ROOT->proto.IsServer(msg_.Params()[0]))
+			Add(NickExists, msg_.Params()[0]);
+	}
+	else if (msg_.ID() == "TOPIC")
+	{
+		Add(ChannelExists, msg_.Params()[0]);
+	}
+	else if (msg_.ID() == "USER")
+	{
+		if (msg_.Params().size() > ROOT->proto.Param_Nick_Name())
+			Add(NickNotExists, msg_.Params()[ROOT->proto.Param_Nick_Name()]);
+//        else if (msg_.Params().size() > ROOT->proto.Param_Nick_ID())
+//            Add(NickNotExists, msg_.Params()[ROOT->proto.Param_Nick_ID()]);
+		else if (msg_.Params().size() > ROOT->proto.Param_Nick_Server())
+			Add(ServerExists, msg_.Params()[ROOT->proto.Param_Nick_Server()]);
 	}
 
 	MT_EE

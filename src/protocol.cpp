@@ -112,7 +112,7 @@ Protocol::Protocol() : usetokens(false), enc_bits(0)
 		// %1% = nick     %5% = signon time       %9%  = realname
 		// %2% = user     %6% = hops              %10% = service flag
 		// %3% = host     %7% = ident             %11% = alt. host
-		// %4% = server   %8% = modes             %12% = current time
+		// %4% = server   %8% = modes             %12% = IP address
 		("nick", mantra::value<std::string>()->default_value("NICK %1% %2% %3% %4% :%9%"),
 					"syntax of the NICK command to use.")
 
@@ -248,6 +248,35 @@ bool Protocol::reload(const std::string &file)
 			++enc_bits;
 			j /= 2;
 		}
+	}
+
+	param_server_name = param_server_id = 0;
+	typedef boost::tokenizer<boost::char_separator<char>,
+			std::string::const_iterator, std::string> tokenizer;
+	boost::char_separator<char> sep(" \t");
+	tokenizer tokens(opt_protocol["server"].as<std::string>(), sep);
+	tokenizer::const_iterator i = tokens.begin();
+	size_t j = 0;
+	for (++i; i!=tokens.end(); ++i, ++j)
+	{
+		if (*i == "%1%")
+			param_server_name = j;
+		else if (*i == "%4%")
+			param_server_id = j;
+	}
+
+	param_nick_name = param_nick_id = param_nick_server = 0;
+	tokenizer tokens2(opt_protocol["nick"].as<std::string>(), sep);
+	i = tokens.begin();
+	j = 0;
+	for (++i; i!=tokens.end(); ++i, ++j)
+	{
+		if (*i == "%1%")
+			param_nick_name = j;
+		else if (*i == "%4%")
+			param_nick_server = j;
+		else if (*i == "%7%")
+			param_nick_id = j;
 	}
 
 	MT_RET(true);
@@ -671,19 +700,20 @@ boost::shared_ptr<LiveUser> Protocol::ParseUser(const Message &in) const
 		boost::mutex::scoped_lock scoped_lock(lock);
 		if (unformatter.EmptyElementRegex())
 		{
-			unformatter.ElementRegex(1, "[[:alpha:]\\x5B-\\x60\\x7B-\\x7D][-[:alnum:]\\x5B-\\x60\\x7B-\\x7D]*"); // nick
+			unformatter.ElementRegex(1, "[[:alpha:]\\\\x5B-\\\\x60\\\\x7B-\\\\x7D]"
+										"[-[:alnum:]\\\\x5B-\\\\x60\\\\x7B-\\\\x7D]*"); // nick
 			unformatter.ElementRegex(2, "[^[:space:][:cntrl:]@]+"); // user
 			unformatter.ElementRegex(3, "[-.[:alnum:]]+"); // host (verify later)
-			unformatter.ElementRegex(4, "(?:[[:alnum:]][-[:alnum:]]*\\.)*"
+			unformatter.ElementRegex(4, "(?:[[:alnum:]][-[:alnum:]]*[.])*"
 										"[[:alnum:]][-[:alnum:]]*"); // server
 			unformatter.ElementRegex(5, "[[:digit:]]+"); // signon time
 			unformatter.ElementRegex(6, "[[:digit:]]+"); // hops
 			unformatter.ElementRegex(7, "[^[:space:]]+"); // numeric
-			unformatter.ElementRegex(8, "\\+?[[:alpha:]]+"); // modes
+			unformatter.ElementRegex(8, "[+]?[[:alpha:]]+"); // modes
 			// unformatter.ElementRegex(9, ".*"); // real name
 			unformatter.ElementRegex(10, "[[:digit:]]+"); // service flag
 			unformatter.ElementRegex(11, "[-.[:alnum:]]+"); // alt. host (verify later)
-			unformatter.ElementRegex(12, "[[:digit:]]+"); // current time
+			unformatter.ElementRegex(12, "[.:[:xdigit:]]+"); // current time
 		}
 	}
 
