@@ -44,11 +44,12 @@ Service::~Service()
 {
 }
 
-void Service::Set(const std::vector<std::string> &nicks)
+void Service::Set(const std::vector<std::string> &nicks, const std::string &real)
 {
 	MT_EB
 	MT_FUNC("Service::Set" << nicks);
 
+	real_ = real;
 	std::set<std::string, mantra::iless<std::string> > signoff;
 	if (!nicks.empty())
 	{
@@ -91,8 +92,38 @@ void Service::Check()
 	MT_EB
 	MT_FUNC("Service::Check");
 
-	if (!ROOT->getUplink())
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
 		return;
+
+	users_t users;
+	nicks_t::const_iterator i;
+	for (i = nicks_.begin(); i != nicks_.end(); ++i)
+	{
+		boost::shared_ptr<LiveUser> u = ROOT->data.Get_LiveUser(*i);
+		if (!u)
+		{
+			u = ROOT->proto.SIGNON(this, *i, real_);
+		}
+		else
+		{
+			const Service *s = u->GetService();
+			if (s == this)
+			{
+				users.insert(u);
+				continue;
+			}
+
+			if (u->GetServer() == uplink)
+				QUIT(u->Name(), _("Signing on as different service."));
+			else
+				ROOT->proto.KILL(u, _("Nickname reserved for services."));
+			u = ROOT->proto.SIGNON(this, *i, real_);
+		}
+		ROOT->data.Add(u);
+		users.insert(u);
+	}
+	users_.swap(users);
 
 	MT_EE
 }

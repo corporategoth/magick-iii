@@ -148,7 +148,7 @@ size_t Server::Opers() const
 Uplink::Uplink(const std::string &password, const std::string &id)
 	: Jupe(::ROOT->ConfigValue<std::string>("server-name"),
 		   ::ROOT->ConfigValue<std::string>("server-desc"), id,
-		   std::string()), password_(password),
+		   std::string()), password_(password), burst_(false),
 	  flack_(ROOT->ConfigValue<std::string>("filesystem.flack-dir"),
 			 ROOT->ConfigValue<unsigned int>("filesystem.flack-memory"))
 {

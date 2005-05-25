@@ -531,8 +531,9 @@ bool Protocol::Connect(const Uplink &s)
 	struct tm tm_curr = boost::posix_time::to_tm(curr);
 	struct tm tm_start = boost::posix_time::to_tm(ROOT->Start());
 
-	addline(out, (format(opt_protocol["server"].as<std::string>()) %
-			s.Name() % 1 % s.Description() %
+	boost::format f(opt_protocol["server"].as<std::string>());
+	f.exceptions(f.exceptions() & ~boost::io::too_many_args_bit);
+	addline(out, (f % s.Name() % 1 % s.Description() %
 			(opt_protocol["numeric.server-numeric"].as<bool>()
 				? boost::lexical_cast<std::string>(IDToNumeric(s.ID()))
 				: s.ID()) %
@@ -552,6 +553,55 @@ bool Protocol::Connect(const Uplink &s)
 	bool rv = send(out);
 	MT_RET(rv);
 
+	MT_EE
+}
+
+boost::shared_ptr<LiveUser> Protocol::SIGNON(const Service *s,
+											 const std::string &nick,
+											 const std::string &name) const
+{
+	MT_EB
+	MT_FUNC("Protocol::SIGNON" << s << nick << name);
+
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+
+	std::string user_str = nick;
+	if (ROOT->ConfigExists("services.user"))
+		user_str = ROOT->ConfigValue<std::string>("services.user");
+
+	std::string out;
+	boost::format f(opt_protocol["nick"].as<std::string>());
+	f.exceptions(f.exceptions() & ~boost::io::too_many_args_bit);
+	addline(out, (f % nick % user_str %
+				  ROOT->ConfigValue<std::string>("services.host") %
+				  uplink->Name() % time(NULL) % 1 % "" % "" % name % 1 %
+				  ROOT->ConfigValue<std::string>("services.host") %
+				  0x7F000001).str());
+
+	boost::shared_ptr<LiveUser> user;
+	if (!send(out))
+		return user;
+
+	user = LiveUser::create(s, nick, name, ROOT->uplink);
+
+	MT_RET(user);
+	MT_EE
+}
+
+bool Protocol::KILL(const boost::shared_ptr<LiveUser> &user,
+					const std::string &reason) const
+{
+	MT_EB
+	MT_FUNC("Protocol::KILL" << user << reason);
+
+	std::string out;
+	addline(*(ROOT->uplink), out, tokenise("KILL") + " " + user->Name() +
+			" :" + reason);
+	bool rv = send(out);
+	if (rv)
+		user->Kill(boost::shared_ptr<LiveUser>(), reason);
+
+	MT_RET(rv);
 	MT_EE
 }
 
@@ -629,7 +679,12 @@ void Protocol::BurstEnd() const
 		uplink->burst_ = true;
 	}
 
-
+	ROOT->nickserv.Check();
+	ROOT->chanserv.Check();
+	ROOT->memoserv.Check();
+	ROOT->operserv.Check();
+	ROOT->commserv.Check();
+	ROOT->other.Check();
 
 	MT_EE
 }

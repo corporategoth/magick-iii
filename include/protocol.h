@@ -134,6 +134,10 @@ public:
 	bool Connect(const Uplink &s);
 	bool Connect(const Jupe &s);
 
+	boost::shared_ptr<LiveUser> SIGNON(const Service *s, const std::string &nick,
+				const std::string &name) const;
+	bool KILL(const boost::shared_ptr<LiveUser> &user, const std::string &reason) const;
+
 	bool SQUIT(const Jupe &s, const std::string &reason = std::string()) const;
 
 	bool RAW(const Jupe &s, const std::string &cmd,

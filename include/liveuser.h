@@ -125,6 +125,7 @@ class LiveUser : private boost::noncopyable, public boost::totally_ordered1<Live
 
 	void unignore();
 	LiveUser(const Service *service, const std::string &name,
+			 const std::string &real,
 			 const boost::shared_ptr<Server> &server,
 			 const std::string &id);
 	LiveUser(const std::string &name, const std::string &real,
@@ -133,12 +134,12 @@ class LiveUser : private boost::noncopyable, public boost::totally_ordered1<Live
 			 const boost::posix_time::ptime &signon,
 			 const std::string &id);
 public:
-	static inline boost::shared_ptr<LiveUser> create(Service *s,
-			const std::string &name,
+	static inline boost::shared_ptr<LiveUser> create(const Service *s,
+			const std::string &name, const std::string &real,
 			const boost::shared_ptr<Server> &server,
 			const std::string &id = std::string())
 	{
-		boost::shared_ptr<LiveUser> rv(new LiveUser(s, name, server, id));
+		boost::shared_ptr<LiveUser> rv(new LiveUser(s, name, real, server, id));
 		rv->self = rv;
 		return rv;
 	}

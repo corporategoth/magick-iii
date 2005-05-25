@@ -46,10 +46,10 @@ RCSID(magick__liveuser_cpp, "@(#)$Id$");
 #include <boost/algorithm/string.hpp>
 
 LiveUser::LiveUser(const Service *service, const std::string &name,
+				   const std::string &real,
 				   const boost::shared_ptr<Server> &server,
 				   const std::string &id)
-	: SYNC_RWINIT(name_, reader_priority, name), id_(id),
-	  real_(ROOT->ConfigValue<std::string>("services.nickserv-name")),
+	: SYNC_RWINIT(name_, reader_priority, name), id_(id), real_(real),
 	  server_(server), signon_(mantra::GetCurrentDateTime()),
 	  seen_(mantra::GetCurrentDateTime()), service_(service),
 	  flood_triggers_(0), ignored_(false), identified_(true),

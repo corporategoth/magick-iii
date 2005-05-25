@@ -215,7 +215,7 @@ bool Magick::set_config(const po::variables_map &vm)
 			std::string::const_iterator, std::string> tokenizer;
 		tokenizer tokens(vm["services.nickserv"].as<std::string>(), sep);
 		std::vector<std::string> ent(tokens.begin(), tokens.end());
-		nickserv.Set(ent);
+		nickserv.Set(ent, vm["services.nickserv-name"].as<std::string>());
 	}
 	else
  		nickserv.Set(std::vector<std::string>());
@@ -227,7 +227,7 @@ bool Magick::set_config(const po::variables_map &vm)
 			std::string::const_iterator, std::string> tokenizer;
 		tokenizer tokens(vm["services.chanserv"].as<std::string>(), sep);
 		std::vector<std::string> ent(tokens.begin(), tokens.end());
-		chanserv.Set(ent);
+		chanserv.Set(ent, vm["services.chanserv-name"].as<std::string>());
 	}
 	else
  		chanserv.Set(std::vector<std::string>());
@@ -239,7 +239,7 @@ bool Magick::set_config(const po::variables_map &vm)
 			std::string::const_iterator, std::string> tokenizer;
 		tokenizer tokens(vm["services.memoserv"].as<std::string>(), sep);
 		std::vector<std::string> ent(tokens.begin(), tokens.end());
-		memoserv.Set(ent);
+		memoserv.Set(ent, vm["services.memoserv-name"].as<std::string>());
 	}
 	else
  		memoserv.Set(std::vector<std::string>());
@@ -251,7 +251,7 @@ bool Magick::set_config(const po::variables_map &vm)
 			std::string::const_iterator, std::string> tokenizer;
 		tokenizer tokens(vm["services.commserv"].as<std::string>(), sep);
 		std::vector<std::string> ent(tokens.begin(), tokens.end());
-		commserv.Set(ent);
+		commserv.Set(ent, vm["services.commserv-name"].as<std::string>());
 	}
 	else
  		commserv.Set(std::vector<std::string>());
@@ -263,7 +263,7 @@ bool Magick::set_config(const po::variables_map &vm)
 			std::string::const_iterator, std::string> tokenizer;
 		tokenizer tokens(vm["services.operserv"].as<std::string>(), sep);
 		std::vector<std::string> ent(tokens.begin(), tokens.end());
-		operserv.Set(ent);
+		operserv.Set(ent, vm["services.operserv-name"].as<std::string>());
 	}
 	else
  		operserv.Set(std::vector<std::string>());
@@ -275,7 +275,7 @@ bool Magick::set_config(const po::variables_map &vm)
 			std::string::const_iterator, std::string> tokenizer;
 		tokenizer tokens(vm["services.other"].as<std::string>(), sep);
 		std::vector<std::string> ent(tokens.begin(), tokens.end());
-		other.Set(ent);
+		other.Set(ent, vm["services.other-name"].as<std::string>());
 	}
 	else
  		operserv.Set(std::vector<std::string>());

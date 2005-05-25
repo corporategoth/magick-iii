@@ -54,6 +54,7 @@ public:
 	typedef boost::function3<bool, const boost::shared_ptr<LiveUser> &,
 							 const boost::shared_ptr<LiveUser> &,
 							 const std::vector<std::string> &> functor;
+	typedef std::set<std::string, mantra::iless<std::string> > nicks_t;
 
 private:
 	struct Command_t
@@ -64,10 +65,12 @@ private:
 	};
 
 	typedef std::deque<Command_t> func_map_t;
+	typedef std::set<boost::shared_ptr<LiveUser> > users_t;
 
+	std::string real_;
 	std::string primary_;
-	std::set<std::string, mantra::iless<std::string> > nicks_;
-	std::set<boost::shared_ptr<LiveUser> > users_;
+	nicks_t nicks_;
+	users_t users_;
 
 	func_map_t RWSYNC(func_map_);
 
@@ -75,11 +78,11 @@ public:
 	Service();
 	virtual ~Service();
 
-	void Set(const std::vector<std::string> &nicks);
+	void Set(const std::vector<std::string> &nicks, const std::string &real = std::string());
 	void Check();
 
 	const std::string &Primary() const { return primary_; }
-	const std::set<std::string, mantra::iless<std::string> > &Nicks() const { return nicks_; }
+	const nicks_t &Nicks() const { return nicks_; }
 
 	bool IsNick(const std::string &nick) const
 		{ return (nicks_.find(nick) != nicks_.end()); }
@@ -88,6 +91,8 @@ public:
 	void DelCommand(unsigned int id);
 
 	void QUIT(const std::string &source, const std::string &message = std::string());
+	void KILL(const std::string &source, const std::string &target,
+			  const std::string &message = std::string());
 	void MASSQUIT(const std::string &message = std::string())
 	{
 		for_each(nicks_.begin(), nicks_.end(),
