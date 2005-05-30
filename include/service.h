@@ -56,17 +56,18 @@ public:
 							 const boost::shared_ptr<LiveUser> &,
 							 const std::vector<std::string> &> functor;
 	typedef std::set<std::string, mantra::iless<std::string> > nicks_t;
+	typedef std::set<boost::shared_ptr<LiveUser> > users_t;
 
 private:
 	struct Command_t
 	{
 		unsigned int id;
+		std::vector<std::string> perms;
 		boost::regex rx;
 		functor func;
 	};
 
 	typedef std::deque<Command_t> func_map_t;
-	typedef std::set<boost::shared_ptr<LiveUser> > users_t;
 
 	std::string real_;
 	std::string primary_;
@@ -89,9 +90,11 @@ public:
 	bool IsNick(const std::string &nick) const
 		{ return (nicks_.find(nick) != nicks_.end()); }
 
-	unsigned int PushCommand(const boost::regex &rx, const functor &func);
-	unsigned int PushCommand(const std::string &rx, const functor &func)
-		{ return PushCommand(boost::regex(rx, boost::regex_constants::icase), func); }
+	unsigned int PushCommand(const boost::regex &rx, const functor &func,
+							 const std::vector<std::string> &perms = std::vector<std::string>());
+	unsigned int PushCommand(const std::string &rx, const functor &func,
+							 const std::vector<std::string> &perms = std::vector<std::string>())
+		{ return PushCommand(boost::regex(rx, boost::regex_constants::icase), func, perms); }
 	void DelCommand(unsigned int id);
 
 	void QUIT(const boost::shared_ptr<LiveUser> &source,
@@ -134,6 +137,13 @@ public:
 						const boost::shared_ptr<LiveUser> &user,
 						const std::vector<std::string> &params);
 	};
+
+	bool Help(const boost::shared_ptr<LiveUser> &service,
+			  const boost::shared_ptr<LiveUser> &user,
+			  const std::vector<std::string> &params) const;
+	bool AuxHelp(const boost::shared_ptr<LiveUser> &service,
+				 const boost::shared_ptr<LiveUser> &user,
+				 const std::vector<std::string> &params) const;
 
 	bool Execute(const boost::shared_ptr<LiveUser> &service,
 				 const boost::shared_ptr<LiveUser> &user,

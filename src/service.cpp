@@ -174,7 +174,8 @@ void Service::Check()
 }
 
 unsigned int Service::PushCommand(const boost::regex &rx,
-								  const Service::functor &func)
+								  const Service::functor &func,
+								  const std::vector<std::string> &perms)
 {
 	MT_EB
 	MT_FUNC("Service::PushCommand" << rx << func);
@@ -183,6 +184,7 @@ unsigned int Service::PushCommand(const boost::regex &rx,
 	static unsigned int id = 0;
 	func_map_.push_front(Command_t());
 	func_map_.front().id = ++id;
+	func_map_.front().perms = perms;
 	if (rx.flags() & boost::regex_constants::icase)
 		func_map_.front().rx = rx;
 	else
@@ -379,6 +381,51 @@ bool Service::CommandMerge::operator()(const boost::shared_ptr<LiveUser> &serv,
 	MT_EE
 }
 
+bool Service::Help(const boost::shared_ptr<LiveUser> &service,
+				   const boost::shared_ptr<LiveUser> &user,
+				   const std::vector<std::string> &params) const
+{
+	MT_EB
+	MT_FUNC("Service::Help" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	service->GetService()->PRIVMSG(service, user,
+								   boost::format("%1%") % "HELP to be written.");
+
+	MT_RET(true);
+	MT_EE
+}
+
+bool Service::AuxHelp(const boost::shared_ptr<LiveUser> &service,
+					  const boost::shared_ptr<LiveUser> &user,
+					  const std::vector<std::string> &params) const
+{
+	MT_EB
+	MT_FUNC("Service::AuxHelp" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	boost::char_separator<char> sep(" \\t");
+	typedef boost::tokenizer<boost::char_separator<char>,
+		std::string::const_iterator, std::string> tokenizer;
+	tokenizer tokens(params[0], sep);
+	std::vector<std::string> v(tokens.begin(), tokens.end());
+
+	std::vector<std::string> p;
+	p.push_back(v[v.size() - 1]);
+	p.insert(p.end(), v.begin(), v.begin() + (v.size() - 1));
+	if (params.size() > 1)
+		p.insert(p.end(), params.begin() + 1, params.end());
+
+	bool rv = Help(service, user, p);
+
+	MT_RET(rv);
+	MT_EE
+}
+
 bool Service::Execute(const boost::shared_ptr<LiveUser> &service,
 					  const boost::shared_ptr<LiveUser> &user,
 					  const std::vector<std::string> &params,
@@ -395,6 +442,18 @@ bool Service::Execute(const boost::shared_ptr<LiveUser> &service,
 		{
 			if (boost::regex_match(params[key], i->rx))
 			{
+				if (!i->perms.empty())
+				{
+					std::vector<std::string>::const_iterator j;
+					for (j = i->perms.begin(); j != i->perms.end(); ++j)
+					{
+						if (user->InCommittee(*j))
+							break;
+					}
+					// Not in any required committee, skip.
+					if (j == i->perms.end())
+						continue;
+				}
 				f = i->func;
 				break;
 			}

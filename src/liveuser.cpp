@@ -529,6 +529,18 @@ bool LiveUser::Identified(const boost::shared_ptr<StoredChannel> &channel) const
 	MT_EE
 }
 
+bool operator<(const LiveUser::channel_joined_t::value_type &lhs,
+			   const std::string &rhs)
+{
+	return (*lhs < rhs);
+}
+
+bool operator<(const LiveUser::committees_t::value_type &lhs,
+			   const std::string &rhs)
+{
+	return (*lhs < rhs);
+}
+
 bool LiveUser::InChannel(const boost::shared_ptr<LiveChannel> &channel) const
 {
 	MT_EB
@@ -536,6 +548,46 @@ bool LiveUser::InChannel(const boost::shared_ptr<LiveChannel> &channel) const
 
 	SYNC_LOCK(channel_joined_);
 	bool rv = (channel_joined_.find(channel) != channel_joined_.end());
+
+	MT_RET(rv);
+	MT_EE
+}
+
+bool LiveUser::InChannel(const std::string &channel) const
+{
+	MT_EB
+	MT_FUNC("LiveUser::InChannel" << channel);
+
+	SYNC_LOCK(channel_joined_);
+	LiveUser::channel_joined_t::const_iterator i =
+		std::lower_bound(channel_joined_.begin(), channel_joined_.end(), channel);
+	bool rv = (i != channel_joined_.end());
+
+	MT_RET(rv);
+	MT_EE
+}
+
+bool LiveUser::InCommittee(const boost::shared_ptr<Committee> &committee) const
+{
+	MT_EB
+	MT_FUNC("LiveUser::InCommittee" << committee);
+
+	SYNC_LOCK(committees_);
+	bool rv = (committees_.find(committee) != committees_.end());
+
+	MT_RET(rv);
+	MT_EE
+}
+
+bool LiveUser::InCommittee(const std::string &committee) const
+{
+	MT_EB
+	MT_FUNC("LiveUser::InCommittee" << committee);
+
+	SYNC_LOCK(committees_);
+	LiveUser::committees_t::const_iterator i =
+		std::lower_bound(committees_.begin(), committees_.end(), committee);
+	bool rv = (i != committees_.end());
 
 	MT_RET(rv);
 	MT_EE

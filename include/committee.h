@@ -81,8 +81,26 @@ public:
 
 	const std::string &Name() const { return name_; }
 
-	bool operator<(const Committee &rhs) const { return Name() < rhs.Name(); }
-	bool operator==(const Committee &rhs) const { return Name() == rhs.Name(); }
+	inline bool operator<(const std::string &rhs) const
+	{
+#ifdef CASE_SPECIFIC_SORT
+		static mantra::less<std::string> cmp;
+#else
+		static mantra::iless<std::string> cmp;
+#endif
+		return cmp(Name(), rhs);
+	}
+	inline bool operator==(const std::string &rhs) const
+	{
+#ifdef CASE_SPECIFIC_SORT
+		static mantra::equal_to<std::string> cmp;
+#else
+		static mantra::iequal_to<std::string> cmp;
+#endif
+		return cmp(Name(), rhs);
+	}
+	inline bool operator<(const Committee &rhs) const { return *this < rhs.Name(); }
+	inline bool operator==(const Committee &rhs) const { return *this == rhs.Name(); }
 
 	void Head(const boost::shared_ptr<StoredUser> &in);
 	void Head(const boost::shared_ptr<Committee> &in);

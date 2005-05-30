@@ -55,11 +55,14 @@ class LiveUser : private boost::noncopyable, public boost::totally_ordered1<Live
 	friend class if_LiveUser_StoredChannel;
 	friend class if_LiveUser_LiveMemo;
 
-	typedef std::queue<boost::posix_time::ptime> messages_t;
+public:
 	typedef std::set<boost::shared_ptr<LiveChannel> > channel_joined_t;
+	typedef std::set<boost::shared_ptr<Committee> > committees_t;
+
+private:
+	typedef std::queue<boost::posix_time::ptime> messages_t;
 	typedef std::set<boost::shared_ptr<StoredChannel> > channel_identified_t;
 	typedef std::map<boost::shared_ptr<StoredChannel> , unsigned int> channel_password_fails_t;
-	typedef std::set<boost::shared_ptr<Committee> > committees_t;
 	typedef std::map<unsigned int, LiveMemo> pending_memos_t;
 
 	// This is used so we can send a shared_ptr to others.
@@ -240,6 +243,9 @@ public:
 	bool Identified(const boost::shared_ptr<StoredChannel> &channel) const;
 
 	bool InChannel(const boost::shared_ptr<LiveChannel> &channel) const;
+	bool InChannel(const std::string &channel) const;
+	bool InCommittee(const boost::shared_ptr<Committee> &committee) const;
+	bool InCommittee(const std::string &committee) const;
 
 	boost::posix_time::ptime Last_Nick_Reg() const;
 	boost::posix_time::ptime Last_Channel_Reg() const;
