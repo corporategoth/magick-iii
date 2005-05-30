@@ -112,21 +112,25 @@ static bool biADMIN(const Message &m)
 	MT_EB
 	MT_FUNC("biADMIN" << m);
 
-	ROOT->proto.NUMERIC(Protocol::nADMINME, m.Source(),
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
+	uplink->NUMERIC(Uplink::nADMINME, m.Source(),
 						(boost::format(_("Administrative info about %1%")) %
 						 ROOT->ConfigValue<std::string>("server-name")).str(), true);
 
-	ROOT->proto.NUMERIC(Protocol::nADMINLOC1, m.Source(),
+	uplink->NUMERIC(Uplink::nADMINLOC1, m.Source(),
 						ROOT->ConfigValue<std::string>("server-desc"), true);
 
 	std::vector<std::string> v = ROOT->ConfigValue<std::vector<std::string> >("operserv.services-admin");
 	std::string admins;
 	for (size_t i=0; i<v.size(); ++i)
 		admins += " " + v[i];
-	ROOT->proto.NUMERIC(Protocol::nADMINLOC2, m.Source(),
+	uplink->NUMERIC(Uplink::nADMINLOC2, m.Source(),
 						(boost::format(_("Admins -%1%")) % admins).str(), true);
 
-	ROOT->proto.NUMERIC(Protocol::nADMINEMAIL, m.Source(), PACKAGE_STRING, true);
+	uplink->NUMERIC(Uplink::nADMINEMAIL, m.Source(), PACKAGE_STRING, true);
 
 	MT_RET(true);
 	MT_EE
@@ -136,6 +140,10 @@ static bool biAWAY(const Message &m)
 {
 	MT_EB
 	MT_FUNC("biAWAY" << m);
+
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
 
 	if (ROOT->proto.IsServer(m.Source()) ||
 		ROOT->proto.IsChannel(m.Source()))
@@ -159,6 +167,10 @@ static bool biBURST(const Message &m)
 	MT_EB
 	MT_FUNC("biBURST" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	if (m.Params().size() > 2)
 	{
 		// TODO: Sign on users
@@ -177,6 +189,10 @@ static bool biCAPAB(const Message &m)
 	MT_EB
 	MT_FUNC("biCAPAB" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	for (size_t i = 0; i < m.Params().size(); ++i)
 		if (m.Params()[i] == "TOKEN" ||
 			m.Params()[i] == "TOKEN1")
@@ -191,12 +207,16 @@ static bool biCHGHOST(const Message &m)
 	MT_EB
 	MT_FUNC("biCHGHOST" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	if (m.Params().size() < 2)
 	{
 		std::vector<std::string> v;
 		v.push_back(m.ID());
 		v.push_back(_("Not enough parameters"));
-		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNEED_MORE_PARAMS, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -206,7 +226,7 @@ static bool biCHGHOST(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNOSUCHNICK, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -216,7 +236,7 @@ static bool biCHGHOST(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNOSUCHNICK, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -263,7 +283,7 @@ static bool biCREATE(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.ID());
 		v.push_back(_("Not enough parameters"));
-		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNEED_MORE_PARAMS, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -288,7 +308,7 @@ static bool biCREATE(const Message &m)
 			std::vector<std::string> v;
 			v.push_back(*i);
 			v.push_back(_("No such channel"));
-			ROOT->proto.NUMERIC(Protocol::nNOSUCHCHANNEL, m.Source(), v, true);
+			uplink->NUMERIC(Uplink::nNOSUCHCHANNEL, m.Source(), v, true);
 		}
 
 		boost::shared_ptr<LiveChannel> channel = ROOT->data.Get_LiveChannel(m.Params()[0]);
@@ -324,7 +344,7 @@ static bool biCYCLE(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.ID());
 		v.push_back(_("Not enough parameters"));
-		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNEED_MORE_PARAMS, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -342,7 +362,7 @@ static bool biCYCLE(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such channel"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHCHANNEL, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNOSUCHCHANNEL, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -352,7 +372,7 @@ static bool biCYCLE(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such channel"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHCHANNEL, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNOSUCHCHANNEL, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -361,7 +381,7 @@ static bool biCYCLE(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("You're not on that channel"));
-		ROOT->proto.NUMERIC(Protocol::nUSERNOTINCHANNEL, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nUSERNOTINCHANNEL, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -381,6 +401,10 @@ static bool biEOB(const Message &m)
 	MT_EB
 	MT_FUNC("biEOB" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	ROOT->proto.BurstEnd();
 
 	MT_RET(true);
@@ -392,11 +416,15 @@ static bool biINFO(const Message &m)
 	MT_EB
 	MT_FUNC("biINFO" << m);
 
-	ROOT->proto.NUMERIC(Protocol::nINFOSTART, m.Source(), _("Server INFO"), true);
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
+	uplink->NUMERIC(Uplink::nINFOSTART, m.Source(), _("Server INFO"), true);
 	const char **iter = contrib;
 	while (*iter)
-		ROOT->proto.NUMERIC(Protocol::nINFO, m.Source(), *iter++, true);
-	ROOT->proto.NUMERIC(Protocol::nINFOEND, m.Source(), _("End of /INFO list"), true);
+		uplink->NUMERIC(Uplink::nINFO, m.Source(), *iter++, true);
+	uplink->NUMERIC(Uplink::nINFOEND, m.Source(), _("End of /INFO list"), true);
 
 	MT_RET(true);
 	MT_EE
@@ -407,6 +435,10 @@ static bool biISON(const Message &m)
 	MT_EB
 	MT_FUNC("biISON" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	std::vector<std::string> v;
 	for (size_t i=0; i<m.Params().size(); ++i)
 	{
@@ -414,7 +446,7 @@ static bool biISON(const Message &m)
 		if (user)
 			v.push_back(m.Params()[i]);
 	}
-	ROOT->proto.NUMERIC(Protocol::nISON, m.Source(), v);
+	uplink->NUMERIC(Uplink::nISON, m.Source(), v);
 
 	MT_RET(true);
 	MT_EE
@@ -434,7 +466,7 @@ static bool biJOIN(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.ID());
 		v.push_back(_("Not enough parameters"));
-		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNEED_MORE_PARAMS, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -459,7 +491,7 @@ static bool biJOIN(const Message &m)
 			std::vector<std::string> v;
 			v.push_back(*i);
 			v.push_back(_("No such channel"));
-			ROOT->proto.NUMERIC(Protocol::nNOSUCHCHANNEL, m.Source(), v, true);
+			uplink->NUMERIC(Uplink::nNOSUCHCHANNEL, m.Source(), v, true);
 		}
 
 		boost::shared_ptr<LiveChannel> channel = ROOT->data.Get_LiveChannel(*i);
@@ -484,12 +516,16 @@ static bool biKICK(const Message &m)
 	MT_EB
 	MT_FUNC("biKICK" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	if (m.Params().size() < 3)
 	{
 		std::vector<std::string> v;
 		v.push_back(m.ID());
 		v.push_back(_("Not enough parameters"));
-		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNEED_MORE_PARAMS, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -505,7 +541,7 @@ static bool biKICK(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such channel"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHCHANNEL, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNOSUCHCHANNEL, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -515,7 +551,7 @@ static bool biKICK(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such channel"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHCHANNEL, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNOSUCHCHANNEL, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -530,7 +566,7 @@ static bool biKICK(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[1]);
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNOSUCHNICK, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -540,7 +576,7 @@ static bool biKICK(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[1]);
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNOSUCHNICK, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -555,12 +591,16 @@ static bool biKILL(const Message &m)
 	MT_EB
 	MT_FUNC("biKILL" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	if (m.Params().size() < 2)
 	{
 		std::vector<std::string> v;
 		v.push_back(m.ID());
 		v.push_back(_("Not enough parameters"));
-		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNEED_MORE_PARAMS, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -578,7 +618,7 @@ static bool biKILL(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNOSUCHNICK, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -588,7 +628,7 @@ static bool biKILL(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNOSUCHNICK, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -602,6 +642,10 @@ static bool biLINKS(const Message &m)
 	MT_EB
 	MT_FUNC("biLINKS" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	// TODO: Fix the links :)
 
 	MT_RET(true);
@@ -612,6 +656,10 @@ static bool biLIST(const Message &m)
 {
 	MT_EB
 	MT_FUNC("biLIST" << m);
+
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
 
 	// TODO: This is much more complex.
 	// do we ever even get it?
@@ -625,12 +673,16 @@ static bool biMODE(const Message &m)
 	MT_EB
 	MT_FUNC("biMODE" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	if (m.Params().size() < 2)
 	{
 		std::vector<std::string> v;
 		v.push_back(m.ID());
 		v.push_back(_("Not enough parameters"));
-		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNEED_MORE_PARAMS, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -648,14 +700,34 @@ static bool biMODE(const Message &m)
 			std::vector<std::string> v;
 			v.push_back(m.Params()[0]);
 			v.push_back(_("No such channel"));
-			ROOT->proto.NUMERIC(Protocol::nNOSUCHCHANNEL, m.Source(), v, true);
+			uplink->NUMERIC(Uplink::nNOSUCHCHANNEL, m.Source(), v, true);
 			MT_RET(false);
 		}
 
-		if (m.Params().size() > 2)
-			channel->Modes(user, m.Params()[1], m.Params()[m.Params().size()-1]);
+		size_t modes_param = 1;
+		if (m.Params()[1].find_first_not_of("0123456789") == std::string::npos)
+			modes_param++;
+		if (m.Params().size() < modes_param + 1)
+		{
+			std::vector<std::string> v;
+			v.push_back(m.ID());
+			v.push_back(_("Not enough parameters"));
+			uplink->NUMERIC(Uplink::nNEED_MORE_PARAMS, m.Source(), v, true);
+			MT_RET(false);
+		}
+
+		if (m.Params().size() > modes_param + 1)
+		{
+			if (m.Params().size() > modes_param + 2)
+			{
+				std::vector<std::string> v(m.Params().begin() + modes_param + 1, m.Params().end());
+				channel->Modes(user, m.Params()[modes_param], v);
+			}
+			else
+				channel->Modes(user, m.Params()[modes_param], m.Params()[m.Params().size()-1]);
+		}
 		else
-			channel->Modes(user, m.Params()[1]);
+			channel->Modes(user, m.Params()[modes_param]);
 	}
 	else if (!ROOT->proto.IsServer(m.Params()[0]))
 	{
@@ -665,7 +737,7 @@ static bool biMODE(const Message &m)
 			std::vector<std::string> v;
 			v.push_back(m.Params()[0]);
 			v.push_back(_("No such nickname"));
-			ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
+			uplink->NUMERIC(Uplink::nNOSUCHNICK, m.Source(), v, true);
 			MT_RET(false);
 		}
 
@@ -676,7 +748,7 @@ static bool biMODE(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNOSUCHNICK, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -689,12 +761,16 @@ static bool biMOTD(const Message &m)
 	MT_EB
 	MT_FUNC("biMOTD" << m);
 
-	ROOT->proto.NUMERIC(Protocol::nMOTDSTART, m.Source(), _("Message of the Day"), true);
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
+	uplink->NUMERIC(Uplink::nMOTDSTART, m.Source(), _("Message of the Day"), true);
 	std::vector<std::string> motd;
 	if (mantra::mfile::UnDump(ROOT->ConfigValue<std::string>("motdfile"), motd) > 0)
 		for (size_t i=0; i<motd.size(); ++i)
-			ROOT->proto.NUMERIC(Protocol::nMOTD, m.Source(), motd[i], true);
-	ROOT->proto.NUMERIC(Protocol::nMOTDEND, m.Source(), _("End of /MOTD list"), true);
+			uplink->NUMERIC(Uplink::nMOTD, m.Source(), motd[i], true);
+	uplink->NUMERIC(Uplink::nMOTDEND, m.Source(), _("End of /MOTD list"), true);
 
 	MT_RET(true);
 	MT_EE
@@ -704,6 +780,12 @@ static bool biNAMES(const Message &m)
 {
 	MT_EB
 	MT_FUNC("biNAMES" << m);
+
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
+	// TODO: fix names
 
 	MT_RET(true);
 	MT_EE
@@ -723,7 +805,7 @@ static bool biNICK(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.ID());
 		v.push_back(_("Not enough parameters"));
-		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNEED_MORE_PARAMS, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -743,10 +825,6 @@ static bool biNICK(const Message &m)
 	}
 	else
 	{
-		boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
-		if (!uplink)
-			MT_RET(false);
-
 		boost::shared_ptr<LiveUser> user = ROOT->proto.ParseUser(m);
 		if (!user)
 		{
@@ -776,7 +854,7 @@ static bool biPART(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.ID());
 		v.push_back(_("Not enough parameters"));
-		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNEED_MORE_PARAMS, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -794,7 +872,7 @@ static bool biPART(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such channel"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHCHANNEL, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNOSUCHCHANNEL, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -804,7 +882,7 @@ static bool biPART(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such channel"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHCHANNEL, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNOSUCHCHANNEL, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -813,7 +891,7 @@ static bool biPART(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("You're not on that channel"));
-		ROOT->proto.NUMERIC(Protocol::nUSERNOTINCHANNEL, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nUSERNOTINCHANNEL, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -839,14 +917,14 @@ static bool biPASS(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.ID());
 		v.push_back(_("Not enough parameters"));
-		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNEED_MORE_PARAMS, m.Source(), v, true);
 		MT_RET(false);
 	}
 
 	if (!uplink->CheckPassword(m.Params()[0]))
 	{
-		ROOT->proto.ERROR(_("No Access (password mismatch)"));
-		ROOT->proto.NUMERIC(Protocol::nINCORRECT_PASSWORD, m.Source(),
+		uplink->ERROR(_("No Access (password mismatch)"));
+		uplink->NUMERIC(Uplink::nINCORRECT_PASSWORD, m.Source(),
 							_("Password incorrect"), true);
 		MT_RET(false);
 	}
@@ -860,18 +938,18 @@ static bool biPING(const Message &m)
 	MT_EB
 	MT_FUNC("biPING" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	if (m.Params().size() < 1)
 	{
 		std::vector<std::string> v;
 		v.push_back(m.ID());
 		v.push_back(_("Not enough parameters"));
-		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNEED_MORE_PARAMS, m.Source(), v, true);
 		MT_RET(false);
 	}
-
-	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
-	if (!uplink)
-		MT_RET(false);
 
 	boost::shared_ptr<Server> local, remote = uplink->Find(m.Params()[0]);
 	Jupe *jupe = dynamic_cast<Jupe *>(remote.get());
@@ -880,7 +958,7 @@ static bool biPING(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such server"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHSERVER, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNOSUCHSERVER, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -899,14 +977,14 @@ static bool biPING(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[1]);
 		v.push_back(_("No such server"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHSERVER, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNOSUCHSERVER, m.Source(), v, true);
 		MT_RET(false);
 	}
 
 	std::vector<std::string> v;
 	v.push_back(jupe->Name());
     v.push_back(m.Params()[0]);
-	ROOT->proto.RAW(*jupe, "PONG", v);
+	jupe->RAW("PONG", v);
 
 	MT_RET(true);
 	MT_EE
@@ -917,18 +995,18 @@ static bool biPONG(const Message &m)
 	MT_EB
 	MT_FUNC("biPONG" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	if (m.Params().size() < 2)
 	{
 		std::vector<std::string> v;
 		v.push_back(m.ID());
 		v.push_back(_("Not enough parameters"));
-		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNEED_MORE_PARAMS, m.Source(), v, true);
 		MT_RET(false);
 	}
-
-	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
-	if (!uplink)
-		MT_RET(false);
 
 	boost::shared_ptr<Server> remote = uplink->Find(m.Params()[0]);
 	Jupe *ptr = dynamic_cast<Jupe *>(remote.get());
@@ -937,7 +1015,7 @@ static bool biPONG(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such server"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHSERVER, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNOSUCHSERVER, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -955,12 +1033,16 @@ static bool biPRIVMSG(const Message &m)
 	MT_EB
 	MT_FUNC("biPRIVMSG" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	if (m.Params().size() < 2)
 	{
 		std::vector<std::string> v;
 		v.push_back(m.ID());
 		v.push_back(_("Not enough parameters"));
-		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNEED_MORE_PARAMS, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -978,7 +1060,7 @@ static bool biPRIVMSG(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNOSUCHNICK, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -988,7 +1070,7 @@ static bool biPRIVMSG(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNOSUCHNICK, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -1004,6 +1086,10 @@ static bool biQUIT(const Message &m)
 {
 	MT_EB
 	MT_FUNC("biQUIT" << m);
+
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
 
 	// No use sending back a message they won't get.
 	if (ROOT->proto.IsChannel(m.Source()))
@@ -1035,12 +1121,16 @@ static bool biSETHOST(const Message &m)
 	MT_EB
 	MT_FUNC("biSETHOST" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	if (m.Params().size() < 1)
 	{
 		std::vector<std::string> v;
 		v.push_back(m.ID());
 		v.push_back(_("Not enough parameters"));
-		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNEED_MORE_PARAMS, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -1099,6 +1189,10 @@ static bool biSERVICE(const Message &m)
 	MT_EB
 	MT_FUNC("biSERVICE" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	// TODO: Service user create.
 
 	MT_RET(true);
@@ -1121,7 +1215,7 @@ static bool biSJOIN(const Message &m)
 			std::vector<std::string> v;
 			v.push_back(m.Params()[1]);
 			v.push_back(_("No such channel"));
-			ROOT->proto.NUMERIC(Protocol::nNOSUCHCHANNEL, m.Source(), v, true);
+			uplink->NUMERIC(Uplink::nNOSUCHCHANNEL, m.Source(), v, true);
 		}
 
 		boost::shared_ptr<LiveChannel> channel = ROOT->data.Get_LiveChannel(m.Params()[1]);
@@ -1196,7 +1290,7 @@ static bool biSJOIN(const Message &m)
 							std::vector<std::string> v;
 							v.push_back(param);
 							v.push_back(_("No such nickname"));
-							ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
+							uplink->NUMERIC(Uplink::nNOSUCHNICK, m.Source(), v, true);
 							break;
 						}
 
@@ -1206,7 +1300,7 @@ static bool biSJOIN(const Message &m)
 							std::vector<std::string> v;
 							v.push_back(param);
 							v.push_back(_("No such nickname"));
-							ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
+							uplink->NUMERIC(Uplink::nNOSUCHNICK, m.Source(), v, true);
 							break;
 						}
 
@@ -1238,7 +1332,7 @@ static bool biSJOIN(const Message &m)
 				std::vector<std::string> v;
 				v.push_back(m.Params()[i]);
 				v.push_back(_("No such channel"));
-				ROOT->proto.NUMERIC(Protocol::nNOSUCHCHANNEL, m.Source(), v, true);
+				uplink->NUMERIC(Uplink::nNOSUCHCHANNEL, m.Source(), v, true);
 				continue;
 			}
 
@@ -1265,12 +1359,16 @@ static bool biSQUIT(const Message &m)
 	MT_EB
 	MT_FUNC("biSQUIT" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	if (m.Params().size() < 1)
 	{
 		std::vector<std::string> v;
 		v.push_back(m.ID());
 		v.push_back(_("Not enough parameters"));
-		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNEED_MORE_PARAMS, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -1280,7 +1378,7 @@ static bool biSQUIT(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such server"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHSERVER, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNOSUCHSERVER, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -1290,7 +1388,7 @@ static bool biSQUIT(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such server"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHSERVER, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNOSUCHSERVER, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -1306,7 +1404,11 @@ static bool biSTATS(const Message &m)
 	MT_EB
 	MT_FUNC("biSTATS" << m);
 
-	ROOT->proto.NUMERIC(Protocol::nSUMMONDISABLED, m.Source(),
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
+	uplink->NUMERIC(Uplink::nSUMMONDISABLED, m.Source(),
 						_("End of /STATS report"), true);
 
 	MT_RET(true);
@@ -1318,7 +1420,11 @@ static bool biSUMMON(const Message &m)
 	MT_EB
 	MT_FUNC("biSUMMON" << m);
 
-	ROOT->proto.NUMERIC(Protocol::nSUMMONDISABLED, m.Source(),
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
+	uplink->NUMERIC(Uplink::nSUMMONDISABLED, m.Source(),
 						_("SUMMON has been removed"), true);
 
 	MT_RET(true);
@@ -1330,7 +1436,11 @@ static bool biTIME(const Message &m)
 	MT_EB
 	MT_FUNC("biTIME" << m);
 
-	ROOT->proto.NUMERIC(Protocol::nTIME, m.Source(),
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
+	uplink->NUMERIC(Uplink::nTIME, m.Source(),
 						mantra::DateTimeToString<char>(mantra::GetCurrentDateTime()), true);
 
 	MT_RET(true);
@@ -1342,12 +1452,16 @@ static bool biTMODE(const Message &m)
 	MT_EB
 	MT_FUNC("biTMODE" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	if (m.Params().size() < 3)
 	{
 		std::vector<std::string> v;
 		v.push_back(m.ID());
 		v.push_back(_("Not enough parameters"));
-		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNEED_MORE_PARAMS, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -1365,7 +1479,7 @@ static bool biTMODE(const Message &m)
 			std::vector<std::string> v;
 			v.push_back(m.Params()[0]);
 			v.push_back(_("No such channel"));
-			ROOT->proto.NUMERIC(Protocol::nNOSUCHCHANNEL, m.Source(), v, true);
+			uplink->NUMERIC(Uplink::nNOSUCHCHANNEL, m.Source(), v, true);
 			MT_RET(false);
 		}
 
@@ -1382,7 +1496,7 @@ static bool biTMODE(const Message &m)
 			std::vector<std::string> v;
 			v.push_back(m.Params()[0]);
 			v.push_back(_("No such nickname"));
-			ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
+			uplink->NUMERIC(Uplink::nNOSUCHNICK, m.Source(), v, true);
 			MT_RET(false);
 		}
 
@@ -1393,7 +1507,7 @@ static bool biTMODE(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such nickname"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNOSUCHNICK, m.Source(), v, true);
 		MT_RET(false);
 	}
 	MT_RET(true);
@@ -1405,12 +1519,16 @@ static bool biTOPIC(const Message &m)
 	MT_EB
 	MT_FUNC("biTOPIC" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	if (m.Params().size() < ROOT->proto.ConfigValue<bool>("extended-topic") ? 2 : 1)
 	{
 		std::vector<std::string> v;
 		v.push_back(m.ID());
 		v.push_back(_("Not enough parameters"));
-		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNEED_MORE_PARAMS, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -1428,7 +1546,7 @@ static bool biTOPIC(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such channel"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHCHANNEL, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNOSUCHCHANNEL, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -1438,7 +1556,7 @@ static bool biTOPIC(const Message &m)
 		std::vector<std::string> v;
 		v.push_back(m.Params()[0]);
 		v.push_back(_("No such channel"));
-		ROOT->proto.NUMERIC(Protocol::nNOSUCHCHANNEL, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNOSUCHCHANNEL, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -1467,10 +1585,14 @@ static bool biTRACE(const Message &m)
 	MT_EB
 	MT_FUNC("biTRACE" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	std::vector<std::string> v;
 	v.push_back(ROOT->ConfigValue<std::string>("server-name"));
 	v.push_back(_("End of TRACE"));
-	ROOT->proto.NUMERIC(Protocol::nTRACEEND, m.Source(), v, true);
+	uplink->NUMERIC(Uplink::nTRACEEND, m.Source(), v, true);
 
 	MT_RET(true);
 	MT_EE
@@ -1481,12 +1603,16 @@ static bool biUMODE2(const Message &m)
 	MT_EB
 	MT_FUNC("biUMODE2" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	if (m.Params().size() < 1)
 	{
 		std::vector<std::string> v;
 		v.push_back(m.ID());
 		v.push_back(_("Not enough parameters"));
-		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNEED_MORE_PARAMS, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -1532,12 +1658,16 @@ static bool biUSERHOST(const Message &m)
 	MT_EB
 	MT_FUNC("biUSERHOST" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	if (m.Params().size() < 1)
 	{
 		std::vector<std::string> v;
 		v.push_back(m.ID());
 		v.push_back(_("Not enough parameters"));
-		ROOT->proto.NUMERIC(Protocol::nNEED_MORE_PARAMS, m.Source(), v, true);
+		uplink->NUMERIC(Uplink::nNEED_MORE_PARAMS, m.Source(), v, true);
 		MT_RET(false);
 	}
 
@@ -1549,7 +1679,7 @@ static bool biUSERHOST(const Message &m)
 			std::vector<std::string> v;
 			v.push_back(m.Params()[i]);
 			v.push_back(_("No such nickname"));
-			ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
+			uplink->NUMERIC(Uplink::nNOSUCHNICK, m.Source(), v, true);
 			continue;
 		}
 
@@ -1559,11 +1689,11 @@ static bool biUSERHOST(const Message &m)
 			std::vector<std::string> v;
 			v.push_back(m.Params()[i]);
 			v.push_back(_("No such nickname"));
-			ROOT->proto.NUMERIC(Protocol::nNOSUCHNICK, m.Source(), v, true);
+			uplink->NUMERIC(Uplink::nNOSUCHNICK, m.Source(), v, true);
 			continue;
 		}
 
-		ROOT->proto.NUMERIC(Protocol::nUSERHOST, m.Source(), 
+		uplink->NUMERIC(Uplink::nUSERHOST, m.Source(), 
 							user->Name() + (user->Mode('o') ? "*=" : "=") +
 							(user->Away().empty() ? '+' : '-') + user->User() +
 							"@" + user->PrefHost(), true);
@@ -1578,7 +1708,11 @@ static bool biUSERS(const Message &m)
 	MT_EB
 	MT_FUNC("biUSERS" << m);
 
-	ROOT->proto.NUMERIC(Protocol::nUSERSDISABLED, m.Source(),
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
+	uplink->NUMERIC(Uplink::nUSERSDISABLED, m.Source(),
 						_("USERS has been removed"), true);
 
 	MT_RET(true);
@@ -1590,6 +1724,10 @@ static bool biVERSION(const Message &m)
 	MT_EB
 	MT_FUNC("biVERSION" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	struct utsname un;
 	uname(&un);
 
@@ -1598,7 +1736,7 @@ static bool biVERSION(const Message &m)
 	v.push_back(ROOT->ConfigValue<std::string>("server-name"));
 	v.push_back(un.sysname + std::string("/") + un.release +
 				std::string(" ") + un.release);
-	ROOT->proto.NUMERIC(Protocol::nVERSION, m.Source(), v, true);
+	uplink->NUMERIC(Uplink::nVERSION, m.Source(), v, true);
 
 	MT_RET(true);
 	MT_EE
@@ -1608,6 +1746,10 @@ static bool biWHO(const Message &m)
 {
 	MT_EB
 	MT_FUNC("biWHO" << m);
+
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
 
 	// TODO: Long and arduous task ...
 
@@ -1620,6 +1762,10 @@ static bool biWHOIS(const Message &m)
 	MT_EB
 	MT_FUNC("biWHOIS" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	// TODO: Long and arduous task ...
 
 	MT_RET(true);
@@ -1631,6 +1777,10 @@ static bool bi436(const Message &m)
 	MT_EB
 	MT_FUNC("bi436" << m);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
+
 	// TODO: Nick collision, handle somehow?
 
 	MT_RET(true);
@@ -1641,6 +1791,10 @@ static bool bi464(const Message &m)
 {
 	MT_EB
 	MT_FUNC("bi464" << m);
+
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
 
 	LOG(Error, _("Server %1% has informed us our link password is wrong, disconnecting."),
 		m.Source());
@@ -1654,6 +1808,10 @@ static bool bi465(const Message &m)
 {
 	MT_EB
 	MT_FUNC("bi465" << m);
+
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
 
 	LOG(Error, _("Server %1% has informed us we are banned, disconnecting."),
 		m.Source());

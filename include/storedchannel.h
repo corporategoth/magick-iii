@@ -68,6 +68,8 @@ class StoredChannel : private boost::noncopyable, public boost::totally_ordered1
 	// use if_StoredChannel_LiveChannel
 	void Topic(const std::string &topic, const std::string &setter,
 			   const boost::posix_time::ptime &set_time);
+	void Modes(const boost::shared_ptr<LiveUser> &user,
+			   const std::string &in, const std::vector<std::string> &params);
 	void Join(const boost::shared_ptr<LiveUser> &user);
 	void Part(const boost::shared_ptr<LiveUser> &user);
 	void Kick(const boost::shared_ptr<LiveUser> &user,
@@ -467,6 +469,9 @@ class if_StoredChannel_LiveChannel
 	inline void Topic(const std::string &topic, const std::string &setter,
 			   		  const boost::posix_time::ptime &set_time)
 		{ base.Topic(topic, setter, set_time); }
+	inline void Modes(const boost::shared_ptr<LiveUser> &user,
+					  const std::string &in, const std::vector<std::string> &params)
+		{ base.Modes(user, in, params); }
 	inline void Join(const boost::shared_ptr<LiveUser> &user)
 		{ base.Join(user); }
 	inline void Part(const boost::shared_ptr<LiveUser> &user)

@@ -83,11 +83,15 @@ class LiveChannel : private boost::noncopyable, public boost::totally_ordered1<L
 		}
 	};
 
-	typedef std::map<boost::shared_ptr<LiveUser>, std::string> users_t;
-	typedef std::map<std::string, std::pair<boost::posix_time::ptime, unsigned int> > bans_t;
-	typedef std::set<std::string> exempts_t;
+public:
+	typedef std::map<boost::shared_ptr<LiveUser>, std::set<char> > users_t;
+	typedef std::map<std::string, std::pair<boost::posix_time::ptime, unsigned int>,
+					 mantra::iless<std::string> > bans_t;
+	typedef std::set<std::string, mantra::iless<std::string> > exempts_t;
 	typedef std::map<boost::shared_ptr<LiveUser>, PendingModes> pending_modes_t; 
 	typedef std::map<boost::shared_ptr<LiveUser>, unsigned int> recent_parts_t;
+
+private:
 
 	boost::weak_ptr<LiveChannel> self;
 
@@ -108,7 +112,7 @@ class LiveChannel : private boost::noncopyable, public boost::totally_ordered1<L
 	std::string topic_setter_;
 	boost::posix_time::ptime topic_set_time_;
 
-	std::string SYNC(modes_);
+	std::set<char> SYNC(modes_);
 	std::string modes_key_;
 	unsigned int modes_limit_;
 
@@ -139,8 +143,26 @@ public:
 	const boost::posix_time::ptime &Created() const { return created_; }
 	const boost::posix_time::ptime &Seen() const { return seen_; }
 
-	bool operator<(const LiveChannel &rhs) const { return Name() < rhs.Name(); }
-	bool operator==(const LiveChannel &rhs) const { return Name() == rhs.Name(); }
+	inline bool operator<(const std::string &rhs) const
+	{
+#ifdef CASE_SPECIFIC_SORT
+		static mantra::less<std::string> cmp;
+#else
+		static mantra::iless<std::string> cmp;
+#endif
+		return cmp(Name(), rhs);
+	}
+	inline bool operator==(const std::string &rhs) const
+	{
+#ifdef CASE_SPECIFIC_SORT
+		static mantra::equal_to<std::string> cmp;
+#else
+		static mantra::iequal_to<std::string> cmp;
+#endif
+		return cmp(Name(), rhs);
+	}
+	inline bool operator<(const LiveChannel &rhs) const { return *this < rhs.Name(); }
+	inline bool operator==(const LiveChannel &rhs) const { return *this == rhs.Name(); }
 
 	void Join(const boost::shared_ptr<LiveUser> &user);
 	void Part(const boost::shared_ptr<LiveUser> &user,
@@ -151,17 +173,27 @@ public:
 	bool RecentPart(const boost::shared_ptr<LiveUser> &user) const;
 
 	// Its more efficient to populate in this instance.
-	void Users(std::map<boost::shared_ptr<LiveUser>, std::string> &users) const;
+	void Users(users_t &users) const;
 	bool IsUser(const boost::shared_ptr<LiveUser> &user) const;
-	std::string User(const boost::shared_ptr<LiveUser> &user) const;
-	void Splits(std::map<boost::shared_ptr<LiveUser>, std::string> &splitusers) const;
+	std::set<char> User(const boost::shared_ptr<LiveUser> &user) const;
+	bool User(const boost::shared_ptr<LiveUser> &user, char c) const
+	{
+		std::set<char> modes = User(user);
+		return (modes.find(c) != modes.end());
+	}
+	void Splits(users_t &splitusers) const;
 	bool IsSplit(const boost::shared_ptr<LiveUser> &user) const;
-	std::string Split(const boost::shared_ptr<LiveUser> &user) const;
+	std::set<char> Split(const boost::shared_ptr<LiveUser> &user) const;
+	bool Split(const boost::shared_ptr<LiveUser> &user, char c) const
+	{
+		std::set<char> modes = Split(user);
+		return (modes.find(c) != modes.end());
+	}
 
-	void Bans(std::map<std::string, boost::posix_time::ptime> &bans) const;
+	void Bans(bans_t &bans) const;
 	bool MatchBan(const std::string &in) const;
 	bool MatchBan(const boost::shared_ptr<LiveUser> &in) const;
-	void Exempts(std::set<std::string> &exempts) const;
+	void Exempts(exempts_t &exempts) const;
 	bool MatchExempt(const std::string &in) const;
 	bool MatchExempt(const boost::shared_ptr<LiveUser> &in) const;
 
@@ -182,7 +214,12 @@ public:
 				   const std::string &in, const std::string &params = std::string());
 	void SendModes(const boost::shared_ptr<LiveUser> &user,
 				   const std::string &in, const std::vector<std::string> &params);
-	std::string Modes() const;
+	std::set<char> Modes() const;
+	bool Mode(char c) const
+	{
+		std::set<char> modes = Modes();
+		return (modes.find(c) != modes.end());
+	}
 	std::string Modes_Key() const;
 	unsigned int Modes_Limit() const;
 };

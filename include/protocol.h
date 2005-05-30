@@ -55,6 +55,12 @@ class Protocol
 {
 	friend class Magick;
 
+	// These need to access our stuff directly, as they
+	// send all kinds of messages.
+	friend class Service;
+	friend class Uplink;
+	friend class Jupe;
+
 	boost::program_options::options_description opt_protocol_config_file;
 	boost::program_options::variables_map opt_protocol;
 
@@ -74,42 +80,12 @@ class Protocol
 
 	void addline(std::string &out, const std::string &in) const;
 	void addline(const Jupe &server, std::string &out, const std::string &in) const;
+	void addline(const LiveUser &user, std::string &out, const std::string &in) const;
 
 	bool send(const char *buf, boost::uint64_t len) const;
 	inline bool send(const std::string &in) const
 		{ return send(in.data(), in.size()); }
 public:
-	enum Numeric_t
-		{
-			nSTATSEND = 219,
-			nADMINME = 256,
-			nADMINLOC1 = 257,
-			nADMINLOC2 = 258,
-			nADMINEMAIL = 259,
-			nTRACEEND = 262,
-			nUSERHOST = 302,
-			nISON = 303,
-			nVERSION = 351,
-			nLINKS = 365,
-			nLINKSEND = 365,
-			nNAMESEND = 366,
-			nINFO = 371,
-			nMOTD = 372,
-			nINFOSTART = 373,
-			nINFOEND = 374,
-			nMOTDSTART = 375,
-			nMOTDEND = 376,
-			nTIME = 391,
-			nNOSUCHNICK = 401,
-			nNOSUCHSERVER = 402,
-			nNOSUCHCHANNEL = 403,
-			nNEED_MORE_PARAMS = 461,
-			nINCORRECT_PASSWORD = 464,
-			nUSERNOTINCHANNEL = 442,
-			nSUMMONDISABLED = 445,
-			nUSERSDISABLED = 446
-		};
-
 	bool ConfigExists(const char *key) const
 		{ return opt_protocol.count(key) != 0; }
 	template<typename T>
@@ -133,37 +109,6 @@ public:
 
 	bool Connect(const Uplink &s);
 	bool Connect(const Jupe &s);
-
-	boost::shared_ptr<LiveUser> SIGNON(const Service *s, const std::string &nick,
-				const std::string &name) const;
-	bool KILL(const boost::shared_ptr<LiveUser> &user, const std::string &reason) const;
-
-	bool SQUIT(const Jupe &s, const std::string &reason = std::string()) const;
-
-	bool RAW(const Jupe &s, const std::string &cmd,
-			 const std::vector<std::string> &args,
-			 bool forcecolon = false) const;
-	inline bool RAW(const Jupe &s, const std::string &cmd,
-					const std::string &arg, bool forcecolon = false) const
-	{
-		std::vector<std::string> v;
-		v.push_back(arg);
-		return RAW(s, cmd, v, forcecolon);
-	}
-
-	bool NUMERIC(Numeric_t num, const std::string &target,
-				 const std::vector<std::string> &args,
-				 bool forcecolon = false) const;
-	inline bool NUMERIC(Numeric_t num, const std::string &target,
-						const std::string &arg,
-						bool forcecolon = false) const
-	{
-		std::vector<std::string> v;
-		v.push_back(arg);
-		return NUMERIC(num, target, v, forcecolon);
-	}
-
-	bool ERROR(const std::string &arg) const;
 
 	void BurstEnd() const;
 	boost::shared_ptr<Server> ParseServer(const Message &in) const;

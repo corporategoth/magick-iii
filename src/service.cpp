@@ -36,12 +36,19 @@ RCSID(magick__service_cpp, "@(#)$Id$");
 #include "liveuser.h"
 
 Service::Service()
-	: SYNC_NRWINIT(func_map_, reader_priority)
+	: SYNC_NRWINIT(users_, reader_priority),
+	  SYNC_NRWINIT(func_map_, reader_priority)
 {
 }
 
 Service::~Service()
 {
+}
+
+bool operator<(const Service::users_t::value_type &lhs,
+			   const std::string &rhs)
+{
+	return (*lhs < rhs);
 }
 
 void Service::Set(const std::vector<std::string> &nicks, const std::string &real)
@@ -50,7 +57,7 @@ void Service::Set(const std::vector<std::string> &nicks, const std::string &real
 	MT_FUNC("Service::Set" << nicks);
 
 	real_ = real;
-	std::set<std::string, mantra::iless<std::string> > signoff;
+	nicks_t signoff;
 	if (!nicks.empty())
 	{
 		std::set_difference(nicks_.begin(), nicks_.end(),
@@ -72,18 +79,55 @@ void Service::Set(const std::vector<std::string> &nicks, const std::string &real
 	if (ROOT->getUplink() && !signoff.empty())
 	{
 		std::string quitmsg;
-		try
-		{
+		if (ROOT->ConfigExists("services.quit-message"))
 			quitmsg = ROOT->ConfigValue<std::string>("services.quit-message");
-		}
-		catch (const boost::bad_any_cast &)
-		{
-		}
 
-		for_each(signoff.begin(), signoff.end(), 
-				 boost::bind(&Service::QUIT, this, _1, quitmsg));
+		nicks_t::const_iterator i;
+		for (i = signoff.begin(); i != signoff.end(); ++i)
+		{
+			users_t::const_iterator j;
+			{
+				SYNC_RLOCK(users_);
+				j = std::lower_bound(users_.begin(), users_.end(), *i);
+				if (j == users_.end())
+					continue;
+			}
+			QUIT(*j, quitmsg);
+		}
 	}
 
+	MT_EE
+}
+
+boost::shared_ptr<LiveUser> Service::SIGNON(const std::string &nick)
+{
+	MT_EB
+	MT_FUNC("Service::SIGNON" << nick);
+
+	boost::shared_ptr<LiveUser> user;
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(user);
+
+	std::string user_str = nick;
+	if (ROOT->ConfigExists("services.user"))
+		user_str = ROOT->ConfigValue<std::string>("services.user");
+
+	std::string out;
+	boost::format f(ROOT->proto.ConfigValue<std::string>("nick"));
+	f.exceptions(f.exceptions() & ~boost::io::too_many_args_bit);
+	ROOT->proto.addline(out, (f % nick % user_str %
+							  ROOT->ConfigValue<std::string>("services.host") %
+							  uplink->Name() % time(NULL) % 1 % "" % "" % real_ % 1 %
+							  ROOT->ConfigValue<std::string>("services.host") %
+							  0x7F000001).str());
+
+	if (!ROOT->proto.send(out))
+		MT_RET(user);
+
+	user = LiveUser::create(this, nick, real_, uplink);
+
+	MT_RET(user);
 	MT_EE
 }
 
@@ -103,7 +147,7 @@ void Service::Check()
 		boost::shared_ptr<LiveUser> u = ROOT->data.Get_LiveUser(*i);
 		if (!u)
 		{
-			u = ROOT->proto.SIGNON(this, *i, real_);
+			u = SIGNON(*i);
 		}
 		else
 		{
@@ -115,14 +159,15 @@ void Service::Check()
 			}
 
 			if (u->GetServer() == uplink)
-				QUIT(u->Name(), _("Signing on as different service."));
+				QUIT(u, _("Signing on as different service."));
 			else
-				ROOT->proto.KILL(u, _("Nickname reserved for services."));
-			u = ROOT->proto.SIGNON(this, *i, real_);
+				uplink->KILL(u, _("Nickname reserved for services."));
+			u = SIGNON(*i);
 		}
 		ROOT->data.Add(u);
 		users.insert(u);
 	}
+	SYNC_WLOCK(users_);
 	users_.swap(users);
 
 	MT_EE
@@ -138,7 +183,11 @@ unsigned int Service::PushCommand(const boost::regex &rx,
 	static unsigned int id = 0;
 	func_map_.push_front(Command_t());
 	func_map_.front().id = ++id;
-	func_map_.front().rx = rx;
+	if (rx.flags() & boost::regex_constants::icase)
+		func_map_.front().rx = rx;
+	else
+		func_map_.front().rx = boost::regex(rx.str(),
+			rx.flags() | boost::regex_constants::icase);
 	func_map_.front().func = func;
 
 	MT_RET(id);
@@ -162,50 +211,150 @@ void Service::DelCommand(unsigned int id)
 	MT_EE
 }
 
-void Service::QUIT(const std::string &source, const std::string &message)
+void Service::QUIT(const boost::shared_ptr<LiveUser> &source,
+				   const std::string &message)
 {
 	MT_EB
 	MT_FUNC("Service::QUIT" << source << message);
 
-	if (!ROOT->getUplink())
+	if (!source || source->GetService() != this)
 		return;
 
+	std::string out;
+	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("QUIT") +
+						" :" + message);
+	bool rv = ROOT->proto.send(out);
+	if (rv)
+		source->Quit(message);
 
 	MT_EE
 }
 
-void Service::PRIVMSG(const std::string &source, const std::string &target, const boost::format &message)
+void Service::KILL(const boost::shared_ptr<LiveUser> &source,
+				   const boost::shared_ptr<LiveUser> &target,
+				   const std::string &message)
+{
+	MT_EB
+	MT_FUNC("Service::KILL" << source << target << message);
+
+	if (!source || source->GetService() != this)
+		return;
+
+	std::string out;
+	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("KILL") +
+						" " + target->Name() + " :" + message);
+	bool rv = ROOT->proto.send(out);
+	if (rv)
+		target->Kill(source, message);
+
+	MT_EE
+}
+
+void Service::PRIVMSG(const boost::shared_ptr<LiveUser> &source,
+					  const boost::shared_ptr<LiveUser> &target,
+					  const boost::format &message) const
 {
 	MT_EB
 	MT_FUNC("Service::PRIVMSG" << source << target << message);
 
-	if (!ROOT->getUplink())
+	if (!source || source->GetService() != this)
 		return;
 
+	std::string out;
+	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("PRIVMSG") +
+						" " + target->Name() + " :" + message.str());
+	ROOT->proto.send(out);
 
 	MT_EE
 }
 
-void Service::NOTICE(const std::string &source, const std::string &target, const boost::format &message)
+
+void Service::PRIVMSG(const boost::shared_ptr<LiveUser> &target,
+					  const boost::format &message) const
+{
+	MT_EB
+	MT_FUNC("Service::PRIVMSG" << target << message);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator j = std::lower_bound(users_.begin(),
+												 users_.end(),
+												 primary_);
+	if (j == users_.end())
+		return;
+
+	PRIVMSG(*j, target, message);
+
+	MT_EE
+}
+
+void Service::NOTICE(const boost::shared_ptr<LiveUser> &source,
+					 const boost::shared_ptr<LiveUser> &target,
+					 const boost::format &message) const
 {
 	MT_EB
 	MT_FUNC("Service::NOTICE" << source << target << message);
 
-	if (!ROOT->getUplink())
+	if (!source || source->GetService() != this)
 		return;
 
+	std::string out;
+	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("NOTICE") +
+						" " + target->Name() + " :" + message.str());
+	ROOT->proto.send(out);
 
 	MT_EE
 }
 
-void Service::ANNOUNCE(const std::string &source, const boost::format &message)
+void Service::NOTICE(const boost::shared_ptr<LiveUser> &target,
+					 const boost::format &message) const
+{
+	MT_EB
+	MT_FUNC("Service::NOTICE" << target << message);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator j = std::lower_bound(users_.begin(),
+												 users_.end(),
+												 primary_);
+	if (j == users_.end())
+		return;
+
+	NOTICE(*j, target, message);
+
+	MT_EE
+}
+
+void Service::ANNOUNCE(const boost::shared_ptr<LiveUser> &source,
+					   const boost::format &message) const
 {
 	MT_EB
 	MT_FUNC("Service::ANNOUNCE" << source << message);
 
-	if (!ROOT->getUplink())
+	if (!source || source->GetService() != this)
 		return;
 
+	std::string out;
+	ROOT->proto.addline(*source, out, ROOT->proto.tokenise(
+						ROOT->proto.ConfigValue<bool>("globops")
+							? "GLOBOPS" : "WALLOPS") + " :" +
+						message.str());
+	ROOT->proto.send(out);
+
+	MT_EE
+}
+
+void Service::ANNOUNCE(const boost::format &message) const
+{
+	MT_EB
+	MT_FUNC("Service::ANNOUNCE" << message);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator j = std::lower_bound(users_.begin(),
+												 users_.end(),
+												 primary_);
+	if (j == users_.end())
+		return;
+
+	ANNOUNCE(*j, message);
 
 	MT_EE
 }

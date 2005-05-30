@@ -143,7 +143,7 @@ void LiveChannel::Join(const boost::shared_ptr<LiveUser> &user)
 
 	{
 		SYNC_WLOCK(users_);
-		users_[user] = std::string();
+		users_[user] = std::set<char>();
 	}
 	if_LiveUser_LiveChannel(user).Join(self.lock());
 	SYNC_RLOCK(stored_);
@@ -230,7 +230,7 @@ bool LiveChannel::RecentPart(const boost::shared_ptr<LiveUser> &user) const
 	MT_EE
 }
 
-void LiveChannel::Users(std::map<boost::shared_ptr<LiveUser>, std::string> &users) const
+void LiveChannel::Users(LiveChannel::users_t &users) const
 {
 	MT_EB
 	MT_FUNC("LiveChannel::Users" << users);
@@ -253,22 +253,22 @@ bool LiveChannel::IsUser(const boost::shared_ptr<LiveUser> &user) const
 	MT_EE
 }
 
-std::string LiveChannel::User(const boost::shared_ptr<LiveUser> &user) const
+std::set<char> LiveChannel::User(const boost::shared_ptr<LiveUser> &user) const
 {
 	MT_EB
 	MT_FUNC("LiveChannel::User" << user);
 
+	std::set<char> rv;
 	SYNC_RLOCK(users_);
 	users_t::const_iterator i = users_.find(user);
 	if (i != users_.end())
-		MT_RET(i->second);
+		rv = i->second;
 
-	std::string rv;
 	MT_RET(rv);
 	MT_EE
 }
 
-void LiveChannel::Splits(std::map<boost::shared_ptr<LiveUser>, std::string> &splits) const
+void LiveChannel::Splits(LiveChannel::users_t &splits) const
 {
 	MT_EB
 	MT_FUNC("LiveChannel::Splits" << splits);
@@ -291,30 +291,28 @@ bool LiveChannel::IsSplit(const boost::shared_ptr<LiveUser> &split) const
 	MT_EE
 }
 
-std::string LiveChannel::Split(const boost::shared_ptr<LiveUser> &split) const
+std::set<char> LiveChannel::Split(const boost::shared_ptr<LiveUser> &split) const
 {
 	MT_EB
 	MT_FUNC("LiveChannel::Split" << split);
 
+	std::set<char> rv;
 	SYNC_RLOCK(users_);
 	users_t::const_iterator i = splits_.find(split);
 	if (i != splits_.end())
-		MT_RET(i->second);
+		rv = i->second;
 
-	std::string rv;
 	MT_RET(rv);
 	MT_EE
 }
 
-void LiveChannel::Bans(std::map<std::string, boost::posix_time::ptime> &bans) const
+void LiveChannel::Bans(LiveChannel::bans_t &bans) const
 {
 	MT_EB
 	MT_FUNC("LiveChannel::Bans" << bans);
 
 	SYNC_RLOCK(bans_);
-	bans_t::const_iterator i;
-	for (i = bans_.begin(); i != bans_.end(); ++i)
-		bans[i->first] = i->second.first;
+	bans = bans_;
 
 	MT_EE
 }
@@ -346,7 +344,7 @@ bool LiveChannel::MatchBan(const boost::shared_ptr<LiveUser> &in) const
 	MT_EE
 }
 
-void LiveChannel::Exempts(std::set<std::string> &exempts) const
+void LiveChannel::Exempts(LiveChannel::exempts_t &exempts) const
 {
 	MT_EB
 	MT_FUNC("LiveChannel::Exempts" << exempts);
@@ -444,8 +442,20 @@ void LiveChannel::Modes(const boost::shared_ptr<LiveUser> &user,
 	MT_EB
 	MT_FUNC("LiveChannel::Modes" << user << in << params);
 
+	boost::char_separator<char> sep(" \t");
+	typedef boost::tokenizer<boost::char_separator<char>,
+		std::string::const_iterator, std::string> tokenizer;
+	tokenizer tokens(params, sep);
+	std::vector<std::string> v(tokens.begin(), tokens.end());
+	Modes(user, in, v);
 
 	MT_EE
+}
+
+bool operator<(const LiveChannel::users_t::value_type &lhs,
+			   const std::string &rhs)
+{
+	return (*(lhs.first) < rhs);
 }
 
 void LiveChannel::Modes(const boost::shared_ptr<LiveUser> &user,
@@ -454,6 +464,162 @@ void LiveChannel::Modes(const boost::shared_ptr<LiveUser> &user,
 	MT_EB
 	MT_FUNC("LiveChannel::Modes" << user << in << params);
 
+	bool add = true;
+	std::string::const_iterator i;
+	users_t::iterator j;
+	exempts_t::iterator l;
+	size_t m = 0;
+
+	SYNC_LOCK(modes_);
+	MT_CB(0, modes_);
+	for (i = in.begin(); i != in.end(); ++i)
+	{
+		switch (*i)
+		{
+		case '+':
+			add = true;
+			break;
+		case '-':
+			add = false;
+			break;
+		case 'l':
+			if (!add)
+			{
+				modes_limit_ = 0;
+				break;
+			}
+			// Don't break, this should fall through if its 'add'.
+		default:
+			if (ROOT->proto.ConfigValue<std::string>("channel-mode-params").find(*i) != std::string::npos)
+			{
+				if (m >= params.size())
+				{
+					// LOG an error!
+					break;
+				}
+
+				switch (*i)
+				{
+				case 'o':
+				case 'h':
+				case 'v':
+				case 'q':
+				case 'u':
+				case 'a':
+					{
+						SYNC_RWLOCK(users_);
+						j = std::lower_bound(users_.begin(), users_.end(),
+											 params[m]);
+						if (!(j != users_.end() && *(j->first) == params[m]))
+						{
+							// LOG an error!
+							break;
+						}
+
+						SYNC_PROMOTE(users_);
+						if (add)
+							j->second.insert(*i);
+						else
+							j->second.erase(*i);
+					}
+					break;
+
+				case 'b':
+					if (add)
+					{
+						SYNC_WLOCK(bans_);
+						bans_[params[m]] = std::make_pair(mantra::GetCurrentDateTime(), 0);
+					}
+					else
+					{
+						SYNC_RWLOCK(bans_);
+						bans_t::iterator k = bans_.find(params[m]);
+						if (k == bans_.end())
+						{
+							// LOG an error!
+							break;
+						}
+
+						SYNC_PROMOTE(bans_);
+						bans_.erase(k);
+					}
+					break;
+
+				case 'e':
+					if (add)
+					{
+						SYNC_WLOCK(exempts_);
+						exempts_.insert(params[m]);
+					}
+					else
+					{
+						SYNC_RWLOCK(exempts_);
+						exempts_t::iterator k = exempts_.find(params[m]);
+						if (k == exempts_.end())
+						{
+							// LOG an error!
+							break;
+						}
+
+						SYNC_PROMOTE(exempts_);
+						exempts_.erase(k);
+					}
+					break;
+
+				case 'k':
+					if (add)
+					{
+						if (!modes_key_.empty())
+						{
+							// LOG an error!
+							break;
+						}
+						modes_key_ = params[m];
+					}
+					else
+					{
+						if (modes_key_ != params[m])
+						{
+							// LOG an error!
+							break;
+						}
+						modes_key_.clear();
+					}
+					break;
+
+				case 'l':
+					// Has to be add because of the previos check.
+					try
+					{
+						modes_limit_ = boost::lexical_cast<unsigned int>(params[m]);
+					}
+					catch (boost::bad_lexical_cast &e)
+					{
+						// LOG an error!
+					}
+					break;
+
+				default:
+					// LOG an error!
+					break;
+				}
+
+				++m;
+			}
+			else
+			{
+				if (add)
+					modes_.insert(*i);
+				else
+					modes_.erase(*i);
+			}
+		}
+	}
+	MT_CE(0, modes_);
+
+	SYNC_RLOCK(stored_);
+	if (stored_)
+		if_StoredChannel_LiveChannel(stored_).Modes(user, in, params);
 
 	MT_EE
 }
@@ -478,7 +644,7 @@ void LiveChannel::SendModes(const boost::shared_ptr<LiveUser> &user,
 	MT_EE
 }
 
-std::string LiveChannel::Modes() const
+std::set<char> LiveChannel::Modes() const
 {
 	MT_EB
 	MT_FUNC("LiveChannel::Modes");

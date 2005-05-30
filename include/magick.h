@@ -114,6 +114,7 @@ enum TraceTypes_t
 class Magick
 {
 	friend class Protocol;
+	friend void init_nickserv_functions();
 
 	boost::posix_time::ptime start;
 	pid_t pid;

@@ -221,6 +221,13 @@ void LiveUser::Quit(const std::string &reason)
 		}
 	}
 
+	if (service_)
+	{
+		Service *serv = const_cast<Service *>(service_);
+		SYNCP_WLOCK(serv, users_);
+		serv->users_.erase(self.lock());
+	}
+
 	if_StorageDeleter<LiveUser>(ROOT->data).Del(self.lock());
 
 	MT_EE
@@ -290,16 +297,39 @@ void LiveUser::Modes(const std::string &in)
 
 	SYNC_LOCK(modes_);
 
+	MT_CB(0, modes_);
+	bool add = true;
+	std::string::const_iterator i;
+	for (i = in.begin(); i != in.end(); ++i)
+	{
+		switch (*i)
+		{
+		case '+':
+			add = true;
+			break;
+		case '-':
+			add = false;
+			break;
+		default:
+			if (add)
+				modes_.insert(*i);
+			else
+				modes_.erase(*i);
+		}
+	}
+	MT_CE(0, modes_);
+
 	MT_EE
 }
 
-std::string LiveUser::Modes() const
+std::set<char> LiveUser::Modes() const
 {
 	MT_EB
 	MT_FUNC("LiveUser::Modes");
 
+	std::set<char> rv;
 	SYNC_LOCK(modes_);
-	std::string rv = modes_;
+	rv = modes_;
 	MT_RET(rv);
 
 	MT_EE

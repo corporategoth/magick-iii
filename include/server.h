@@ -111,8 +111,23 @@ public:
 
 	void Connect(const boost::shared_ptr<Jupe> &s)
 		{ Server::Connect(s); }
+
+	bool SQUIT(const std::string &reason = std::string()) const;
+	bool RAW(const std::string &cmd,
+			 const std::vector<std::string> &args,
+			 bool forcecolon = false) const;
+	inline bool RAW(const std::string &cmd,
+					const std::string &arg,
+					bool forcecolon = false) const
+	{
+		std::vector<std::string> v;
+		v.push_back(arg);
+		return RAW(cmd, v, forcecolon);
+	}
+
 };
 
+class LiveUser;
 class Uplink : public Jupe
 {
 	friend class Protocol;
@@ -155,6 +170,53 @@ public:
 
 	// Pushes it onto the stack to be classified.
 	void Push(const std::deque<Message> &in);
+
+	bool KILL(const boost::shared_ptr<LiveUser> &user, const std::string &reason) const;
+
+	enum Numeric_t
+		{
+			nSTATSEND = 219,
+			nADMINME = 256,
+			nADMINLOC1 = 257,
+			nADMINLOC2 = 258,
+			nADMINEMAIL = 259,
+			nTRACEEND = 262,
+			nUSERHOST = 302,
+			nISON = 303,
+			nVERSION = 351,
+			nLINKS = 365,
+			nLINKSEND = 365,
+			nNAMESEND = 366,
+			nINFO = 371,
+			nMOTD = 372,
+			nINFOSTART = 373,
+			nINFOEND = 374,
+			nMOTDSTART = 375,
+			nMOTDEND = 376,
+			nTIME = 391,
+			nNOSUCHNICK = 401,
+			nNOSUCHSERVER = 402,
+			nNOSUCHCHANNEL = 403,
+			nNEED_MORE_PARAMS = 461,
+			nINCORRECT_PASSWORD = 464,
+			nUSERNOTINCHANNEL = 442,
+			nSUMMONDISABLED = 445,
+			nUSERSDISABLED = 446
+		};
+
+	bool NUMERIC(Numeric_t num, const std::string &target,
+				 const std::vector<std::string> &args,
+				 bool forcecolon = false) const;
+	inline bool NUMERIC(Numeric_t num, const std::string &target,
+						const std::string &arg,
+						bool forcecolon = false) const
+	{
+		std::vector<std::string> v;
+		v.push_back(arg);
+		return NUMERIC(num, target, v, forcecolon);
+	}
+
+	bool ERROR(const std::string &arg) const;
 };
 
 // Used for tracing mainly.

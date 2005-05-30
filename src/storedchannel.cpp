@@ -159,6 +159,18 @@ void StoredChannel::Topic(const std::string &topic, const std::string &setter,
 	MT_EE
 }
 
+
+void StoredChannel::Modes(const boost::shared_ptr<LiveUser> &user,
+						  const std::string &in,
+						  const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("StoredChannel::Modes" << user << in << params);
+
+
+	MT_EE
+}
+
 void StoredChannel::Join(const boost::shared_ptr<LiveUser> &user)
 {
 	MT_EB

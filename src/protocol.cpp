@@ -288,7 +288,7 @@ const std::string &Protocol::tokenise(const std::string &in) const
 	MT_EB
 	MT_FUNC("Protocol::tokenise");
 
-	if (rev_tokens.empty() || !ROOT->uplink || !usetokens)
+	if (rev_tokens.empty() || !usetokens || !ROOT->getUplink())
 		MT_RET(in);
 
 	std::map<std::string, std::string, mantra::iless<std::string> >::const_iterator iter =
@@ -342,19 +342,30 @@ void Protocol::addline(const Jupe &s, std::string &out, const std::string &in) c
 	MT_EE
 }
 
+void Protocol::addline(const LiveUser &u, std::string &out, const std::string &in) const
+{
+	MT_EB
+	MT_FUNC("Protocol::addline" << u << &out << in);
+
+	addline(out, ":" + u.Name() + " " + in);
+
+	MT_EE
+}
+
 bool Protocol::send(const char *buf, boost::uint64_t len) const
 {
 	MT_EB
 	MT_FUNC("Protocol::send" << &buf << len);
 
-	if (!ROOT->uplink)
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
 		MT_RET(false);
 
-	bool rv = ROOT->uplink->flack_.Write(buf, len);
+	bool rv = uplink->flack_.Write(buf, len);
 	if (!rv)
 		LOG(Warning, _("Failed to write to outbound flack with error #%1%."),
-			ROOT->uplink->flack_.Last_Write_Error());
-	ROOT->uplink->write_ = true;
+			uplink->flack_.Last_Write_Error());
+	uplink->write_ = true;
 
 	MT_RET(rv);
 	MT_EE
@@ -556,118 +567,12 @@ bool Protocol::Connect(const Uplink &s)
 	MT_EE
 }
 
-boost::shared_ptr<LiveUser> Protocol::SIGNON(const Service *s,
-											 const std::string &nick,
-											 const std::string &name) const
-{
-	MT_EB
-	MT_FUNC("Protocol::SIGNON" << s << nick << name);
-
-	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
-
-	std::string user_str = nick;
-	if (ROOT->ConfigExists("services.user"))
-		user_str = ROOT->ConfigValue<std::string>("services.user");
-
-	std::string out;
-	boost::format f(opt_protocol["nick"].as<std::string>());
-	f.exceptions(f.exceptions() & ~boost::io::too_many_args_bit);
-	addline(out, (f % nick % user_str %
-				  ROOT->ConfigValue<std::string>("services.host") %
-				  uplink->Name() % time(NULL) % 1 % "" % "" % name % 1 %
-				  ROOT->ConfigValue<std::string>("services.host") %
-				  0x7F000001).str());
-
-	boost::shared_ptr<LiveUser> user;
-	if (!send(out))
-		return user;
-
-	user = LiveUser::create(s, nick, name, ROOT->uplink);
-
-	MT_RET(user);
-	MT_EE
-}
-
-bool Protocol::KILL(const boost::shared_ptr<LiveUser> &user,
-					const std::string &reason) const
-{
-	MT_EB
-	MT_FUNC("Protocol::KILL" << user << reason);
-
-	std::string out;
-	addline(*(ROOT->uplink), out, tokenise("KILL") + " " + user->Name() +
-			" :" + reason);
-	bool rv = send(out);
-	if (rv)
-		user->Kill(boost::shared_ptr<LiveUser>(), reason);
-
-	MT_RET(rv);
-	MT_EE
-}
-
-bool Protocol::SQUIT(const Jupe &s, const std::string &reason) const
-{
-	MT_EB
-	MT_FUNC("Protocol::SQUIT" << s << reason);
-
-	std::string out;
-	addline(s, out, tokenise("SQUIT") + " :" + reason);
-	bool rv = send(out);
-	MT_RET(rv);
-
-	MT_EE
-}
-
-bool Protocol::RAW(const Jupe &s, const std::string &cmd,
-				   const std::vector<std::string> &args,
-				   bool forcecolon) const
-{
-	MT_EB
-	MT_FUNC("Protocol::RAW" << s << cmd << args);
-
-	std::string ostr;
-	addline(s, ostr, tokenise(cmd) + assemble(args, forcecolon));
-	bool rv = send(ostr);
-
-	MT_RET(rv);
-	MT_EE
-}
-
-bool Protocol::NUMERIC(Protocol::Numeric_t num, const std::string &target,
-					   const std::vector<std::string> &args,
-					   bool forcecolon) const
-{
-	MT_EB
-	MT_FUNC("Protocol::NUMERIC" << num << target << args);
-
-	std::string ostr, istr = boost::lexical_cast<std::string>(num) + " " +
-								target + assemble(args, forcecolon);
-	addline(*(ROOT->uplink), ostr, istr);
-	bool rv = send(ostr);
-
-	MT_RET(rv);
-	MT_EE
-}
-
-bool Protocol::ERROR(const std::string &arg) const
-{
-	MT_EB
-	MT_FUNC("Protocol::ERROR" << arg);
-
-	std::string ostr;
-	addline(*(ROOT->uplink), ostr, tokenise("ERROR") + " :" + arg);
-	bool rv = send(ostr);
-
-	MT_RET(rv);
-	MT_EE
-}
-
 void Protocol::BurstEnd() const
 {
 	MT_EB
 	MT_FUNC("Protocol::BurstEnd");
 
-	boost::shared_ptr<Uplink> uplink = ROOT->uplink;
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
 	if (!uplink)
 		return;
 

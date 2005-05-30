@@ -33,6 +33,7 @@ RCSID(magick__server_cpp, "@(#)$Id$");
 ** ======================================================================= */
 
 #include "magick.h"
+#include "liveuser.h"
 
 void Server::Disconnect()
 {
@@ -145,6 +146,37 @@ size_t Server::Opers() const
 	MT_EE
 }
 
+bool Jupe::SQUIT(const std::string &reason) const
+{
+	MT_EB
+	MT_FUNC("Jupe::SQUIT" << reason);
+
+
+	std::string out;
+	ROOT->proto.addline(*this, out, ROOT->proto.tokenise("SQUIT") +
+						" :" + reason);
+	bool rv = ROOT->proto.send(out);
+	MT_RET(rv);
+
+	MT_EE
+}
+
+bool Jupe::RAW(const std::string &cmd,
+			   const std::vector<std::string> &args,
+			   bool forcecolon) const
+{
+	MT_EB
+	MT_FUNC("Jupe::RAW" << cmd << args << forcecolon);
+
+	std::string out;
+	ROOT->proto.addline(*this, out, ROOT->proto.tokenise(cmd) +
+						ROOT->proto.assemble(args, forcecolon));
+	bool rv = ROOT->proto.send(out);
+	MT_RET(rv);
+
+	MT_EE
+}
+
 Uplink::Uplink(const std::string &password, const std::string &id)
 	: Jupe(::ROOT->ConfigValue<std::string>("server-name"),
 		   ::ROOT->ConfigValue<std::string>("server-desc"), id,
@@ -187,7 +219,7 @@ void Uplink::Disconnect()
 
 	// This is not the first time ;)
 	if (!workers.empty())
-		ROOT->proto.SQUIT(*this);
+		SQUIT();
 
 	std::list<boost::thread *>::iterator i;
 	for (i=workers.begin(); i!=workers.end(); ++i)
@@ -473,6 +505,53 @@ void Uplink::Push(const Message &in)
 	boost::mutex::scoped_lock scoped_lock(lock_);
 	pending_.push_back(in);
 	cond_.notify_one();
+
+	MT_EE
+}
+
+bool Uplink::KILL(const boost::shared_ptr<LiveUser> &user,
+				  const std::string &reason) const
+{
+	MT_EB
+	MT_FUNC("Uplink::KILL" << user << reason);
+
+	std::string out;
+	ROOT->proto.addline(*this, out, ROOT->proto.tokenise("KILL") +
+						" " + user->Name() + " :" + reason);
+	bool rv = ROOT->proto.send(out);
+	if (rv)
+		user->Kill(boost::shared_ptr<LiveUser>(), reason);
+
+	MT_RET(rv);
+	MT_EE
+}
+
+bool Uplink::NUMERIC(Numeric_t num, const std::string &target,
+					 const std::vector<std::string> &args,
+					 bool forcecolon) const
+{
+	MT_EB
+	MT_FUNC("Uplink::NUMERIC" << num << target << args << forcecolon);
+
+	std::string ostr, istr = boost::lexical_cast<std::string>(num) + " " +
+								target + ROOT->proto.assemble(args, forcecolon);
+	ROOT->proto.addline(*this, ostr, istr);
+	bool rv = ROOT->proto.send(ostr);
+	MT_RET(rv);
+
+	MT_EE
+}
+
+bool Uplink::ERROR(const std::string &arg) const
+{
+	MT_EB
+	MT_FUNC("Uplink::ERROR" << arg);
+
+	std::string ostr;
+	ROOT->proto.addline(*this, ostr, ROOT->proto.tokenise("ERROR") +
+						" :" + arg);
+	bool rv = ROOT->proto.send(ostr);
+	MT_RET(rv);
 
 	MT_EE
 }

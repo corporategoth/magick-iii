@@ -50,6 +50,7 @@ class LiveUser;
 
 class Service
 {
+	friend class LiveUser;
 public:
 	typedef boost::function3<bool, const boost::shared_ptr<LiveUser> &,
 							 const boost::shared_ptr<LiveUser> &,
@@ -70,10 +71,11 @@ private:
 	std::string real_;
 	std::string primary_;
 	nicks_t nicks_;
-	users_t users_;
+	users_t RWSYNC(users_);
 
 	func_map_t RWSYNC(func_map_);
 
+	boost::shared_ptr<LiveUser> SIGNON(const std::string &nick);
 public:
 	Service();
 	virtual ~Service();
@@ -88,28 +90,36 @@ public:
 		{ return (nicks_.find(nick) != nicks_.end()); }
 
 	unsigned int PushCommand(const boost::regex &rx, const functor &func);
+	unsigned int PushCommand(const std::string &rx, const functor &func)
+		{ return PushCommand(boost::regex(rx, boost::regex_constants::icase), func); }
 	void DelCommand(unsigned int id);
 
-	void QUIT(const std::string &source, const std::string &message = std::string());
-	void KILL(const std::string &source, const std::string &target,
+	void QUIT(const boost::shared_ptr<LiveUser> &source,
+			  const std::string &message = std::string());
+	void KILL(const boost::shared_ptr<LiveUser> &source,
+			  const boost::shared_ptr<LiveUser> &target,
 			  const std::string &message = std::string());
 	void MASSQUIT(const std::string &message = std::string())
 	{
-		for_each(nicks_.begin(), nicks_.end(),
+		for_each(users_.begin(), users_.end(),
 				 boost::bind(&Service::QUIT, this, _1, message));
 	}
 
-	void PRIVMSG(const std::string &source, const std::string &target, const boost::format &message);
-	void PRIVMSG(const std::string &target, const boost::format &message)
-		{ PRIVMSG(primary_, target, message); }
+	void PRIVMSG(const boost::shared_ptr<LiveUser> &source,
+				 const boost::shared_ptr<LiveUser> &target,
+				 const boost::format &message) const;
+	void PRIVMSG(const boost::shared_ptr<LiveUser> &target,
+				 const boost::format &message) const;
 
-	void NOTICE(const std::string &source, const std::string &target, const boost::format &message);
-	void NOTICE(const std::string &target, const boost::format &message)
-		{ NOTICE(primary_, target, message); }
+	void NOTICE(const boost::shared_ptr<LiveUser> &source,
+				const boost::shared_ptr<LiveUser> &target,
+				const boost::format &message) const;
+	void NOTICE(const boost::shared_ptr<LiveUser> &target,
+				const boost::format &message) const;
 
-	void ANNOUNCE(const std::string &source, const boost::format &message);
-	void ANNOUNCE(const boost::format &message)
-		{ ANNOUNCE(primary_, message); }
+	void ANNOUNCE(const boost::shared_ptr<LiveUser> &source,
+				  const boost::format &message) const;
+	void ANNOUNCE(const boost::format &message) const;
 
 	class CommandMerge
 	{

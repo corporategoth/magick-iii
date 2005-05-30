@@ -197,7 +197,30 @@ class if_StorageDeleter
 template<typename T>
 inline std::ostream &operator<<(std::ostream &os, const boost::shared_ptr<T> &in)
 {
-	return (os << *in);
+	if (!in)
+		return (os << "(NULL)");
+	else
+		return (os << *in);
+}
+
+namespace std
+{
+
+// Used for modes (and mode args respectively).
+inline ostream &operator<<(ostream &os, const set<char> &in)
+{
+	for_each(in.begin(), in.end(), mantra::StreamObj<char>(os));
+	return os;
+}
+
+inline ostream &operator<<(ostream &os, const vector<string> &in)
+{
+	os << "[";
+	for_each(in.begin(), in.end(), mantra::StreamObj<char>(os, ", "));
+	os << "]";
+	return os;
+}
+
 }
 
 #endif // _MAGICK_STORAGE_H

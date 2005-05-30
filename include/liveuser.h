@@ -87,7 +87,7 @@ class LiveUser : private boost::noncopyable, public boost::totally_ordered1<Live
 	std::string alt_host_;
 	std::string away_;
 
-	std::string SYNC(modes_);
+	std::set<char> SYNC(modes_);
 
 	// Sync here includes flood_triggers.
 	messages_t SYNC(messages_);
@@ -174,8 +174,26 @@ public:
 	bool Matches(const std::string &mask) const
 		{ return mantra::glob_match(mask, Name() + "!" + User() + "@" + Host(), true); }
 
-	bool operator<(const LiveUser &rhs) const { return Name() < rhs.Name(); }
-	bool operator==(const LiveUser &rhs) const { return Name() == rhs.Name(); }
+	inline bool operator<(const std::string &rhs) const
+	{
+#ifdef CASE_SPECIFIC_SORT
+		static mantra::less<std::string> cmp;
+#else
+		static mantra::iless<std::string> cmp;
+#endif
+		return cmp(Name(), rhs);
+	}
+	inline bool operator==(const std::string &rhs) const
+	{
+#ifdef CASE_SPECIFIC_SORT
+		static mantra::equal_to<std::string> cmp;
+#else
+		static mantra::iequal_to<std::string> cmp;
+#endif
+		return cmp(Name(), rhs);
+	}
+	inline bool operator<(const LiveUser &rhs) const { return *this < rhs.Name(); }
+	inline bool operator==(const LiveUser &rhs) const { return *this == rhs.Name(); }
 
 	// Everything below needs locking ...
 
@@ -201,10 +219,11 @@ public:
 
 	// The following alters modes, it doesn't outright set them.
 	void Modes(const std::string &in);
-	std::string Modes() const;
+	std::set<char> Modes() const;
 	inline bool Mode(const char c) const
 	{
-		return (Modes().find(c) != std::string::npos);
+		std::set<char> modes = Modes();
+		return (modes.find(c) != modes.end());
 	}
 
 	bool Action();
