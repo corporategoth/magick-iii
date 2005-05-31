@@ -819,7 +819,7 @@ static bool biNICK(const Message &m)
 		if (!user)
 			MT_RET(false);
 
-		user->Name(m.Params()[0]);
+		ROOT->data.Rename(user, m.Params()[0]);
 		uplink->de.Satisfy(Dependency::NickNotExists, m.Source());
 		uplink->de.Satisfy(Dependency::NickExists, m.Params()[0]);
 	}

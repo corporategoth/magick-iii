@@ -50,6 +50,7 @@ class Service;
 
 class LiveUser : private boost::noncopyable, public boost::totally_ordered1<LiveUser>
 {
+	friend class if_LiveUser_Storage;
 	friend class if_LiveUser_StoredNick;
 	friend class if_LiveUser_LiveChannel;
 	friend class if_LiveUser_StoredChannel;
@@ -112,6 +113,9 @@ private:
 
 	pending_memos_t SYNC(pending_memos_);
 
+	// use if_LiveUser_Storage
+	void Name(const std::string &in);
+
 	// use if_LiveUser_StoredNick
 	void Stored(const boost::shared_ptr<StoredNick> &nick);
 	void Nick_Reg();
@@ -159,7 +163,6 @@ public:
 		return rv;
 	}
 
-	void Name(const std::string &in);
 	inline std::string Name() const
 	{
 		SYNC_RLOCK(name_);
@@ -250,6 +253,20 @@ public:
 	boost::posix_time::ptime Last_Nick_Reg() const;
 	boost::posix_time::ptime Last_Channel_Reg() const;
 	boost::posix_time::ptime Last_Memo() const;
+};
+
+// Special interface used by Storage.
+class if_LiveUser_Storage
+{
+	friend class Storage;
+	LiveUser &base;
+
+	// This is INTENTIONALLY private ...
+	if_LiveUser_Storage(LiveUser &b) : base(b) {}
+	if_LiveUser_Storage(const boost::shared_ptr<LiveUser> &b) : base(*(b.get())) {}
+
+	inline void Name(const std::string &in)
+		{ base.Name(in); }
 };
 
 // Special interface used by StoredNick.

@@ -2131,6 +2131,29 @@ void Storage::Add(const boost::shared_ptr<Committee> &entry)
 	MT_EE
 }
 
+void Storage::Rename(const boost::shared_ptr<LiveUser> &entry,
+					 const std::string &name)
+{
+	MT_EB
+	MT_FUNC("Storage::Rename" << entry << name);
+
+	static mantra::iequal_to<std::string> cmp;
+	if (cmp(entry->Name(), name))
+		if_LiveUser_Storage(entry).Name(name);
+	else
+	{
+		SYNC_WLOCK(LiveUsers_);
+		LiveUsers_t::iterator i = LiveUsers_.find(entry->Name());
+		if (i != LiveUsers_.end())
+			LiveUsers_.erase(i);
+		SYNC_UNLOCK(LiveUsers_);
+		if_LiveUser_Storage(entry).Name(name);
+		Add(entry);
+	}
+
+	MT_EE
+}
+
 // --------------------------------------------------------------------------
 
 boost::shared_ptr<LiveUser> Storage::Get_LiveUser(const std::string &name) const

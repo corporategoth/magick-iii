@@ -119,6 +119,9 @@ public:
 	void Add(const boost::shared_ptr<StoredChannel> &entry);
 	void Add(const boost::shared_ptr<Committee> &entry);
 
+	void Rename(const boost::shared_ptr<LiveUser> &entry,
+				const std::string &newname);
+
 	boost::shared_ptr<LiveUser> Get_LiveUser(const std::string &name) const;
 	boost::shared_ptr<LiveChannel> Get_LiveChannel(const std::string &name) const;
 	boost::shared_ptr<StoredUser> Get_StoredUser(boost::uint32_t id,
