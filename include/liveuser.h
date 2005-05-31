@@ -47,6 +47,73 @@ RCSID(magick__liveuser_h, "@(#) $Id$");
 
 class Server;
 class Service;
+class StoredNick;
+
+// These macros are used to send a notice/message to a user in their
+// own language, and using their preferred communication mechanism.
+
+// Used as:
+// SEND(service, user, format_string, format_args);
+// NSEND(service, user, format_string);
+#define SEND(w,x,y,z) \
+	do \
+	{ \
+		if ((w) && (x) && (y) && (w)->GetService() && !(x)->GetService()) \
+		{ \
+			boost::shared_ptr<StoredNick> __nick = (x)->Stored(); \
+			if (__nick) \
+			{ \
+				std::locale __loc(__nick->User()->Language().c_str()); \
+				boost::format __fmt(mantra::translate::get((y), __loc), __loc); \
+				__fmt.exceptions(__fmt.exceptions() & ~boost::io::too_many_args_bit); \
+				if (__nick->User()->PRIVMSG()) \
+					(w)->GetService()->PRIVMSG((w), (x), __fmt % z); \
+				else \
+					(w)->GetService()->NOTICE((w), (x), __fmt % z); \
+			} \
+			else \
+			{ \
+				std::locale __loc(ROOT->ConfigValue<std::string>("nickserv.defaults.language").c_str()); \
+				boost::format __fmt(mantra::translate::get((y), __loc), __loc); \
+				__fmt.exceptions(__fmt.exceptions() & ~boost::io::too_many_args_bit); \
+				if (ROOT->ConfigValue<bool>("nickserv.defaults.privmsg")) \
+					(w)->GetService()->PRIVMSG((w), (x), __fmt % z); \
+				else \
+					(w)->GetService()->NOTICE((w), (x), __fmt % z); \
+			} \
+		} \
+	} \
+	while (0)
+
+#define NSEND(w,x,y) \
+	do \
+	{ \
+		if ((w) && (x) && (y) && (w)->GetService() && !(x)->GetService()) \
+		{ \
+			boost::shared_ptr<StoredNick> __nick = (x)->Stored(); \
+			if (__nick) \
+			{ \
+				std::locale __loc(__nick->User()->Language().c_str()); \
+				boost::format __fmt(mantra::translate::get((y), __loc), __loc); \
+				__fmt.exceptions(__fmt.exceptions() & ~boost::io::too_many_args_bit); \
+				if (__nick->User()->PRIVMSG()) \
+					(w)->GetService()->PRIVMSG((w), (x), __fmt); \
+				else \
+					(w)->GetService()->NOTICE((w), (x), __fmt); \
+			} \
+			else \
+			{ \
+				std::locale __loc(ROOT->ConfigValue<std::string>("nickserv.defaults.language").c_str()); \
+				boost::format __fmt(mantra::translate::get((y), __loc), __loc); \
+				__fmt.exceptions(__fmt.exceptions() & ~boost::io::too_many_args_bit); \
+				if (ROOT->ConfigValue<bool>("nickserv.defaults.privmsg")) \
+					(w)->GetService()->PRIVMSG((w), (x), __fmt); \
+				else \
+					(w)->GetService()->NOTICE((w), (x), __fmt); \
+			} \
+		} \
+	} \
+	while (0)
 
 class LiveUser : private boost::noncopyable, public boost::totally_ordered1<LiveUser>
 {
@@ -80,7 +147,7 @@ private:
 	boost::shared_ptr<Server> server_;
 	boost::posix_time::ptime signon_;
 	boost::posix_time::ptime seen_;
-	const Service *service_;
+	Service *service_;
 
 	// From here on, they do.
 	// This is the 'general' lock, some stuff has a more specific
@@ -131,7 +198,7 @@ private:
 	void Memo();
 
 	void unignore();
-	LiveUser(const Service *service, const std::string &name,
+	LiveUser(Service *service, const std::string &name,
 			 const std::string &real,
 			 const boost::shared_ptr<Server> &server,
 			 const std::string &id);
@@ -141,7 +208,7 @@ private:
 			 const boost::posix_time::ptime &signon,
 			 const std::string &id);
 public:
-	static inline boost::shared_ptr<LiveUser> create(const Service *s,
+	static inline boost::shared_ptr<LiveUser> create(Service *s,
 			const std::string &name, const std::string &real,
 			const boost::shared_ptr<Server> &server,
 			const std::string &id = std::string())
@@ -151,17 +218,11 @@ public:
 		return rv;
 	}
 
-	static inline boost::shared_ptr<LiveUser> create(const std::string &name,
+	static boost::shared_ptr<LiveUser> create(const std::string &name,
 			const std::string &real, const std::string &user,
 			const std::string &host, const boost::shared_ptr<Server> &server,
-			boost::posix_time::ptime signon,
-			const std::string &id = std::string())
-	{
-		boost::shared_ptr<LiveUser> rv(new LiveUser(name, real, user, host,
-													server, signon, id));
-		rv->self = rv;
-		return rv;
-	}
+			const boost::posix_time::ptime &signon,
+			const std::string &id = std::string());
 
 	inline std::string Name() const
 	{
@@ -176,7 +237,7 @@ public:
 	const boost::shared_ptr<Server> &GetServer() const { return server_; }
 	const boost::posix_time::ptime &Signon() const { return signon_; }
 	const boost::posix_time::ptime &Seen() const { return seen_; }
-	const Service *GetService() const { return service_; }
+	Service *GetService() const { return service_; }
 	bool Matches(const std::string &mask) const
 		{ return mantra::glob_match(mask, Name() + "!" + User() + "@" + Host(), true); }
 

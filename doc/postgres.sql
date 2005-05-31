@@ -33,8 +33,8 @@ CREATE TABLE users (
 		yahoo varchar(32), -- Maximum size yahoo allows you to register NOT NULL
 		description text,
 		comment text,
-		suspended_by varchar(32),
-		suspended_by_id varchar(32) REFERENCES users(id),
+		suspend_by varchar(32),
+		suspend_by_id integer REFERENCES users(id),
 		suspend_reason text,
 		suspend_time timestamp,
 		language varchar(16),
@@ -180,8 +180,8 @@ CREATE TABLE channels (
 		lock_revenge boolean,
 		lock_mlock_on varchar(32),
 		lock_mlock_off varchar(32),
-		suspended_by varchar(32),
-		suspended_by_id varchar(32) REFERENCES users(id),
+		suspend_by varchar(32),
+		suspend_by_id integer REFERENCES users(id),
 		suspend_reason text,
 		suspend_time timestamp
 	);

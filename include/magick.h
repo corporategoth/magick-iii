@@ -51,10 +51,11 @@ RCSID(magick__magick_h, "@(#) $Id$");
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/read_write_mutex.hpp>
 
-inline boost::format format(const std::string &in)
+inline boost::format format(const std::string &in,
+							const std::locale &loc = std::locale())
 {
-	boost::format fmt(in);
-	fmt.exceptions(fmt.exceptions() ^ boost::io::too_many_args_bit);
+	boost::format fmt(in, loc);
+	fmt.exceptions(fmt.exceptions() & ~boost::io::too_many_args_bit);
 	return fmt;
 }
 
@@ -114,7 +115,6 @@ enum TraceTypes_t
 class Magick
 {
 	friend class Protocol;
-	friend void init_nickserv_functions();
 
 	boost::posix_time::ptime start;
 	pid_t pid;
@@ -130,8 +130,6 @@ class Magick
 
 	bool disconnect, shutdown;
 	boost::shared_ptr<Uplink> uplink;
-
-	Service nickserv, chanserv, memoserv, commserv, operserv, other;
 
 	void init_config();	
 	bool set_config(const boost::program_options::variables_map &vm);
@@ -156,6 +154,8 @@ public:
 
 	const boost::shared_ptr<Uplink> &getUplink() const { return uplink; }
 	Protocol proto;
+
+	Service nickserv, chanserv, memoserv, commserv, operserv, other;
 
 	mantra::Events *event;
 	Storage data;

@@ -50,7 +50,9 @@ class LiveUser;
 
 class Service
 {
-	friend class LiveUser;
+	friend class if_Service_LiveUser;
+	friend class if_Service_Magick;
+
 public:
 	typedef boost::function3<bool, const boost::shared_ptr<LiveUser> &,
 							 const boost::shared_ptr<LiveUser> &,
@@ -76,12 +78,13 @@ private:
 
 	func_map_t RWSYNC(func_map_);
 
+	void Set(const std::vector<std::string> &nicks, const std::string &real = std::string());
+	void SIGNOFF(const boost::shared_ptr<LiveUser> &user);
 	boost::shared_ptr<LiveUser> SIGNON(const std::string &nick);
 public:
 	Service();
 	virtual ~Service();
 
-	void Set(const std::vector<std::string> &nicks, const std::string &real = std::string());
 	void Check();
 
 	const std::string &Primary() const { return primary_; }
@@ -99,14 +102,16 @@ public:
 
 	void QUIT(const boost::shared_ptr<LiveUser> &source,
 			  const std::string &message = std::string());
-	void KILL(const boost::shared_ptr<LiveUser> &source,
-			  const boost::shared_ptr<LiveUser> &target,
-			  const std::string &message = std::string());
 	void MASSQUIT(const std::string &message = std::string())
 	{
 		for_each(users_.begin(), users_.end(),
 				 boost::bind(&Service::QUIT, this, _1, message));
 	}
+	void KILL(const boost::shared_ptr<LiveUser> &source,
+			  const boost::shared_ptr<LiveUser> &target,
+			  const std::string &message = std::string());
+	void KILL(const boost::shared_ptr<LiveUser> &target,
+			  const std::string &message = std::string());
 
 	void PRIVMSG(const boost::shared_ptr<LiveUser> &source,
 				 const boost::shared_ptr<LiveUser> &target,
@@ -163,5 +168,38 @@ public:
 	}
 };
 
+// Special interface used by Magick.
+class if_Service_Magick
+{
+	friend class Magick;
+	Service &base;
+
+	// This is INTENTIONALLY private ...
+	if_Service_Magick(Service &b) : base(b) {}
+	if_Service_Magick(Service *b) : base(*b) {}
+
+	void Set(const std::vector<std::string> &nicks, const std::string &real = std::string())
+		{ base.Set(nicks, real); }
+};
+
+class if_Service_LiveUser
+{
+	friend class LiveUser;
+	Service &base;
+
+	// This is INTENTIONALLY private ...
+	if_Service_LiveUser(Service &b) : base(b) {}
+	if_Service_LiveUser(Service *b) : base(*b) {}
+
+	void SIGNOFF(const boost::shared_ptr<LiveUser> &user)
+		{ base.SIGNOFF(user); }
+};
+
+void init_nickserv_functions(Service &serv);
+void init_chanserv_functions(Service &serv);
+void init_memoserv_functions(Service &serv);
+void init_commserv_functions(Service &serv);
+void init_operserv_functions(Service &serv);
+void init_other_functions(Service &serv);
 
 #endif // _MAGICK_SERVICE_H
