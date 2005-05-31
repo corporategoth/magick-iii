@@ -43,6 +43,7 @@ RCSID(magick__storage_cpp, "@(#)$Id$");
 
 #include <dlfcn.h>
 
+#include <mantra/core/utils.h>
 #include <mantra/storage/filestage.h>
 #include <mantra/storage/netstage.h>
 #include <mantra/storage/cryptstage.h>
@@ -1529,7 +1530,7 @@ void Storage::init()
 	backend_.first->DefineColumn("nicks", "name", cp);
 	cp.Assign<boost::uint32_t>(false);
 	backend_.first->DefineColumn("nicks", "id", cp);
-	cp.Assign<boost::posix_time::ptime>(false);
+	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("nicks", "registered", cp);
 	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 50);
 	backend_.first->DefineColumn("nicks", "last_realname", cp);
@@ -1604,9 +1605,9 @@ void Storage::init()
 	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 32);
 	backend_.first->DefineColumn("channels", "lock_mlock_on", cp);
 	backend_.first->DefineColumn("channels", "lock_mlock_off", cp);
-	backend_.first->DefineColumn("channels", "suspended_by", cp);
+	backend_.first->DefineColumn("channels", "suspend_by", cp);
 	cp.Assign<boost::uint32_t>(true);
-	backend_.first->DefineColumn("users", "suspend_by_id", cp);
+	backend_.first->DefineColumn("channels", "suspend_by_id", cp);
 	cp.Assign<std::string>(true);
 	backend_.first->DefineColumn("channels", "suspended_reason", cp);
 	cp.Assign<boost::posix_time::ptime>(true);
@@ -1897,63 +1898,114 @@ void Storage::Save()
 std::string Storage::CryptPassword(const std::string &in) const
 {
 	MT_EB
-	MT_FUNC("std::string Storage::CryptPassword" << in);
+	MT_FUNC("Storage::CryptPassword" << in);
 
-	return hasher(in.data(), in.size());
+	std::string rv = mantra::enhex(hasher(in.data(), std::min(in.size(), 32u)));
 
+	MT_RET(rv);
 	MT_EE
 }
 
 unsigned int StorageInterface::RowExists(const mantra::ComparisonSet &search) const throw(mantra::storage_exception)
 {
-	return ROOT->data.backend_.first->RowExists(table_, search);
+	MT_EB
+	MT_FUNC("StorageInterface::RowExists" << search);
+
+	unsigned int rv = ROOT->data.backend_.first->RowExists(table_, search);
+
+	MT_RET(rv);
+	MT_EE
 }
 
 bool StorageInterface::InsertRow(const mantra::Storage::RecordMap &data) throw(mantra::storage_exception)
 {
-	if (update_.empty())
-		return ROOT->data.backend_.first->InsertRow(table_, data);
+	MT_EB
+	MT_FUNC("StorageInterface::InsertRow" << data);
 
-	mantra::Storage::RecordMap entry = data;
-	entry[update_] = mantra::GetCurrentDateTime();
-	return ROOT->data.backend_.first->InsertRow(table_, entry);
+	unsigned int rv;
+	if (update_.empty())
+	{
+		rv = ROOT->data.backend_.first->InsertRow(table_, data);
+	}
+	else
+	{
+		mantra::Storage::RecordMap entry = data;
+		entry[update_] = mantra::GetCurrentDateTime();
+		rv = ROOT->data.backend_.first->InsertRow(table_, entry);
+	}
+
+	MT_RET(rv);
+	MT_EE
 }
 
 unsigned int StorageInterface::ChangeRow(const mantra::Storage::RecordMap &data, 
 				const mantra::ComparisonSet &search) throw(mantra::storage_exception)
 {
-	if (update_.empty())
-		return ROOT->data.backend_.first->ChangeRow(table_, data, search);
+	MT_EB
+	MT_FUNC("StorageInterface::ChangeRow" << data << search);
 
-	mantra::Storage::RecordMap entry = data;
-	entry[update_] = mantra::GetCurrentDateTime();
-	return ROOT->data.backend_.first->ChangeRow(table_, entry, search);
+	unsigned int rv;
+	if (update_.empty())
+	{
+		rv = ROOT->data.backend_.first->ChangeRow(table_, data, search);
+	}
+	else
+	{
+		mantra::Storage::RecordMap entry = data;
+		entry[update_] = mantra::GetCurrentDateTime();
+		rv = ROOT->data.backend_.first->ChangeRow(table_, entry, search);
+	}
+
+	MT_RET(rv);
+	MT_EE
 }
 
 void StorageInterface::RetrieveRow(mantra::Storage::DataSet &data,
 				const mantra::ComparisonSet &search,
 				const mantra::Storage::FieldSet &fields) throw(mantra::storage_exception)
 {
-	return ROOT->data.backend_.first->RetrieveRow(table_, data, search, fields);
+	MT_EB
+	MT_FUNC("StorageInterface::RetrieveRow" << data << search << fields);
+
+	ROOT->data.backend_.first->RetrieveRow(table_, data, search, fields);
+
+	MT_EE
 }
 
 unsigned int StorageInterface::RemoveRow(const mantra::ComparisonSet &search) throw(mantra::storage_exception)
 {
-	return ROOT->data.backend_.first->RemoveRow(table_, search);
+	MT_EB
+	MT_FUNC("StorageInterface::RemoveRow");
+
+	unsigned int rv = ROOT->data.backend_.first->RemoveRow(table_, search);
+
+	MT_RET(rv);
+	MT_EE
 }
 
 mantra::StorageValue StorageInterface::Minimum(const std::string &column,
 				const mantra::ComparisonSet &search) throw(mantra::storage_exception)
 {
-	return ROOT->data.backend_.first->Minimum(table_, column, search);
+	MT_EB
+	MT_FUNC("StorageInterface::Minimum" << column << search);
+
+	mantra::StorageValue rv = ROOT->data.backend_.first->Minimum(table_, column, search);
+
+	MT_RET(rv);
+	MT_EE
 }
 
 mantra::StorageValue StorageInterface::Maximum(const std::string &column,
 				const mantra::ComparisonSet &search) throw(mantra::storage_exception)
 {
-	return ROOT->data.backend_.first->Maximum(table_, column, search);
-}
+	MT_EB
+	MT_FUNC("StorageInterface::Maximum" << column << search);
 
+	mantra::StorageValue rv = ROOT->data.backend_.first->Maximum(table_, column, search);
+
+	MT_RET(rv);
+	MT_EE
+}
 
 // Aliases that use the above.
 bool StorageInterface::GetRow(const mantra::ComparisonSet &search, mantra::Storage::RecordMap &data)
@@ -2364,17 +2416,17 @@ void Storage::DelInternal(const boost::shared_ptr<StoredUser> &entry)
 	backend_.first->RemoveRow("committees_member",
 			mantra::Comparison<mantra::C_EqualTo>::make("entry", entry->ID()));
 
-	cs = mantra::Comparison<mantra::C_EqualTo>::make("suspended_by_id", entry->ID());
+	cs = mantra::Comparison<mantra::C_EqualTo>::make("suspend_by_id", entry->ID());
 	rec.clear();
-	rec["suspended_by_id"] = mantra::NullValue();
+	rec["suspend_by_id"] = mantra::NullValue();
 	backend_.first->ChangeRow("users", rec, cs);
 	backend_.first->ChangeRow("channels", rec, cs);
 
 	cs = mantra::Comparison<mantra::C_EqualTo>::make("sender_id", entry->ID());
 	rec.clear();
 	rec["sender_id"] = mantra::NullValue();
-	backend_.first->ChangeRow("user_memo", rec, cs);
-	backend_.first->ChangeRow("channel_news", rec, cs);
+	backend_.first->ChangeRow("users_memo", rec, cs);
+	backend_.first->ChangeRow("channels_news", rec, cs);
 
 	cs = mantra::Comparison<mantra::C_EqualTo>::make("last_updater_id", entry->ID());
 	rec.clear();
@@ -2386,7 +2438,6 @@ void Storage::DelInternal(const boost::shared_ptr<StoredUser> &entry)
 	backend_.first->ChangeRow("channels_akick", rec, cs);
 	backend_.first->ChangeRow("channels_greet", rec, cs);
 	backend_.first->ChangeRow("channels_message", rec, cs);
-	backend_.first->ChangeRow("channels_news", rec, cs);
 	backend_.first->ChangeRow("forbidden", rec, cs);
 	backend_.first->ChangeRow("akills", rec, cs);
 	backend_.first->ChangeRow("clones", rec, cs);

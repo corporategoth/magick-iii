@@ -1010,9 +1010,9 @@ boost::uint32_t StoredUser::ACCESS_Add(const std::string &in)
 	mantra::StorageValue rv = storage_access.Maximum("number",
 				mantra::Comparison<mantra::C_EqualTo>::make("id", id_));
 	if (rv.type() == typeid(mantra::NullValue))
-		id_ = 1;
+		number = 1;
 	else
-		id_ = boost::get<boost::uint32_t>(rv) + 1;
+		number = boost::get<boost::uint32_t>(rv) + 1;
 
 	mantra::Storage::RecordMap rec;
 	rec["id"] = id_;
@@ -1126,9 +1126,9 @@ boost::uint32_t StoredUser::IGNORE_Add(const boost::shared_ptr<StoredUser> &in)
 	mantra::StorageValue rv = storage_ignore.Maximum("number",
 				mantra::Comparison<mantra::C_EqualTo>::make("id", id_));
 	if (rv.type() == typeid(mantra::NullValue))
-		id_ = 1;
+		number = 1;
 	else
-		id_ = boost::get<boost::uint32_t>(rv) + 1;
+		number = boost::get<boost::uint32_t>(rv) + 1;
 
 	mantra::Storage::RecordMap rec;
 	rec["id"] = id_;

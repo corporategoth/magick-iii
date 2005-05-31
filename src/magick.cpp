@@ -98,6 +98,13 @@ void Magick::run(const boost::function0<bool> &check)
 	MT_EB
 	MT_FUNC("Magick::run" << check);
 
+	init_nickserv_functions(nickserv);
+//    init_chanserv_functions(chanserv);
+//    init_memoserv_functions(memoserv);
+//    init_commserv_functions(commserv);
+//    init_operserv_functions(operserv);
+//    init_other_functions(other);
+
 	while (check())
 	{
 		size_t next_conn = 0;

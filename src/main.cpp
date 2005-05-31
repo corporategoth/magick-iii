@@ -193,7 +193,6 @@ static int run(int prv, const boost::function0<bool> &check)
 {
 	int rv = prv;
 
-	init_nickserv_functions();
 	try
 	{
 		NLOG(Info, _("Loading databases."));

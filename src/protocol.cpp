@@ -542,13 +542,10 @@ bool Protocol::Connect(const Uplink &s)
 	struct tm tm_curr = boost::posix_time::to_tm(curr);
 	struct tm tm_start = boost::posix_time::to_tm(ROOT->Start());
 
-	boost::format f(opt_protocol["server"].as<std::string>());
-	f.exceptions(f.exceptions() & ~boost::io::too_many_args_bit);
-	addline(out, (f % s.Name() % 1 % s.Description() %
-			(opt_protocol["numeric.server-numeric"].as<bool>()
-				? boost::lexical_cast<std::string>(IDToNumeric(s.ID()))
-				: s.ID()) %
-			std::mktime(&tm_curr) % std::mktime(&tm_start)).str());
+	addline(out, (format(opt_protocol["server"].as<std::string>()) % s.Name() % 1 %
+				  s.Description() % (opt_protocol["numeric.server-numeric"].as<bool>()
+					? boost::lexical_cast<std::string>(IDToNumeric(s.ID()))
+					: s.ID()) % std::mktime(&tm_curr) % std::mktime(&tm_start)).str());
 
 	if (opt_protocol.count("tsora"))
 	{

@@ -45,7 +45,7 @@ RCSID(magick__liveuser_cpp, "@(#)$Id$");
 
 #include <boost/algorithm/string.hpp>
 
-LiveUser::LiveUser(const Service *service, const std::string &name,
+LiveUser::LiveUser(Service *service, const std::string &name,
 				   const std::string &real,
 				   const boost::shared_ptr<Server> &server,
 				   const std::string &id)
@@ -91,13 +91,31 @@ LiveUser::LiveUser(const std::string &name, const std::string &real,
 	MT_EB
 	MT_FUNC("LiveUser::LiveUser" << name << real << user << host << server << signon << id);
 
+	MT_EE
+}
+
+boost::shared_ptr<LiveUser> LiveUser::create(const std::string &name,
+				const std::string &real, const std::string &user,
+				const std::string &host,
+				const boost::shared_ptr<Server> &server,
+				const boost::posix_time::ptime &signon,
+				const std::string &id)
+{
+	MT_EB
+	MT_FUNC("LiveUser::create" << name << real << user << host << server << signon << id);
+
+	boost::shared_ptr<LiveUser> rv(new LiveUser(name, real, user, host,
+												server, signon, id));
+	rv->self = rv;
+
 	boost::shared_ptr<StoredNick> stored = ROOT->data.Get_StoredNick(name);
 	if (stored && stored->User()->ACCESS_Matches(user + "@" + host))
 	{
-		stored_ = stored;
-		if_StoredNick_LiveUser(stored_).Live(self.lock());
+		rv->stored_ = stored;
+		if_StoredNick_LiveUser(stored).Live(rv);
 	}
 
+	MT_RET(rv);
 	MT_EE
 }
 
@@ -222,11 +240,7 @@ void LiveUser::Quit(const std::string &reason)
 	}
 
 	if (service_)
-	{
-		Service *serv = const_cast<Service *>(service_);
-		SYNCP_WLOCK(serv, users_);
-		serv->users_.erase(self.lock());
-	}
+		if_Service_LiveUser(service_).SIGNOFF(self.lock());
 
 	if_StorageDeleter<LiveUser>(ROOT->data).Del(self.lock());
 
@@ -426,7 +440,8 @@ bool LiveUser::Identify(const std::string &in)
 	{
 		if (++password_fails_ >= ROOT->ConfigValue<unsigned int>("nickserv.password-fail"))
 		{
-			// Kill user ...
+			LOG(Notice, _("Password failed tryint to identify user %1%."), Name());
+			ROOT->nickserv.KILL(self.lock(), _("Too many password failures."));
 		}
 	}
 

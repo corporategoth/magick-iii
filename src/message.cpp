@@ -1074,7 +1074,7 @@ static bool biPRIVMSG(const Message &m)
 		MT_RET(false);
 	}
 
-	Service *service = const_cast<Service *>(target->GetService());
+	Service *service = target->GetService();
 	if (service)
 		service->Execute(target, user, m.Params()[m.Params().size()-1]);
 

@@ -88,7 +88,7 @@ boost::shared_ptr<StoredNick> StoredNick::load(const std::string &name,
 		if (user->ACCESS_Matches(live) && !user->Secure())
 		{
 			if_LiveUser_StoredNick(live).Stored(rv);
-			if_StoredUser_StoredNick(user).Online(live);
+			rv->Live(live);
 		}
 	}
 

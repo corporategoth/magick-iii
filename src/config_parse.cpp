@@ -215,10 +215,10 @@ bool Magick::set_config(const po::variables_map &vm)
 			std::string::const_iterator, std::string> tokenizer;
 		tokenizer tokens(vm["services.nickserv"].as<std::string>(), sep);
 		std::vector<std::string> ent(tokens.begin(), tokens.end());
-		nickserv.Set(ent, vm["services.nickserv-name"].as<std::string>());
+		if_Service_Magick(nickserv).Set(ent, vm["services.nickserv-name"].as<std::string>());
 	}
 	else
- 		nickserv.Set(std::vector<std::string>());
+ 		if_Service_Magick(nickserv).Set(std::vector<std::string>());
 
 	if (vm.count("services.chanserv"))
 	{
@@ -227,10 +227,10 @@ bool Magick::set_config(const po::variables_map &vm)
 			std::string::const_iterator, std::string> tokenizer;
 		tokenizer tokens(vm["services.chanserv"].as<std::string>(), sep);
 		std::vector<std::string> ent(tokens.begin(), tokens.end());
-		chanserv.Set(ent, vm["services.chanserv-name"].as<std::string>());
+		if_Service_Magick(chanserv).Set(ent, vm["services.chanserv-name"].as<std::string>());
 	}
 	else
- 		chanserv.Set(std::vector<std::string>());
+ 		if_Service_Magick(chanserv).Set(std::vector<std::string>());
 
 	if (vm.count("services.memoserv"))
 	{
@@ -239,10 +239,10 @@ bool Magick::set_config(const po::variables_map &vm)
 			std::string::const_iterator, std::string> tokenizer;
 		tokenizer tokens(vm["services.memoserv"].as<std::string>(), sep);
 		std::vector<std::string> ent(tokens.begin(), tokens.end());
-		memoserv.Set(ent, vm["services.memoserv-name"].as<std::string>());
+		if_Service_Magick(memoserv).Set(ent, vm["services.memoserv-name"].as<std::string>());
 	}
 	else
- 		memoserv.Set(std::vector<std::string>());
+ 		if_Service_Magick(memoserv).Set(std::vector<std::string>());
 
 	if (vm.count("services.commserv"))
 	{
@@ -251,10 +251,10 @@ bool Magick::set_config(const po::variables_map &vm)
 			std::string::const_iterator, std::string> tokenizer;
 		tokenizer tokens(vm["services.commserv"].as<std::string>(), sep);
 		std::vector<std::string> ent(tokens.begin(), tokens.end());
-		commserv.Set(ent, vm["services.commserv-name"].as<std::string>());
+		if_Service_Magick(commserv).Set(ent, vm["services.commserv-name"].as<std::string>());
 	}
 	else
- 		commserv.Set(std::vector<std::string>());
+ 		if_Service_Magick(commserv).Set(std::vector<std::string>());
 
 	if (vm.count("services.operserv"))
 	{
@@ -263,10 +263,10 @@ bool Magick::set_config(const po::variables_map &vm)
 			std::string::const_iterator, std::string> tokenizer;
 		tokenizer tokens(vm["services.operserv"].as<std::string>(), sep);
 		std::vector<std::string> ent(tokens.begin(), tokens.end());
-		operserv.Set(ent, vm["services.operserv-name"].as<std::string>());
+		if_Service_Magick(operserv).Set(ent, vm["services.operserv-name"].as<std::string>());
 	}
 	else
- 		operserv.Set(std::vector<std::string>());
+ 		if_Service_Magick(operserv).Set(std::vector<std::string>());
 
 	if (vm.count("services.other"))
 	{
@@ -275,10 +275,10 @@ bool Magick::set_config(const po::variables_map &vm)
 			std::string::const_iterator, std::string> tokenizer;
 		tokenizer tokens(vm["services.other"].as<std::string>(), sep);
 		std::vector<std::string> ent(tokens.begin(), tokens.end());
-		other.Set(ent, vm["services.other-name"].as<std::string>());
+		if_Service_Magick(other).Set(ent, vm["services.other-name"].as<std::string>());
 	}
 	else
- 		operserv.Set(std::vector<std::string>());
+ 		if_Service_Magick(other).Set(std::vector<std::string>());
 
 	if (getUplink())
 	{

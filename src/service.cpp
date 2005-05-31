@@ -34,6 +34,8 @@ RCSID(magick__service_cpp, "@(#)$Id$");
 
 #include "magick.h"
 #include "liveuser.h"
+#include "storednick.h"
+#include "storeduser.h"
 
 Service::Service()
 	: SYNC_NRWINIT(users_, reader_priority),
@@ -114,9 +116,8 @@ boost::shared_ptr<LiveUser> Service::SIGNON(const std::string &nick)
 		user_str = ROOT->ConfigValue<std::string>("services.user");
 
 	std::string out;
-	boost::format f(ROOT->proto.ConfigValue<std::string>("nick"));
-	f.exceptions(f.exceptions() & ~boost::io::too_many_args_bit);
-	ROOT->proto.addline(out, (f % nick % user_str %
+	ROOT->proto.addline(out, (format(ROOT->proto.ConfigValue<std::string>("nick")) %
+							  nick % user_str %
 							  ROOT->ConfigValue<std::string>("services.host") %
 							  uplink->Name() % time(NULL) % 1 % "" % "" % real_ % 1 %
 							  ROOT->ConfigValue<std::string>("services.host") %
@@ -128,6 +129,17 @@ boost::shared_ptr<LiveUser> Service::SIGNON(const std::string &nick)
 	user = LiveUser::create(this, nick, real_, uplink);
 
 	MT_RET(user);
+	MT_EE
+}
+
+void Service::SIGNOFF(const boost::shared_ptr<LiveUser> &user)
+{
+	MT_EB
+	MT_FUNC("Service::SIGNOFF" << user);
+
+	SYNC_WLOCK(users_);
+	users_.erase(user);
+
 	MT_EE
 }
 
@@ -248,6 +260,24 @@ void Service::KILL(const boost::shared_ptr<LiveUser> &source,
 	bool rv = ROOT->proto.send(out);
 	if (rv)
 		target->Kill(source, message);
+
+	MT_EE
+}
+
+void Service::KILL(const boost::shared_ptr<LiveUser> &target,
+				   const std::string &message)
+{
+	MT_EB
+	MT_FUNC("Service::KILL" << target << message);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator j = std::lower_bound(users_.begin(),
+												 users_.end(),
+												 primary_);
+	if (j == users_.end())
+		return;
+
+	KILL(*j, target, message);
 
 	MT_EE
 }
@@ -391,8 +421,7 @@ bool Service::Help(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
-	service->GetService()->PRIVMSG(service, user,
-								   boost::format("%1%") % "HELP to be written.");
+	NSEND(service, user, N_("HELP system has not yet been written."));
 
 	MT_RET(true);
 	MT_EE
