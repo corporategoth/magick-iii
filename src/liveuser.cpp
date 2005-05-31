@@ -188,7 +188,7 @@ void LiveUser::Name(const std::string &in)
 		else
 		{
 			identified_ = false;
-			stored_ = stored;
+			stored_.reset();
 		}
 	}
 

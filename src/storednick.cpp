@@ -101,16 +101,19 @@ void StoredNick::Live(const boost::shared_ptr<LiveUser> &live)
 	MT_EB
 	MT_FUNC("StoredNick::Live" << live);
 
-	mantra::Storage::RecordMap data;
+	if (live)
 	{
+		mantra::Storage::RecordMap data;
 		data["last_realname"] = live->Real();
 		data["last_mask"] = live->User() + "@" + live->Host();
 		data["last_seen"] = mantra::GetCurrentDateTime();
-		SYNC_LOCK(live_);
-		live_ = live;
+		storage.ChangeRow(data, mantra::Comparison<mantra::C_EqualToNC>::make("name", name_));
 		if_StoredUser_StoredNick(user_).Online(live_);
 	}
-	storage.ChangeRow(data, mantra::Comparison<mantra::C_EqualToNC>::make("name", name_));
+	else
+		if_StoredUser_StoredNick(user_).Offline(live_);
+	SYNC_LOCK(live_);
+	live_ = live;
 
 	MT_EE
 }
