@@ -74,7 +74,9 @@ static bool ns_Register(const boost::shared_ptr<LiveUser> &service,
 
 	if (params.size() > 2)
 	{
-		boost::regex rx("^[^[:space:]@]+@[^[:space:]@]+$");
+		boost::regex rx("^[^[:space:][:cntrl:]@]+@"
+						"([[:alnum:]][-[:alnum:]]*\\.)*"
+						"[[:alnum:]][-[:alnum:]]*$");
 		if (!boost::regex_match(params[2], rx))
 		{
 			NSEND(service, user, N_("Invalid e-mail address specified."));
@@ -124,7 +126,7 @@ static bool ns_Register(const boost::shared_ptr<LiveUser> &service,
 	nick->User()->ACCESS_Add(mask);
 	user->Identify(params[1]);
 
-    SEND(service, user, N_("Nickname %1% has been registered with password \x02%2%\x0f."),
+    SEND(service, user, N_("Nickname %1% has been registered with password \002%2%\017."),
 		 user->Name() % params[1].substr(0, 32));
 
 	MT_RET(true);
@@ -504,7 +506,7 @@ static bool ns_Setpass(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	target->User()->Password(params[2]);
-    SEND(service, user, N_("Password for nickname %1% has been set to \x02%2%\x0f."),
+    SEND(service, user, N_("Password for nickname %1% has been set to \002%2%\017."),
 		 target->Name() % params[2].substr(0, 32));
 
 	MT_RET(true);
@@ -738,7 +740,7 @@ static bool ns_Access_List(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(true);
 	}
 
-	SEND(service, user, N_("Access list for nickname %1%:"), user->Name());
+	bool first = false;
 	std::map<boost::uint32_t, std::pair<std::string, boost::posix_time::ptime> >::iterator i;
 	for (i = ent.begin(); i != ent.end(); ++i)
 	{
@@ -746,8 +748,24 @@ static bool ns_Access_List(const boost::shared_ptr<LiveUser> &service,
 			!mantra::glob_match(params[1], i->second.first, true))
 			continue;
 
+		if (!first)
+		{
+			SEND(service, user, N_("Access list for nickname %1%:"),
+				 user->Name());
+			first = true;
+		}
 		SEND(service, user, N_("%1%. %2% [%3%]"),
 			 i->first % i->second.first % i->second.second);
+	}
+
+	if (!first)
+	{
+		if (params.size() > 1)
+			SEND(service, user, N_("No entries matching %1% are on your access list."),
+				 params[1]);
+		else
+			NSEND(service, user, N_("Your access list is empty."));
+		MT_RET(false);
 	}
 
 	MT_RET(true);
@@ -809,6 +827,39 @@ static bool ns_Set_Password(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 params[0]);
+		MT_RET(false);
+	}
+
+	if (!user->Identified())
+	{
+		SEND(service, user, N_("You must identify before using the %1% command."),
+			 params[0]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	static mantra::iequal_to<std::string> cmp;
+	if (params[1].size() < 5 || cmp(params[1], user->Name()))
+	{
+		NSEND(service, user, N_("Password is not complex enough."));
+		MT_RET(false);
+	}
+
+	nick->User()->Password(params[1]);
+    SEND(service, user, N_("Your password has been set to \002%1%\017."),
+		 params[1].substr(0, 32));
 
 	MT_RET(true);
 	MT_EE
@@ -824,6 +875,34 @@ static bool ns_Set_Email(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 params[0]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	static boost::regex rx("^[^[:space:][:cntrl:]@]+@"
+						   "([[:alnum:]][-[:alnum:]]*\\.)*"
+						   "[[:alnum:]][-[:alnum:]]*$");
+	if (!boost::regex_match(params[1], rx))
+	{
+		NSEND(service, user, N_("Invalid e-mail address specified."));
+		MT_RET(false);
+	}
+
+	nick->User()->Email(params[1]);
+	SEND(service, user, N_("Your e-mail address has been set to \002%1%\017."),
+		 params[1]);
 
 	MT_RET(true);
 	MT_EE
@@ -839,6 +918,42 @@ static bool ns_Set_Website(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 params[0]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	static boost::regex rx("^(https?://)?"
+						   "(("
+								"((25[0-5]|2[0-4][0-9]|[01]?[0-9]{1,2})\\.){3}"
+								"(25[0-5]|2[0-4][0-9]|[01]?[0-9]{1,2})"
+						   ")|("
+								"([[:alnum:]][-[:alnum:]]*\\.)+"
+								"[[:alnum:]][-[:alnum:]]*"
+						   "))(/[[:print:]]*)?$");
+	if (!boost::regex_match(params[1], rx))
+	{
+		NSEND(service, user, N_("Invalid website address specified."));
+		MT_RET(false);
+	}
+	std::string url(params[1]);
+	if (params[1].find("http") != 0)
+		url.insert(0, "http://", 7);
+
+	nick->User()->Website(url);
+	SEND(service, user, N_("Your website address has been set to \002%1%\017."),
+		 url);
 
 	MT_RET(true);
 	MT_EE
@@ -854,6 +969,31 @@ static bool ns_Set_Icq(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 params[0]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	if (params[1].find_first_not_of("0123456789") != std::string::npos)
+	{
+		NSEND(service, user, N_("Invalid ICQ UIN specified."));
+		MT_RET(false);
+	}
+
+	nick->User()->ICQ(boost::lexical_cast<boost::uint32_t>(params[1]));
+	SEND(service, user, N_("Your ICQ UIN has been set to \002%1%\017."),
+		 params[1]);
 
 	MT_RET(true);
 	MT_EE
@@ -869,6 +1009,32 @@ static bool ns_Set_Aim(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 params[0]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	static boost::regex rx("^[[:alpha:]][[:alnun:]]{2-15}$");
+	if (!boost::regex_match(params[1], rx))
+	{
+		NSEND(service, user, N_("Invalid AIM screen name specified."));
+		MT_RET(false);
+	}
+
+	nick->User()->AIM(params[1]);
+	SEND(service, user, N_("Your AIM screen name has been set to \002%1%\017."),
+		 params[1]);
 
 	MT_RET(true);
 	MT_EE
@@ -884,6 +1050,34 @@ static bool ns_Set_Msn(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 params[0]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	static boost::regex rx("^[^[:space:][:cntrl:]@]+@"
+						   "([[:alnum:]][-[:alnum:]]*\\.)*"
+						   "[[:alnum:]][-[:alnum:]]*$");
+	if (!boost::regex_match(params[1], rx))
+	{
+		NSEND(service, user, N_("Invalid MSN account specified."));
+		MT_RET(false);
+	}
+
+	nick->User()->MSN(params[1]);
+	SEND(service, user, N_("Your MSN account has been set to \002%1%\017."),
+		 params[1]);
 
 	MT_RET(true);
 	MT_EE
@@ -899,6 +1093,34 @@ static bool ns_Set_Jabber(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 params[0]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	static boost::regex rx("^[^[:space:][:cntrl:]@]+@"
+						   "([[:alnum:]][-[:alnum:]]*\\.)*"
+						   "[[:alnum:]][-[:alnum:]]*$");
+	if (!boost::regex_match(params[1], rx))
+	{
+		NSEND(service, user, N_("Invalid Jabber ID specified."));
+		MT_RET(false);
+	}
+
+	nick->User()->Jabber(params[1]);
+	SEND(service, user, N_("Your Jabber ID has been set to \002%1%\017."),
+		 params[1]);
 
 	MT_RET(true);
 	MT_EE
@@ -914,6 +1136,32 @@ static bool ns_Set_Yahoo(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 params[0]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	static boost::regex rx("^[[:alpha:]][[:alnun:]_]{0-31}$");
+	if (!boost::regex_match(params[1], rx))
+	{
+		NSEND(service, user, N_("Invalid Yahoo! ID specified."));
+		MT_RET(false);
+	}
+
+	nick->User()->Yahoo(params[1]);
+	SEND(service, user, N_("Your Yahoo! ID has been set to \002%1%\017."),
+		 params[1]);
 
 	MT_RET(true);
 	MT_EE
@@ -929,6 +1177,28 @@ static bool ns_Set_Description(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 params[0]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	std::string desc(params[1]);
+	for (size_t i = 2; i < params.size(); ++i)
+		desc += " " + params[i];
+	nick->User()->Description(desc);
+	SEND(service, user, N_("Your description has been set to \002%1%\017."),
+		 params[1]);
 
 	MT_RET(true);
 	MT_EE
@@ -944,6 +1214,9 @@ static bool ns_Set_Comment(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	// TODO: To be implemented.
+	SEND(service, user,
+		 N_("The %1% command has not yet been implemented."), params[0]);
 
 	MT_RET(true);
 	MT_EE
@@ -959,6 +1232,35 @@ static bool ns_Set_Language(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 params[0]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	try
+	{
+		std::locale(params[1]);
+	}
+	catch (std::exception &e)
+	{
+		NSEND(service, user, N_("Invalid language specified."));
+		MT_RET(false);
+	}
+
+	nick->User()->Language(params[1]);
+	SEND(service, user, N_("Your language has been set to \002%1%\017."),
+		 params[1]);
 
 	MT_RET(true);
 	MT_EE
@@ -974,6 +1276,33 @@ static bool ns_Set_Protect(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 params[0]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	boost::logic::tribool v = mantra::get_bool(params[1]);
+	if (boost::logic::indeterminate(v))
+	{
+		NSEND(service, user, N_("You may only specify ON or OFF."));
+		MT_RET(false);
+	}
+
+	nick->User()->Protect(v);
+	NSEND(service, user, (v
+		  ? N_("Protect has been \002enabled\017.")
+		  : N_("Protect has been \002disabled\017.")));
 
 	MT_RET(true);
 	MT_EE
@@ -989,6 +1318,33 @@ static bool ns_Set_Secure(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 params[0]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	boost::logic::tribool v = mantra::get_bool(params[1]);
+	if (boost::logic::indeterminate(v))
+	{
+		NSEND(service, user, N_("You may only specify ON or OFF."));
+		MT_RET(false);
+	}
+
+	nick->User()->Secure(v);
+	NSEND(service, user, (v
+		  ? N_("Secure has been \002enabled\017.")
+		  : N_("Secure has been \002disabled\017.")));
 
 	MT_RET(true);
 	MT_EE
@@ -1004,6 +1360,33 @@ static bool ns_Set_Nomemo(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 params[0]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	boost::logic::tribool v = mantra::get_bool(params[1]);
+	if (boost::logic::indeterminate(v))
+	{
+		NSEND(service, user, N_("You may only specify ON or OFF."));
+		MT_RET(false);
+	}
+
+	nick->User()->NoMemo(v);
+	NSEND(service, user, (v
+		  ? N_("No Memo has been \002enabled\017.")
+		  : N_("No Memo has been \002disabled\017.")));
 
 	MT_RET(true);
 	MT_EE
@@ -1019,6 +1402,33 @@ static bool ns_Set_Private(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 params[0]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	boost::logic::tribool v = mantra::get_bool(params[1]);
+	if (boost::logic::indeterminate(v))
+	{
+		NSEND(service, user, N_("You may only specify ON or OFF."));
+		MT_RET(false);
+	}
+
+	nick->User()->Private(v);
+	NSEND(service, user, (v
+		  ? N_("Private has been \002enabled\017.")
+		  : N_("Private has been \002disabled\017.")));
 
 	MT_RET(true);
 	MT_EE
@@ -1034,6 +1444,33 @@ static bool ns_Set_Privmsg(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 params[0]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	boost::logic::tribool v = mantra::get_bool(params[1]);
+	if (boost::logic::indeterminate(v))
+	{
+		NSEND(service, user, N_("You may only specify ON or OFF."));
+		MT_RET(false);
+	}
+
+	nick->User()->PRIVMSG(v);
+	NSEND(service, user, (v
+		  ? N_("Private Messaging has been \002enabled\017.")
+		  : N_("Private Messaging has been \002disabled\017.")));
 
 	MT_RET(true);
 	MT_EE
@@ -1049,6 +1486,9 @@ static bool ns_Set_Noexpire(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	// TODO: To be implemented.
+	SEND(service, user,
+		 N_("The %1% command has not yet been implemented."), params[0]);
 
 	MT_RET(true);
 	MT_EE
@@ -1064,6 +1504,427 @@ static bool ns_Set_Picture(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	// TODO: To be implemented.
+	SEND(service, user,
+		 N_("The %1% command has not yet been implemented."), params[0]);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool ns_Unset_Email(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("ns_Unset_Email" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	nick->User()->Email(std::string());
+	SEND(service, user, N_("Your e-mail address has been unset."),
+		 params[1]);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool ns_Unset_Website(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("ns_Unset_Website" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	nick->User()->Website(std::string());
+	SEND(service, user, N_("Your website address has been unset."),
+		 params[1]);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool ns_Unset_Icq(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("ns_Unset_Icq" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	nick->User()->ICQ(0);
+	SEND(service, user, N_("Your ICQ UIN has been unset."),
+		 params[1]);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool ns_Unset_Aim(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("ns_Unset_Aim" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	nick->User()->AIM(std::string());
+	SEND(service, user, N_("Your AIM screen name has been unset."),
+		 params[1]);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool ns_Unset_Msn(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("ns_Unset_Msn" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	nick->User()->MSN(std::string());
+	SEND(service, user, N_("Your MSN account has been unset."),
+		 params[1]);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool ns_Unset_Jabber(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("ns_Unset_Jabber" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	nick->User()->Jabber(std::string());
+	SEND(service, user, N_("Your Jabber ID has been unset."),
+		 params[1]);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool ns_Unset_Yahoo(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("ns_Unset_Yahoo" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	nick->User()->Yahoo(std::string());
+	SEND(service, user, N_("Your Yahoo! ID has been unset."),
+		 params[1]);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool ns_Unset_Description(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("ns_Unset_Description" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	nick->User()->Description(std::string());
+	SEND(service, user, N_("Your description has been unset."),
+		 params[1]);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool ns_Unset_Comment(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("ns_Unset_Comment" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	// TODO: To be implemented.
+	SEND(service, user,
+		 N_("The %1% command has not yet been implemented."), params[0]);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool ns_Unset_Language(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("ns_Unset_Language" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	nick->User()->Language(std::string());
+	SEND(service, user, N_("Your language has been unset."),
+		 params[1]);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool ns_Unset_Protect(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("ns_Unset_Protect" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	nick->User()->Protect(boost::logic::indeterminate);
+	SEND(service, user, N_("Protect has been reset to the default."),
+		 params[1]);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool ns_Unset_Secure(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("ns_Unset_Secure" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	nick->User()->Secure(boost::logic::indeterminate);
+	SEND(service, user, N_("Secure has been reset to the default."),
+		 params[1]);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool ns_Unset_Nomemo(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("ns_Unset_Nomemo" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	nick->User()->NoMemo(boost::logic::indeterminate);
+	SEND(service, user, N_("No Memo has been reset to the default."),
+		 params[1]);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool ns_Unset_Private(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("ns_Unset_Private" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	nick->User()->Private(boost::logic::indeterminate);
+	SEND(service, user, N_("Private has been reset to the default."),
+		 params[1]);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool ns_Unset_Privmsg(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("ns_Unset_Privmsg" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	nick->User()->PRIVMSG(boost::logic::indeterminate);
+	SEND(service, user, N_("Private Messaging has been reset to the default."),
+		 params[1]);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool ns_Unset_Noexpire(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("ns_Unset_Noexpire" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	// TODO: To be implemented.
+	SEND(service, user,
+		 N_("The %1% command has not yet been implemented."), params[0]);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool ns_Unset_Picture(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("ns_Unset_Picture" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	// TODO: To be implemented.
+	SEND(service, user,
+		 N_("The %1% command has not yet been implemented."), params[0]);
 
 	MT_RET(true);
 	MT_EE
@@ -1078,7 +1939,6 @@ static bool ns_Lock_Language(const boost::shared_ptr<LiveUser> &service,
 
 	if (!service || !service->GetService())
 		MT_RET(false);
-
 
 	MT_RET(true);
 	MT_EE
@@ -1338,7 +2198,7 @@ void init_nickserv_functions(Service &serv)
 					 &ns_Set_Password);
 	serv.PushCommand("^SET\\s+E-?MAIL$",
 					 &ns_Set_Email);
-	serv.PushCommand("^SET\\s+(URL|WWW|WEB(SITE)?|HTTP)$",
+	serv.PushCommand("^SET\\s+(URL|WWW|WEB(PAGE|SITE)?|HTTPS?)$",
 					 &ns_Set_Website);
 	serv.PushCommand("^SET\\s+(UIN|ICQ)$",
 					 &ns_Set_Icq);
@@ -1352,8 +2212,6 @@ void init_nickserv_functions(Service &serv)
 					 &ns_Set_Yahoo);
 	serv.PushCommand("^SET\\s+DESC(RIPT(ION)?)?$",
 					 &ns_Set_Description);
-	serv.PushCommand("^SET\\s+COMMENT$",
-					 &ns_Set_Comment);
 	serv.PushCommand("^SET\\s+LANG(UAGE)?$",
 					 &ns_Set_Language);
 	serv.PushCommand("^SET\\s+PROT(ECT)?$",
@@ -1366,13 +2224,56 @@ void init_nickserv_functions(Service &serv)
 					 &ns_Set_Private);
 	serv.PushCommand("^SET\\s+((PRIV)?MSG)$",
 					 &ns_Set_Privmsg);
-	serv.PushCommand("^SET\\s+NO?EX(PIRE)?$",
-					 &ns_Set_Noexpire, comm_sop);
 	serv.PushCommand("^SET\\s+PIC(TURE)?$",
 					 &ns_Set_Picture);
 	serv.PushCommand("^SET\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
 								 _1, _2, _3));
+
+	serv.PushCommand("^(UN|RE)SET$",
+					 Service::CommandMerge(serv, 0, 1));
+	serv.PushCommand("^(UN|RE)SET\\s+E-?MAIL$",
+					 &ns_Unset_Email);
+	serv.PushCommand("^(UN|RE)SET\\s+(URL|WWW|WEB(PAGE|SITE)?|HTTPS?)$",
+					 &ns_Unset_Website);
+	serv.PushCommand("^(UN|RE)SET\\s+(UIN|ICQ)$",
+					 &ns_Unset_Icq);
+	serv.PushCommand("^(UN|RE)SET\\s+(AIM)$",
+					 &ns_Unset_Aim);
+	serv.PushCommand("^(UN|RE)SET\\s+MSN$",
+					 &ns_Unset_Msn);
+	serv.PushCommand("^(UN|RE)SET\\s+JABBER$",
+					 &ns_Unset_Jabber);
+	serv.PushCommand("^(UN|RE)SET\\s+YAHOO$",
+					 &ns_Unset_Yahoo);
+	serv.PushCommand("^(UN|RE)SET\\s+DESC(RIPT(ION)?)?$",
+					 &ns_Unset_Description);
+	serv.PushCommand("^(UN|RE)SET\\s+LANG(UAGE)?$",
+					 &ns_Unset_Language);
+	serv.PushCommand("^(UN|RE)SET\\s+PROT(ECT)?$",
+					 &ns_Unset_Protect);
+	serv.PushCommand("^(UN|RE)SET\\s+SECURE$",
+					 &ns_Unset_Secure);
+	serv.PushCommand("^(UN|RE)SET\\s+NOMEMO$",
+					 &ns_Unset_Nomemo);
+	serv.PushCommand("^(UN|RE)SET\\s+PRIV(ATE)?$",
+					 &ns_Unset_Private);
+	serv.PushCommand("^(UN|RE)SET\\s+((PRIV)?MSG)$",
+					 &ns_Unset_Privmsg);
+	serv.PushCommand("^(UN|RE)SET\\s+PIC(TURE)?$",
+					 &ns_Unset_Picture);
+	serv.PushCommand("^(UN|RE)SET\\s+HELP$",
+					 boost::bind(&Service::AuxHelp, &serv,
+								 _1, _2, _3));
+
+	serv.PushCommand("^SET\\s+COMMENT$",
+					 &ns_Set_Comment, comm_opersop);
+	serv.PushCommand("^SET\\s+NO?EX(PIRE)?$",
+					 &ns_Set_Noexpire, comm_sop);
+	serv.PushCommand("^(UN|RE)SET\\s+COMMENT$",
+					 &ns_Unset_Comment, comm_opersop);
+	serv.PushCommand("^(UN|RE)SET\\s+NO?EX(PIRE)?$",
+					 &ns_Unset_Noexpire, comm_sop);
 
 	serv.PushCommand("^LOCK$",
 					 Service::CommandMerge(serv, 0, 1), comm_sop);
