@@ -53,7 +53,7 @@ static bool ns_Register(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -146,7 +146,7 @@ static bool ns_Drop(const boost::shared_ptr<LiveUser> &service,
 	if (!user->Identified())
 	{
 		SEND(service, user, N_("You must be identified to use the %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -171,7 +171,7 @@ static bool ns_Link(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -221,7 +221,7 @@ static bool ns_Identify(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -266,7 +266,7 @@ static bool ns_Info(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -298,7 +298,7 @@ static bool ns_Ghost(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -354,7 +354,8 @@ static bool ns_Recover(const boost::shared_ptr<LiveUser> &service,
 
 	// TODO: To be implemented.
 	SEND(service, user,
-		 N_("The %1% command has not yet been implemented."), params[0]);
+		 N_("The %1% command has not yet been implemented."),
+		 boost::algorithm::to_upper_copy(params[0]));
 
 	MT_RET(true);
 	MT_EE
@@ -372,7 +373,8 @@ static bool ns_Send(const boost::shared_ptr<LiveUser> &service,
 
 	// TODO: To be implemented.
 	SEND(service, user,
-		 N_("The %1% command has not yet been implemented."), params[0]);
+		 N_("The %1% command has not yet been implemented."),
+		 boost::algorithm::to_upper_copy(params[0]));
 
 	MT_RET(true);
 	MT_EE
@@ -392,7 +394,7 @@ static bool ns_Suspend(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -444,7 +446,7 @@ static bool ns_Unsuspend(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -482,7 +484,8 @@ static bool ns_Forbid(const boost::shared_ptr<LiveUser> &service,
 
 	// TODO: To be implemented.
 	SEND(service, user,
-		 N_("The %1% command has not yet been implemented."), params[0]);
+		 N_("The %1% command has not yet been implemented."),
+		 boost::algorithm::to_upper_copy(params[0]));
 
 	MT_RET(true);
 	MT_EE
@@ -502,7 +505,7 @@ static bool ns_Setpass(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -548,7 +551,7 @@ static bool ns_Access_Current(const boost::shared_ptr<LiveUser> &service,
 	if (!user->Identified())
 	{
 		SEND(service, user, N_("You must identify before using the %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -608,14 +611,14 @@ static bool ns_Access_Add(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
 	if (!user->Identified())
 	{
 		SEND(service, user, N_("You must identify before using the %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -664,14 +667,14 @@ static bool ns_Access_Del(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
 	if (!user->Identified())
 	{
 		SEND(service, user, N_("You must identify before using the %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -853,14 +856,14 @@ static bool ns_Set_Password(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
 	if (!user->Identified())
 	{
 		SEND(service, user, N_("You must identify before using the %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -901,7 +904,7 @@ static bool ns_Set_Email(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -944,7 +947,7 @@ static bool ns_Set_Website(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -995,7 +998,7 @@ static bool ns_Set_Icq(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -1035,7 +1038,7 @@ static bool ns_Set_Aim(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -1076,7 +1079,7 @@ static bool ns_Set_Msn(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -1119,7 +1122,7 @@ static bool ns_Set_Jabber(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -1162,7 +1165,7 @@ static bool ns_Set_Yahoo(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -1203,7 +1206,7 @@ static bool ns_Set_Description(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -1240,7 +1243,7 @@ static bool ns_Set_Language(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -1286,7 +1289,7 @@ static bool ns_Set_Protect(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -1330,7 +1333,7 @@ static bool ns_Set_Secure(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -1374,7 +1377,7 @@ static bool ns_Set_Nomemo(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -1418,7 +1421,7 @@ static bool ns_Set_Private(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -1462,7 +1465,7 @@ static bool ns_Set_Privmsg(const boost::shared_ptr<LiveUser> &service,
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
-			 params[0]);
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(false);
 	}
 
@@ -1504,7 +1507,8 @@ static bool ns_Set_Picture(const boost::shared_ptr<LiveUser> &service,
 
 	// TODO: To be implemented.
 	SEND(service, user,
-		 N_("The %1% command has not yet been implemented."), params[0]);
+		 N_("The %1% command has not yet been implemented."),
+		 boost::algorithm::to_upper_copy(params[0]));
 
 	MT_RET(true);
 	MT_EE
@@ -1924,7 +1928,8 @@ static bool ns_Set_Comment(const boost::shared_ptr<LiveUser> &service,
 
 	// TODO: To be implemented.
 	SEND(service, user,
-		 N_("The %1% command has not yet been implemented."), params[0]);
+		 N_("The %1% command has not yet been implemented."),
+		 boost::algorithm::to_upper_copy(params[0]));
 
 	MT_RET(true);
 	MT_EE
@@ -1942,7 +1947,8 @@ static bool ns_Set_Noexpire(const boost::shared_ptr<LiveUser> &service,
 
 	// TODO: To be implemented.
 	SEND(service, user,
-		 N_("The %1% command has not yet been implemented."), params[0]);
+		 N_("The %1% command has not yet been implemented."),
+		 boost::algorithm::to_upper_copy(params[0]));
 
 	MT_RET(true);
 	MT_EE
@@ -1960,7 +1966,8 @@ static bool ns_Unset_Comment(const boost::shared_ptr<LiveUser> &service,
 
 	// TODO: To be implemented.
 	SEND(service, user,
-		 N_("The %1% command has not yet been implemented."), params[0]);
+		 N_("The %1% command has not yet been implemented."),
+		 boost::algorithm::to_upper_copy(params[0]));
 
 	MT_RET(true);
 	MT_EE
@@ -1978,7 +1985,8 @@ static bool ns_Unset_Noexpire(const boost::shared_ptr<LiveUser> &service,
 
 	// TODO: To be implemented.
 	SEND(service, user,
-		 N_("The %1% command has not yet been implemented."), params[0]);
+		 N_("The %1% command has not yet been implemented."),
+		 boost::algorithm::to_upper_copy(params[0]));
 
 	MT_RET(true);
 	MT_EE

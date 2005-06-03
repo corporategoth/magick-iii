@@ -489,7 +489,11 @@ bool Service::Execute(const boost::shared_ptr<LiveUser> &service,
 		}
 	}
 	if (!f)
+	{
+		SEND(service, user, "No such command %1%.",
+			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(true);
+	}
 
 	bool rv = f(service, user, params);
 	MT_RET(rv);

@@ -68,7 +68,7 @@ boost::shared_ptr<StoredNick> StoredNick::create(const std::string &name,
 
 	boost::shared_ptr<StoredNick> rv = load(name, user);
 	if (rv->live_)
-		rv->live_->Nick_Reg();
+		if_LiveUser_StoredNick(rv->live_).Nick_Reg();
 
 	MT_RET(rv);
 	MT_EE
