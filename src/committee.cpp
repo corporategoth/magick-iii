@@ -290,7 +290,10 @@ void Committee::Email(const std::string &in)
 	MT_EB
 	MT_FUNC("Committee::Email" << in);
 
-	storage.PutField(name_, "email", in);
+	if (in.empty())
+		storage.PutField(name_, "email", mantra::NullValue());
+	else
+		storage.PutField(name_, "email", in);
 
 	MT_EE
 }
@@ -315,7 +318,10 @@ void Committee::Website(const std::string &in)
 	MT_EB
 	MT_FUNC("Committee::Website" << in);
 
-	storage.PutField(name_, "website", in);
+	if (in.empty())
+		storage.PutField(name_, "website", mantra::NullValue());
+	else
+		storage.PutField(name_, "website", in);
 
 	MT_EE
 }
