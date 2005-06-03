@@ -310,7 +310,10 @@ void StoredChannel::Email(const std::string &in)
 	MT_EB
 	MT_FUNC("StoredChannel::Email" << in);
 
-	storage.PutField(name_, "email", in);
+	if (in.empty())
+		storage.PutField(name_, "email", mantra::NullValue());
+	else
+		storage.PutField(name_, "email", in);
 
 	MT_EE
 }
@@ -335,7 +338,10 @@ void StoredChannel::Website(const std::string &in)
 	MT_EB
 	MT_FUNC("StoredChannel::Website" << in);
 
-	storage.PutField(name_, "website", in);
+	if (in.empty())
+		storage.PutField(name_, "website", mantra::NullValue());
+	else
+		storage.PutField(name_, "website", in);
 
 	MT_EE
 }
@@ -360,7 +366,10 @@ void StoredChannel::Comment(const std::string &in)
 	MT_EB
 	MT_FUNC("StoredChannel::Comment" << in);
 
-	storage.PutField(name_, "comment", in);
+	if (in.empty())
+		storage.PutField(name_, "comment", mantra::NullValue());
+	else
+		storage.PutField(name_, "comment", in);
 
 	MT_EE
 }

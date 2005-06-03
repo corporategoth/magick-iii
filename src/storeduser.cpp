@@ -234,7 +234,10 @@ void StoredUser::Email(const std::string &in)
 	MT_EB
 	MT_FUNC("StoredUser::Email" << in);
 
-	storage.PutField(id_, "email", in);
+	if (in.empty())
+		storage.PutField(id_, "email", mantra::NullValue());
+	else
+		storage.PutField(id_, "email", in);
 
 	MT_EE
 }
@@ -259,7 +262,10 @@ void StoredUser::Website(const std::string &in)
 	MT_EB
 	MT_FUNC("StoredUser::Website" << in);
 
-	storage.PutField(id_, "website", in);
+	if (in.empty())
+		storage.PutField(id_, "website", mantra::NullValue());
+	else
+		storage.PutField(id_, "website", in);
 
 	MT_EE
 }
@@ -284,7 +290,10 @@ void StoredUser::ICQ(const boost::uint32_t &in)
 	MT_EB
 	MT_FUNC("StoredUser::ICQ" << in);
 
-	storage.PutField(id_, "icq", in);
+	if (!in)
+		storage.PutField(id_, "icq", mantra::NullValue());
+	else
+		storage.PutField(id_, "icq", in);
 
 	MT_EE
 }
@@ -309,7 +318,10 @@ void StoredUser::AIM(const std::string &in)
 	MT_EB
 	MT_FUNC("StoredUser::AIM" << in);
 
-	storage.PutField(id_, "aim", in);
+	if (in.empty())
+		storage.PutField(id_, "aim", mantra::NullValue());
+	else
+		storage.PutField(id_, "aim", in);
 
 	MT_EE
 }
@@ -334,7 +346,10 @@ void StoredUser::MSN(const std::string &in)
 	MT_EB
 	MT_FUNC("StoredUser::MSN" << in);
 
-	storage.PutField(id_, "msn", in);
+	if (in.empty())
+		storage.PutField(id_, "msn", mantra::NullValue());
+	else
+		storage.PutField(id_, "msn", in);
 
 	MT_EE
 }
@@ -359,7 +374,10 @@ void StoredUser::Jabber(const std::string &in)
 	MT_EB
 	MT_FUNC("StoredUser::Jabber" << in);
 
-	storage.PutField(id_, "jabber", in);
+	if (in.empty())
+		storage.PutField(id_, "jabber", mantra::NullValue());
+	else
+		storage.PutField(id_, "jabber", in);
 
 	MT_EE
 }
@@ -384,7 +402,10 @@ void StoredUser::Yahoo(const std::string &in)
 	MT_EB
 	MT_FUNC("StoredUser::Yahoo" << in);
 
-	storage.PutField(id_, "yahoo", in);
+	if (in.empty())
+		storage.PutField(id_, "yahoo", mantra::NullValue());
+	else
+		storage.PutField(id_, "yahoo", in);
 
 	MT_EE
 }
@@ -409,7 +430,10 @@ void StoredUser::Description(const std::string &in)
 	MT_EB
 	MT_FUNC("StoredUser::Description" << in);
 
-	storage.PutField(id_, "description", in);
+	if (in.empty())
+		storage.PutField(id_, "description", mantra::NullValue());
+	else
+		storage.PutField(id_, "description", in);
 
 	MT_EE
 }
@@ -434,7 +458,10 @@ void StoredUser::Comment(const std::string &in)
 	MT_EB
 	MT_FUNC("StoredUser::Comment" << in);
 
-	storage.PutField(id_, "comment", in);
+	if (in.empty())
+		storage.PutField(id_, "comment", mantra::NullValue());
+	else
+		storage.PutField(id_, "comment", in);
 
 	MT_EE
 }
