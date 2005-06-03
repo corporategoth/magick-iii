@@ -67,6 +67,8 @@ boost::shared_ptr<StoredNick> StoredNick::create(const std::string &name,
 	storage.InsertRow(rec);
 
 	boost::shared_ptr<StoredNick> rv = load(name, user);
+	if (rv->live_)
+		rv->live_->Nick_Reg();
 
 	MT_RET(rv);
 	MT_EE
@@ -85,10 +87,10 @@ boost::shared_ptr<StoredNick> StoredNick::load(const std::string &name,
 	boost::shared_ptr<LiveUser> live = ROOT->data.Get_LiveUser(name);
 	if (live)
 	{
-		if (user->ACCESS_Matches(live) && !user->Secure())
+		if (!user->Secure() && user->ACCESS_Matches(live))
 		{
 			if_LiveUser_StoredNick(live).Stored(rv);
-			rv->Live(live);
+			rv->Online(live);
 		}
 	}
 
@@ -96,45 +98,44 @@ boost::shared_ptr<StoredNick> StoredNick::load(const std::string &name,
 	MT_EE
 }
 
-void StoredNick::Live(const boost::shared_ptr<LiveUser> &live)
+void StoredNick::Online(const boost::shared_ptr<LiveUser> &live)
 {
 	MT_EB
 	MT_FUNC("StoredNick::Live" << live);
 
-	if (live)
-	{
-		mantra::Storage::RecordMap data;
-		data["last_realname"] = live->Real();
-		data["last_mask"] = live->User() + "@" + live->Host();
-		data["last_seen"] = mantra::GetCurrentDateTime();
-		storage.ChangeRow(data, mantra::Comparison<mantra::C_EqualToNC>::make("name", name_));
-		if_StoredUser_StoredNick(user_).Online(live_);
-	}
-	else
-		if_StoredUser_StoredNick(user_).Offline(live_);
+	if(!live)
+		return;
+
+	mantra::Storage::RecordMap data;
+	data["last_realname"] = live->Real();
+	data["last_mask"] = live->User() + "@" + live->Host();
+	data["last_seen"] = mantra::GetCurrentDateTime();
+	storage.ChangeRow(data, mantra::Comparison<mantra::C_EqualToNC>::make("name", name_));
+	if_StoredUser_StoredNick(user_).Online(live);
 	SYNC_LOCK(live_);
 	live_ = live;
 
 	MT_EE
 }
 
-void StoredNick::Quit(const std::string &reason)
+void StoredNick::Offline(const std::string &reason)
 {
 	MT_EB
 	MT_FUNC("StoredNick::Quit" << reason);
 
 	mantra::Storage::RecordMap data;
-	{
+	if (reason.empty())
+		data["last_quit"] = mantra::NullValue();
+	else
 		data["last_quit"] = reason;
-		data["last_seen"] = mantra::GetCurrentDateTime();
-		SYNC_LOCK(live_);
-		if (live_)
-		{
-			if_StoredUser_StoredNick(user_).Offline(live_);
-			live_.reset();
-		}
-	}
+	data["last_seen"] = mantra::GetCurrentDateTime();
 	storage.ChangeRow(data, mantra::Comparison<mantra::C_EqualToNC>::make("name", name_));
+	SYNC_LOCK(live_);
+	if (live_)
+	{
+		if_StoredUser_StoredNick(user_).Offline(live_);
+		live_.reset();
+	}
 
 	MT_EE
 }
@@ -281,3 +282,103 @@ void StoredNick::Drop()
 
 	MT_EE
 }
+
+void StoredNick::SendInfo(const boost::shared_ptr<LiveUser> &service,
+						  const boost::shared_ptr<LiveUser> &user) const
+{
+	MT_EB
+	MT_FUNC("StoredNick::SendInfo" << service << user);
+
+	if (!service || !user || !service->GetService())
+		return;
+
+	mantra::Storage::RecordMap data, last_data;
+	mantra::Storage::RecordMap::const_iterator i, j;
+	storage.GetRow(name_, data);
+
+	boost::shared_ptr<StoredNick> last = Last_Seen(user_);
+	if (last != self.lock())
+		storage.GetRow(last->name_, last_data);
+
+	boost::shared_ptr<LiveUser> live;
+	{
+		SYNC_LOCK(live_);
+		live = live_;
+	}
+	if (live)
+	{
+		SEND(service, user, N_("%1% is %2%"), live->Name() % live->Real());
+	}
+	else
+	{
+		mantra::Storage::RecordMap::const_iterator j, i = data.find("last_realname");
+		if (i != data.end())
+			SEND(service, user, N_("%1% was %2%"), name_ %
+				 boost::get<std::string>(i->second));
+		else
+		{
+			i = last_data.find("last_realname");
+			if (i != last_data.end())
+				SEND(service, user, N_("%1% was %2%"), name_ %
+					 boost::get<std::string>(i->second));
+			else
+				SEND(service, user, N_("%1% has never signed on."), name_);
+		}
+	}
+
+	SEND(service, user, N_("Registered     : %1%"),
+		 boost::get<boost::posix_time::ptime>(data["registered"]));
+
+	if (!live)
+	{
+		i = data.find("last_seen");
+		j = data.find("last_mask");
+		if (i != data.end() && j != data.end())
+			SEND(service, user, N_("Last Used      : %1% from %2%"),
+				 boost::get<boost::posix_time::ptime>(i->second) %
+				 boost::get<std::string>(j->second));
+		i = data.find("last_quit");
+		if (i != data.end())
+			SEND(service, user, N_("Signoff Reason : %1%"),
+				 boost::get<std::string>(i->second));
+	}
+
+	StoredUser::online_users_t online = user_->Online();
+	if (online.empty())
+	{
+		if (last != self.lock())
+		{
+			i = last_data.find("last_seen");
+			j = last_data.find("last_mask");
+			if (i != last_data.end() && j != last_data.end())
+			{
+				SEND(service, user, N_("Last Online    : %1% from %2%!%3%"),
+					 boost::get<boost::posix_time::ptime>(i->second) %
+					 last->name_ % boost::get<std::string>(j->second));
+				i = last_data.find("last_quit");
+				if (i != last_data.end())
+					SEND(service, user, N_("Signoff Reason : %1%"),
+						 boost::get<std::string>(i->second));
+			}
+		}
+	}
+	else
+	{
+		std::string str;
+		StoredUser::online_users_t::const_iterator k;
+		for (k = online.begin(); k != online.end(); ++k)
+		{
+			if (!(*k))
+				continue;
+			if (!str.empty())
+				str += ", ";
+			str += (*k)->Name();
+		}
+		SEND(service, user, N_("Online As      : %1%"), str);
+	}
+
+	if_StoredUser_StoredNick(user_).SendInfo(service, user);
+
+	MT_EE
+}
+

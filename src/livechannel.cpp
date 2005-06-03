@@ -452,7 +452,7 @@ void LiveChannel::Modes(const boost::shared_ptr<LiveUser> &user,
 	MT_EE
 }
 
-bool operator<(const LiveChannel::users_t::value_type &lhs,
+static bool operator<(const LiveChannel::users_t::value_type &lhs,
 			   const std::string &rhs)
 {
 	return (*(lhs.first) < rhs);

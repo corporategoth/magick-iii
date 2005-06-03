@@ -47,7 +47,7 @@ Service::~Service()
 {
 }
 
-bool operator<(const Service::users_t::value_type &lhs,
+static bool operator<(const Service::users_t::value_type &lhs,
 			   const std::string &rhs)
 {
 	return (*lhs < rhs);

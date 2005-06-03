@@ -57,8 +57,8 @@ class StoredNick : public boost::noncopyable, public boost::totally_ordered1<Sto
 	boost::shared_ptr<LiveUser> SYNC(live_);
 
 	// use if_StoredNick_LiveUser
-	void Live(const boost::shared_ptr<LiveUser> &live);
-	void Quit(const std::string &reason);
+	void Online(const boost::shared_ptr<LiveUser> &live);
+	void Offline(const std::string &reason);
 
 	// use if_StoredNick_StoredUser
 	static boost::shared_ptr<StoredNick> Last_Seen(const boost::shared_ptr<StoredUser> &user);
@@ -94,6 +94,9 @@ public:
 	boost::posix_time::ptime Last_Seen() const;
 
 	void Drop();
+
+	void SendInfo(const boost::shared_ptr<LiveUser> &service,
+				  const boost::shared_ptr<LiveUser> &user) const;
 };
 
 // Special interface used by LiveUser.
@@ -106,10 +109,10 @@ class if_StoredNick_LiveUser
 	if_StoredNick_LiveUser(StoredNick &b) : base(b) {}
 	if_StoredNick_LiveUser(const boost::shared_ptr<StoredNick> &b) : base(*(b.get())) {}
 
-	inline void Live(const boost::shared_ptr<LiveUser> &user)
-		{ base.Live(user); }
-	inline void Quit(const std::string &in)
-		{ base.Quit(in); }
+	inline void Online(const boost::shared_ptr<LiveUser> &user)
+		{ base.Online(user); }
+	inline void Offline(const std::string &in)
+		{ base.Offline(in); }
 };
 
 // Special interface used by LiveUser.

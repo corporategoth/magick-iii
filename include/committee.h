@@ -65,6 +65,7 @@ class Committee : private boost::noncopyable, public boost::totally_ordered1<Com
 	// use if_Committee_LiveUser
 	void Online(const boost::shared_ptr<LiveUser> &in);
 	void Offline(const boost::shared_ptr<LiveUser> &in);
+	static std::set<boost::shared_ptr<Committee> > Live_Committees(const boost::shared_ptr<StoredUser> &in);
 
 	// use if_Committee_Storage
 	static boost::shared_ptr<Committee> load(const std::string &name);
@@ -225,6 +226,8 @@ class if_Committee_LiveUser
 		{ base.Online(user); }
 	inline void Offline(const boost::shared_ptr<LiveUser> &user)
 		{ base.Offline(user); }
+	static inline std::set<boost::shared_ptr<Committee> > Live_Committees(const boost::shared_ptr<StoredUser> &in)
+		{ return Committee::Live_Committees(in); }
 };
 
 // Special interface used by Storage.

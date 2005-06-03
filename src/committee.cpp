@@ -41,6 +41,8 @@ RCSID(magick__committee_cpp, "@(#)$Id$");
 #include <mantra/core/trace.h>
 
 StorageInterface Committee::storage("committees", "name", "last_update");
+StorageInterface Committee::Member::storage("committees_member", std::string(), "last_update");
+StorageInterface Committee::Message::storage("committees_message", std::string(), "last_update");
 
 boost::shared_ptr<Committee> Committee::create(const std::string &name)
 {
@@ -122,6 +124,74 @@ void Committee::Offline(const boost::shared_ptr<LiveUser> &in)
 	SYNC_LOCK(Committee);
 	online_members_.erase(in);
 
+	MT_EE
+}
+
+std::set<boost::shared_ptr<Committee> > Committee::Live_Committees(const boost::shared_ptr<StoredUser> &in)
+{
+	MT_EB
+	MT_FUNC("Committee::Live_Committees" << in);
+
+	std::set<boost::shared_ptr<Committee> > rv;
+	mantra::Storage::DataSet data;
+	mantra::Storage::FieldSet fields;
+	fields.insert("name");
+	storage.RetrieveRow(data, mantra::Comparison<mantra::C_EqualTo>::make("head_user", in->ID()), fields);
+
+	mantra::Storage::DataSet::const_iterator i = data.begin();
+	for (i = data.begin(); i != data.end(); ++i)
+	{
+		mantra::Storage::RecordMap::const_iterator j = i->find("name");
+		if (j == i->end() || j->second.type() == typeid(mantra::NullValue))
+			continue;
+
+		boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(
+						boost::get<std::string>(j->second));
+		if (comm)
+			rv.insert(comm);
+	}
+
+	data.clear();
+	Member::storage.RetrieveRow(data, mantra::Comparison<mantra::C_EqualTo>::make("entry", in->ID()), fields);
+	for (i = data.begin(); i != data.end(); ++i)
+	{
+		mantra::Storage::RecordMap::const_iterator j = i->find("name");
+		if (j == i->end() || j->second.type() == typeid(mantra::NullValue))
+			continue;
+
+		boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(
+						boost::get<std::string>(j->second));
+		if (comm)
+			rv.insert(comm);
+	}
+
+	std::vector<mantra::StorageValue> look;
+	std::set<boost::shared_ptr<Committee> >::iterator k;
+	for (k = rv.begin(); k != rv.end(); ++k)
+		look.push_back((*k)->Name());
+
+	while (!look.empty())
+	{
+		data.clear();
+		storage.RetrieveRow(data, mantra::Comparison<mantra::C_OneOfNC>::make("head_committee", look), fields);
+		look.clear();
+		for (i = data.begin(); i != data.end(); ++i)
+		{
+			mantra::Storage::RecordMap::const_iterator j = i->find("name");
+			if (j == i->end() || j->second.type() == typeid(mantra::NullValue))
+				continue;
+
+			boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(
+							boost::get<std::string>(j->second));
+			if (comm)
+			{
+				look.push_back(comm->Name());
+				rv.insert(comm);
+			}
+		}
+	}
+
+	MT_RET(rv);
 	MT_EE
 }
 

@@ -1724,7 +1724,7 @@ void Storage::init()
 
 	cp.Assign<boost::uint32_t>(true);
 	backend_.first->DefineColumn("committees", "head_user", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
+	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 32);
 	backend_.first->DefineColumn("committees", "head_committee", cp);
 
 	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
@@ -1733,9 +1733,9 @@ void Storage::init()
 
 	cp.Assign<std::string>(true);
 	backend_.first->DefineColumn("committees", "description", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 320);
+	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 320);
 	backend_.first->DefineColumn("committees", "email", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 2048);
+	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 2048);
 	backend_.first->DefineColumn("committees", "webpage", cp);
 
 	cp.Assign<bool>(true);
@@ -1865,6 +1865,70 @@ void Storage::Load()
 		ROOT->event->Cancel(event_);
 	backend_.first->Refresh();
 	sync();
+
+	{
+		boost::shared_ptr<Committee> sadmin, admin, comm;
+		SYNC_WLOCK(Committees_);
+		Committees_t::iterator i = Committees_.find(ROOT->ConfigValue<std::string>("commserv.sadmin.name"));
+		if (i == Committees_.end())
+		{
+			sadmin = Committee::create(ROOT->ConfigValue<std::string>("commserv.sadmin.name"));
+			Committees_[sadmin->Name()] = sadmin;
+		}
+		else
+		{
+			sadmin = i->second;
+		}
+
+		// Re-do the committee membership ...
+		backend_.first->RemoveRow("committees_member", mantra::Comparison<mantra::C_EqualToNC>::make("name", sadmin->Name()));
+		if (ROOT->ConfigExists("operserv.services-admin"))
+		{
+			mantra::Storage::RecordMap rec;
+			rec["name"] = sadmin->Name();
+			rec["last_updater"] = ROOT->operserv.Primary();
+
+			std::vector<std::string> members = ROOT->ConfigValue<std::vector<std::string> >("operserv.services-admin");
+			for (size_t i=0; i<members.size(); ++i)
+			{
+				boost::shared_ptr<StoredNick> nick = Get_StoredNick(members[i]);
+				if (!nick)
+					continue;
+
+				rec["entry"] = nick->User()->ID();
+				backend_.first->InsertRow("committees_member", rec);
+			}
+		}
+
+		i = Committees_.find(ROOT->ConfigValue<std::string>("commserv.admin.name"));
+		if (i == Committees_.end())
+		{
+			admin = Committee::create(ROOT->ConfigValue<std::string>("commserv.admin.name"),
+									  sadmin);
+			Committees_[admin->Name()] = admin;
+		}
+		else
+		{
+			admin = i->second;
+		}
+
+		i = Committees_.find(ROOT->ConfigValue<std::string>("commserv.sop.name"));
+		if (i == Committees_.end())
+		{
+			comm = Committee::create(ROOT->ConfigValue<std::string>("commserv.sop.name"),
+									 sadmin);
+			Committees_[comm->Name()] = comm;
+		}
+
+		i = Committees_.find(ROOT->ConfigValue<std::string>("commserv.oper.name"));
+		if (i == Committees_.end())
+		{
+			comm = Committee::create(ROOT->ConfigValue<std::string>("commserv.oper.name"),
+									 admin);
+			Committees_[comm->Name()] = comm;
+		}
+	}
+
 	LOG(Info, _("Database loaded in %1% seconds."), t.elapsed());
 	event_ = ROOT->event->Schedule(boost::bind(&Storage::Save, this),
 								   ROOT->ConfigValue<mantra::duration>("save-time"));

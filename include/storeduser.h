@@ -52,10 +52,12 @@ class StoredUser : private boost::noncopyable, public boost::totally_ordered1<St
 	friend class if_StoredUser_StoredChannel;
 	friend class if_StoredUser_Storage;
 
+public:
 	typedef std::set<boost::shared_ptr<LiveUser> > online_users_t;
 	typedef std::set<boost::shared_ptr<StoredNick> > my_nicks_t;
 	typedef std::set<boost::shared_ptr<StoredChannel> > my_channels_t;
 
+private:
 	boost::weak_ptr<StoredUser> self;
 	static StorageInterface storage;
 	static StorageInterface storage_access;
@@ -63,13 +65,12 @@ class StoredUser : private boost::noncopyable, public boost::totally_ordered1<St
 
 	boost::uint32_t id_;
 
-	NSYNC(StoredUser);
 	NSYNC(access_number);
 	NSYNC(ignore_number);
 
-	online_users_t online_users_;
-	my_nicks_t my_nicks_;
-	my_channels_t my_channels_;
+	online_users_t RWSYNC(online_users_);
+	my_nicks_t SYNC(my_nicks_);
+	my_channels_t SYNC(my_channels_);
 
 	// use if_StoredUser_DCC
 	void Picture(boost::uint32_t in, const std::string &ext);
@@ -80,6 +81,8 @@ class StoredUser : private boost::noncopyable, public boost::totally_ordered1<St
 	void Offline(const boost::shared_ptr<LiveUser> &user);
 	void Add(const boost::shared_ptr<StoredNick> &nick);
 	void Del(const boost::shared_ptr<StoredNick> &nick);
+	void SendInfo(const boost::shared_ptr<LiveUser> &service,
+				  const boost::shared_ptr<LiveUser> &user) const;
 
 	// use if_StoredUser_StoredChannel
 	void Add(const boost::shared_ptr<StoredChannel> &channel);
@@ -89,7 +92,7 @@ class StoredUser : private boost::noncopyable, public boost::totally_ordered1<St
 	static boost::shared_ptr<StoredUser> load(boost::uint32_t id);
 	void DropInternal();
 
-	StoredUser(boost::uint32_t id) : id_(id) {}
+	StoredUser(boost::uint32_t id);
 public:
 
 	boost::uint32_t ID() const { return id_; }
@@ -97,6 +100,7 @@ public:
 	boost::posix_time::ptime Last_Update() const
 		{ return boost::get<boost::posix_time::ptime>(storage.GetField(id_, "last_update")); }
 	boost::shared_ptr<StoredNick> Last_Online() const;
+	online_users_t Online() const;
 
 	bool operator<(const StoredUser &rhs) const { return ID() < rhs.ID(); }
 	bool operator==(const StoredUser &rhs) const { return ID() == rhs.ID(); }
@@ -131,34 +135,34 @@ public:
 	std::string Suspend_Reason() const;
 	boost::posix_time::ptime Suspend_Time() const;
 
-	void Language(const std::string &in);
+	bool Language(const std::string &in);
 	std::string Language() const;
-	void Protect(const boost::logic::tribool &in);
+	bool Protect(const boost::logic::tribool &in);
 	bool Protect() const;
-	void Secure(const boost::logic::tribool &in);
+	bool Secure(const boost::logic::tribool &in);
 	bool Secure() const;
-	void NoMemo(const boost::logic::tribool &in);
+	bool NoMemo(const boost::logic::tribool &in);
 	bool NoMemo() const;
-	void Private(const boost::logic::tribool &in);
+	bool Private(const boost::logic::tribool &in);
 	bool Private() const;
-	void PRIVMSG(const boost::logic::tribool &in);
+	bool PRIVMSG(const boost::logic::tribool &in);
 	bool PRIVMSG() const;
-	void NoExpire(const boost::logic::tribool &in);
+	bool NoExpire(const boost::logic::tribool &in);
 	bool NoExpire() const;
 	void ClearPicture();
 	std::string PictureExt() const;
 	boost::uint32_t Picture() const;
-	void LOCK_Language(const bool &in);
+	bool LOCK_Language(const bool &in);
 	bool LOCK_Language() const;
-	void LOCK_Protect(const bool &in);
+	bool LOCK_Protect(const bool &in);
 	bool LOCK_Protect() const;
-	void LOCK_Secure(const bool &in);
+	bool LOCK_Secure(const bool &in);
 	bool LOCK_Secure() const;
-	void LOCK_NoMemo(const bool &in);
+	bool LOCK_NoMemo(const bool &in);
 	bool LOCK_NoMemo() const;
-	void LOCK_Private(const bool &in);
+	bool LOCK_Private(const bool &in);
 	bool LOCK_Private() const;
-	void LOCK_PRIVMSG(const bool &in);
+	bool LOCK_PRIVMSG(const bool &in);
 	bool LOCK_PRIVMSG() const;
 
 	bool ACCESS_Matches(const std::string &in) const;
@@ -204,6 +208,9 @@ class if_StoredUser_StoredNick
 		{ base.Add(nick); }
 	inline void Del(const boost::shared_ptr<StoredNick> &nick)
 		{ base.Del(nick); }
+	inline void SendInfo(const boost::shared_ptr<LiveUser> &service,
+						 const boost::shared_ptr<LiveUser> &user) const
+		{ base.SendInfo(service, user); }
 };
 
 // Special interface used by StoredChannel.

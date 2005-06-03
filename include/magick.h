@@ -116,6 +116,7 @@ class Magick
 {
 	friend class Protocol;
 
+//	boost::shared_ptr<boost::local_time::time_zone_base> tz;
 	boost::posix_time::ptime start;
 	pid_t pid;
 	unsigned int level;
@@ -141,10 +142,11 @@ public:
 	void LogHex(mantra::LogLevel::Level_t level, const void *buf, size_t len,
 				const std::string &prefix = std::string());
 
+//	const boost::shared_ptr<boost::local_time::time_zone_base> &TZ() const { return tz; }
+	const boost::posix_time::ptime &Start() const { return start; }
+
 	bool parse_config(const std::vector<std::string> &args);
 	void run(const boost::function0<bool> &check);
-
-	const boost::posix_time::ptime &Start() const { return start; }
 
 	bool ConfigExists(const char *key) const
 		{ return opt_config.count(key) != 0; }

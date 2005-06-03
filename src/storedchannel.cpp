@@ -440,19 +440,20 @@ boost::posix_time::ptime StoredChannel::Topic_Set_Time() const
 	MT_EE
 }
 
-void StoredChannel::KeepTopic(const boost::logic::tribool &in)
+bool StoredChannel::KeepTopic(const boost::logic::tribool &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::KeepTopic" << in);
 
 	if (LOCK_KeepTopic())
-		return;
+		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
 		storage.PutField(name_, "keeptopic", mantra::NullValue::instance());
 	else
 		storage.PutField(name_, "keeptopic", (bool) in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -472,19 +473,20 @@ bool StoredChannel::KeepTopic() const
 	MT_EE
 }
 
-void StoredChannel::TopicLock(const boost::logic::tribool &in)
+bool StoredChannel::TopicLock(const boost::logic::tribool &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::TopicLock" << in);
 
 	if (LOCK_TopicLock())
-		return;
+		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
 		storage.PutField(name_, "topiclock", mantra::NullValue::instance());
 	else
 		storage.PutField(name_, "topiclock", (bool) in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -504,19 +506,20 @@ bool StoredChannel::TopicLock() const
 	MT_EE
 }
 
-void StoredChannel::Private(const boost::logic::tribool &in)
+bool StoredChannel::Private(const boost::logic::tribool &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::Private" << in);
 
 	if (LOCK_Private())
-		return;
+		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
 		storage.PutField(name_, "private", mantra::NullValue::instance());
 	else
 		storage.PutField(name_, "private", (bool) in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -536,19 +539,20 @@ bool StoredChannel::Private() const
 	MT_EE
 }
 
-void StoredChannel::SecureOps(const boost::logic::tribool &in)
+bool StoredChannel::SecureOps(const boost::logic::tribool &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::SecureOps" << in);
 
 	if (LOCK_SecureOps())
-		return;
+		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
 		storage.PutField(name_, "secureops", mantra::NullValue::instance());
 	else
 		storage.PutField(name_, "secureops", (bool) in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -568,19 +572,20 @@ bool StoredChannel::SecureOps() const
 	MT_EE
 }
 
-void StoredChannel::Secure(const boost::logic::tribool &in)
+bool StoredChannel::Secure(const boost::logic::tribool &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::Secure" << in);
 
 	if (LOCK_Secure())
-		return;
+		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
 		storage.PutField(name_, "secure", mantra::NullValue::instance());
 	else
 		storage.PutField(name_, "secure", (bool) in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -600,19 +605,20 @@ bool StoredChannel::Secure() const
 	MT_EE
 }
 
-void StoredChannel::Anarchy(const boost::logic::tribool &in)
+bool StoredChannel::Anarchy(const boost::logic::tribool &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::Anarchy" << in);
 
 	if (LOCK_Anarchy())
-		return;
+		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
 		storage.PutField(name_, "anarchy", mantra::NullValue::instance());
 	else
 		storage.PutField(name_, "anarchy", (bool) in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -632,19 +638,20 @@ bool StoredChannel::Anarchy() const
 	MT_EE
 }
 
-void StoredChannel::KickOnBan(const boost::logic::tribool &in)
+bool StoredChannel::KickOnBan(const boost::logic::tribool &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::KickOnBan" << in);
 
 	if (LOCK_KickOnBan())
-		return;
+		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
 		storage.PutField(name_, "kickonban", mantra::NullValue::instance());
 	else
 		storage.PutField(name_, "kickonban", (bool) in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -664,19 +671,20 @@ bool StoredChannel::KickOnBan() const
 	MT_EE
 }
 
-void StoredChannel::Restricted(const boost::logic::tribool &in)
+bool StoredChannel::Restricted(const boost::logic::tribool &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::Restricted" << in);
 
 	if (LOCK_Restricted())
-		return;
+		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
 		storage.PutField(name_, "restricted", mantra::NullValue::instance());
 	else
 		storage.PutField(name_, "restricted", (bool) in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -696,19 +704,20 @@ bool StoredChannel::Restricted() const
 	MT_EE
 }
 
-void StoredChannel::CJoin(const boost::logic::tribool &in)
+bool StoredChannel::CJoin(const boost::logic::tribool &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::CJoin" << in);
 
 	if (LOCK_CJoin())
-		return;
+		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
 		storage.PutField(name_, "cjoin", mantra::NullValue::instance());
 	else
 		storage.PutField(name_, "cjoin", (bool) in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -728,19 +737,20 @@ bool StoredChannel::CJoin() const
 	MT_EE
 }
 
-void StoredChannel::NoExpire(const boost::logic::tribool &in)
+bool StoredChannel::NoExpire(const boost::logic::tribool &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::NoExpire" << in);
 
 	if (ROOT->ConfigValue<bool>("chanserv.lock.noexpire"))
-		return;
+		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
 		storage.PutField(name_, "noexpire", mantra::NullValue::instance());
 	else
 		storage.PutField(name_, "noexpire", (bool) in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -763,19 +773,20 @@ bool StoredChannel::NoExpire() const
 	MT_EE
 }
 
-void StoredChannel::BanTime(const mantra::duration &in)
+bool StoredChannel::BanTime(const mantra::duration &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::BanTime" << in);
 
 	if (LOCK_BanTime())
-		return;
+		MT_RET(false);
 
 	if (!in)
 		storage.PutField(name_, "bantime", mantra::NullValue::instance());
 	else
 		storage.PutField(name_, "bantime", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -795,19 +806,20 @@ mantra::duration StoredChannel::BanTime() const
 	MT_EE
 }
 
-void StoredChannel::PartTime(const mantra::duration &in)
+bool StoredChannel::PartTime(const mantra::duration &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::PartTime" << in);
 
 	if (LOCK_PartTime())
-		return;
+		MT_RET(false);
 
 	if (!in)
 		storage.PutField(name_, "parttime", mantra::NullValue::instance());
 	else
 		storage.PutField(name_, "parttime", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -827,19 +839,20 @@ mantra::duration StoredChannel::PartTime() const
 	MT_EE
 }
 
-void StoredChannel::Revenge(StoredChannel::Revenge_t in)
+bool StoredChannel::Revenge(StoredChannel::Revenge_t in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::Revenge" << in);
 
 	if (LOCK_Revenge())
-		return;
+		MT_RET(false);
 
 	if (in < R_None || in >= R_MAX)
 		storage.PutField(name_, "revenge", mantra::NullValue::instance());
 	else
 		storage.PutField(name_, "revenge", (boost::uint8_t) in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -859,12 +872,14 @@ StoredChannel::Revenge_t StoredChannel::Revenge() const
 	MT_EE
 }
 
-void StoredChannel::ModeLock(const std::string &in)
+std::string StoredChannel::ModeLock(const std::string &in)
 {
 	MT_EB
 	MT_FUNC("ModeLock" << in);
 
 
+	std::string rv;
+	MT_RET(rv);
 	MT_EE
 }
 
@@ -928,16 +943,17 @@ boost::uint32_t StoredChannel::ModeLock_Limit() const
 	MT_EE
 }
 
-void StoredChannel::LOCK_KeepTopic(const bool &in)
+bool StoredChannel::LOCK_KeepTopic(const bool &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::LOCK_KeepTopic" << in);
 
 	if (ROOT->ConfigValue<bool>("chanserv.lock.keeptopic"))
-		return;
+		MT_RET(false);
 
 	storage.PutField(name_, "lock_keeptopic", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -958,16 +974,17 @@ bool StoredChannel::LOCK_KeepTopic() const
 	MT_EE
 }
 
-void StoredChannel::LOCK_TopicLock(const bool &in)
+bool StoredChannel::LOCK_TopicLock(const bool &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::LOCK_TopicLock" << in);
 
 	if (ROOT->ConfigValue<bool>("chanserv.lock.topiclock"))
-		return;
+		MT_RET(false);
 
 	storage.PutField(name_, "lock_topiclock", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -988,16 +1005,17 @@ bool StoredChannel::LOCK_TopicLock() const
 	MT_EE
 }
 
-void StoredChannel::LOCK_Private(const bool &in)
+bool StoredChannel::LOCK_Private(const bool &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::LOCK_Private" << in);
 
 	if (ROOT->ConfigValue<bool>("chanserv.lock.private"))
-		return;
+		MT_RET(false);
 
 	storage.PutField(name_, "lock_private", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1018,16 +1036,17 @@ bool StoredChannel::LOCK_Private() const
 	MT_EE
 }
 
-void StoredChannel::LOCK_SecureOps(const bool &in)
+bool StoredChannel::LOCK_SecureOps(const bool &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::LOCK_SecureOps" << in);
 
 	if (ROOT->ConfigValue<bool>("chanserv.lock.secureops"))
-		return;
+		MT_RET(false);
 
 	storage.PutField(name_, "lock_secureops", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1048,16 +1067,17 @@ bool StoredChannel::LOCK_SecureOps() const
 	MT_EE
 }
 
-void StoredChannel::LOCK_Secure(const bool &in)
+bool StoredChannel::LOCK_Secure(const bool &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::LOCK_Secure" << in);
 
 	if (ROOT->ConfigValue<bool>("chanserv.lock.secure"))
-		return;
+		MT_RET(false);
 
 	storage.PutField(name_, "lock_secure", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1078,16 +1098,17 @@ bool StoredChannel::LOCK_Secure() const
 	MT_EE
 }
 
-void StoredChannel::LOCK_Anarchy(const bool &in)
+bool StoredChannel::LOCK_Anarchy(const bool &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::LOCK_Anarchy" << in);
 
 	if (ROOT->ConfigValue<bool>("chanserv.lock.anarchy"))
-		return;
+		MT_RET(false);
 
 	storage.PutField(name_, "lock_anarchy", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1108,16 +1129,17 @@ bool StoredChannel::LOCK_Anarchy() const
 	MT_EE
 }
 
-void StoredChannel::LOCK_KickOnBan(const bool &in)
+bool StoredChannel::LOCK_KickOnBan(const bool &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::LOCK_KickOnBan" << in);
 
 	if (ROOT->ConfigValue<bool>("chanserv.lock.kickonban"))
-		return;
+		MT_RET(false);
 
 	storage.PutField(name_, "lock_kickonban", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1138,16 +1160,17 @@ bool StoredChannel::LOCK_KickOnBan() const
 	MT_EE
 }
 
-void StoredChannel::LOCK_Restricted(const bool &in)
+bool StoredChannel::LOCK_Restricted(const bool &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::LOCK_Restricted" << in);
 
 	if (ROOT->ConfigValue<bool>("chanserv.lock.restricted"))
-		return;
+		MT_RET(false);
 
 	storage.PutField(name_, "lock_restricted", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1168,16 +1191,17 @@ bool StoredChannel::LOCK_Restricted() const
 	MT_EE
 }
 
-void StoredChannel::LOCK_CJoin(const bool &in)
+bool StoredChannel::LOCK_CJoin(const bool &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::LOCK_CJoin" << in);
 
 	if (ROOT->ConfigValue<bool>("chanserv.lock.cjoin"))
-		return;
+		MT_RET(false);
 
 	storage.PutField(name_, "lock_cjoin", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1198,16 +1222,17 @@ bool StoredChannel::LOCK_CJoin() const
 	MT_EE
 }
 
-void StoredChannel::LOCK_BanTime(const bool &in)
+bool StoredChannel::LOCK_BanTime(const bool &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::LOCK_BanTime" << in);
 
 	if (ROOT->ConfigValue<bool>("chanserv.lock.bantime"))
-		return;
+		MT_RET(false);
 
 	storage.PutField(name_, "lock_bantime", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1228,16 +1253,17 @@ bool StoredChannel::LOCK_BanTime() const
 	MT_EE
 }
 
-void StoredChannel::LOCK_PartTime(const bool &in)
+bool StoredChannel::LOCK_PartTime(const bool &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::LOCK_PartTime" << in);
 
 	if (ROOT->ConfigValue<bool>("chanserv.lock.parttime"))
-		return;
+		MT_RET(false);
 
 	storage.PutField(name_, "lock_parttime", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1258,16 +1284,17 @@ bool StoredChannel::LOCK_PartTime() const
 	MT_EE
 }
 
-void StoredChannel::LOCK_Revenge(const bool &in)
+bool StoredChannel::LOCK_Revenge(const bool &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::LOCK_Revenge" << in);
 
 	if (ROOT->ConfigValue<bool>("chanserv.lock.revenge"))
-		return;
+		MT_RET(false);
 
 	storage.PutField(name_, "lock_revenge", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1288,12 +1315,13 @@ bool StoredChannel::LOCK_Revenge() const
 	MT_EE
 }
 
-void StoredChannel::LOCK_ModeLock(const std::string &in)
+std::string StoredChannel::LOCK_ModeLock(const std::string &in)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::LOCK_ModeLock" << in);
 
-
+	std::string rv;
+	MT_RET(rv);
 	MT_EE
 }
 

@@ -44,6 +44,16 @@ StorageInterface StoredUser::storage("users", "id", "last_update");
 StorageInterface StoredUser::storage_access("users_access", std::string(), "last_update");
 StorageInterface StoredUser::storage_ignore("users_ignore", std::string(), "last_update");
 
+StoredUser::StoredUser(boost::uint32_t id)
+	: id_(id), SYNC_NRWINIT(online_users_, reader_priority)
+{
+	MT_EB
+	MT_FUNC("StoredUser::StoredUser");
+
+
+	MT_EE
+}
+
 boost::shared_ptr<StoredUser> StoredUser::create(const std::string &password)
 {
 	MT_EB
@@ -109,7 +119,7 @@ void StoredUser::Online(const boost::shared_ptr<LiveUser> &user)
 	MT_EB
 	MT_FUNC("StoredUser::Online" << user);
 
-	SYNC_LOCK(StoredUser);
+	SYNC_WLOCK(online_users_);
 	online_users_.insert(user);
 
 	MT_EE
@@ -120,7 +130,7 @@ void StoredUser::Offline(const boost::shared_ptr<LiveUser> &user)
 	MT_EB
 	MT_FUNC("StoredUser::Offline" << user);
 
-	SYNC_LOCK(StoredUser);
+	SYNC_WLOCK(online_users_);
 	online_users_.erase(user);
 
 	MT_EE
@@ -131,7 +141,7 @@ void StoredUser::Add(const boost::shared_ptr<StoredNick> &nick)
 	MT_EB
 	MT_FUNC("StoredUser::Add" << nick);
 
-	SYNC_LOCK(StoredUser);
+	SYNC_LOCK(my_nicks_);
 	my_nicks_.insert(nick);
 
 	MT_EE
@@ -142,7 +152,7 @@ void StoredUser::Del(const boost::shared_ptr<StoredNick> &nick)
 	MT_EB
 	MT_FUNC("StoredUser::Del" << nick);
 
-	SYNC_LOCK(StoredUser);
+	SYNC_LOCK(my_nicks_);
 	my_nicks_.erase(nick);
 	if (my_nicks_.empty())
 		if_StorageDeleter<StoredUser>(ROOT->data).Del(self.lock());
@@ -155,7 +165,7 @@ void StoredUser::Add(const boost::shared_ptr<StoredChannel> &channel)
 	MT_EB
 	MT_FUNC("StoredUser::Add" << channel);
 
-	SYNC_LOCK(StoredUser);
+	SYNC_LOCK(my_channels_);
 	my_channels_.insert(channel);
 
 	MT_EE
@@ -166,7 +176,7 @@ void StoredUser::Del(const boost::shared_ptr<StoredChannel> &channel)
 	MT_EB
 	MT_FUNC("StoredUser::Del" << channel);
 
-	SYNC_LOCK(StoredUser);
+	SYNC_LOCK(my_channels_);
 	my_channels_.erase(channel);
 
 	MT_EE
@@ -180,6 +190,17 @@ boost::shared_ptr<StoredNick> StoredUser::Last_Online() const
 	boost::shared_ptr<StoredNick> rv = if_StoredNick_StoredUser::Last_Seen(self.lock());
 
 	MT_RET(rv);
+	MT_EE
+}
+
+StoredUser::online_users_t StoredUser::Online() const
+{
+	MT_EB
+	MT_FUNC("StoredUser::Online");
+
+	SYNC_RLOCK(online_users_);
+
+	MT_RET(online_users_);
 	MT_EE
 }
 
@@ -524,16 +545,20 @@ boost::posix_time::ptime StoredUser::Suspend_Time() const
 	MT_EE
 }
 
-void StoredUser::Language(const std::string &in)
+bool StoredUser::Language(const std::string &in)
 {
 	MT_EB
 	MT_FUNC("StoredUser::Language" << in);
 
 	if (LOCK_Language())
-		return;
+		MT_RET(false);
 
-	storage.PutField(id_, "language", in);
+	if (in.empty())
+		storage.PutField(id_, "language", mantra::NullValue::instance());
+	else
+		storage.PutField(id_, "language", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -552,19 +577,20 @@ std::string StoredUser::Language() const
 	MT_EE
 }
 
-void StoredUser::Protect(const boost::logic::tribool &in)
+bool StoredUser::Protect(const boost::logic::tribool &in)
 {
 	MT_EB
 	MT_FUNC("StoredUser::Protect" << in);
 
 	if (LOCK_Protect())
-		return;
+		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
 		storage.PutField(id_, "protect", mantra::NullValue::instance());
 	else
 		storage.PutField(id_, "protect", (bool) in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -584,19 +610,20 @@ bool StoredUser::Protect() const
 	MT_EE
 }
 
-void StoredUser::Secure(const boost::logic::tribool &in)
+bool StoredUser::Secure(const boost::logic::tribool &in)
 {
 	MT_EB
 	MT_FUNC("StoredUser::Secure" << in);
 
 	if (LOCK_Secure())
-		return;
+		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
 		storage.PutField(id_, "secure", mantra::NullValue::instance());
 	else
 		storage.PutField(id_, "secure", (bool) in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -616,19 +643,20 @@ bool StoredUser::Secure() const
 	MT_EE
 }
 
-void StoredUser::NoMemo(const boost::logic::tribool &in)
+bool StoredUser::NoMemo(const boost::logic::tribool &in)
 {
 	MT_EB
 	MT_FUNC("StoredUser::NoMemo" << in);
 
 	if (LOCK_NoMemo())
-		return;
+		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
 		storage.PutField(id_, "nomemo", mantra::NullValue::instance());
 	else
 		storage.PutField(id_, "nomemo", (bool) in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -648,19 +676,20 @@ bool StoredUser::NoMemo() const
 	MT_EE
 }
 
-void StoredUser::Private(const boost::logic::tribool &in)
+bool StoredUser::Private(const boost::logic::tribool &in)
 {
 	MT_EB
 	MT_FUNC("StoredUser::Private" << in);
 
 	if (LOCK_Private())
-		return;
+		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
 		storage.PutField(id_, "private", mantra::NullValue::instance());
 	else
 		storage.PutField(id_, "private", (bool) in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -680,19 +709,20 @@ bool StoredUser::Private() const
 	MT_EE
 }
 
-void StoredUser::PRIVMSG(const boost::logic::tribool &in)
+bool StoredUser::PRIVMSG(const boost::logic::tribool &in)
 {
 	MT_EB
 	MT_FUNC("StoredUser::PRIVMSG" << in);
 
 	if (LOCK_PRIVMSG())
-		return;
+		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
 		storage.PutField(id_, "privmsg", mantra::NullValue::instance());
 	else
 		storage.PutField(id_, "privmsg", (bool) in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -712,19 +742,20 @@ bool StoredUser::PRIVMSG() const
 	MT_EE
 }
 
-void StoredUser::NoExpire(const boost::logic::tribool &in)
+bool StoredUser::NoExpire(const boost::logic::tribool &in)
 {
 	MT_EB
 	MT_FUNC("StoredUser::NoExpire" << in);
 
 	if (ROOT->ConfigValue<bool>("nickserv.lock.noexpire"))
-		return;
+		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
 		storage.PutField(id_, "noexpire", mantra::NullValue::instance());
 	else
 		storage.PutField(id_, "noexpire", (bool) in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -772,16 +803,17 @@ std::string StoredUser::PictureExt() const
 	MT_EE
 }
 
-void StoredUser::LOCK_Language(const bool &in)
+bool StoredUser::LOCK_Language(const bool &in)
 {
 	MT_EB
 	MT_FUNC("StoredUser::LOCK_Language" << in);
 
 	if (ROOT->ConfigValue<bool>("nickserv.lock.language"))
-		return;
+		MT_RET(false);
 
 	storage.PutField(id_, "lock_language", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -802,16 +834,17 @@ bool StoredUser::LOCK_Language() const
 	MT_EE
 }
 
-void StoredUser::LOCK_Protect(const bool &in)
+bool StoredUser::LOCK_Protect(const bool &in)
 {
 	MT_EB
 	MT_FUNC("StoredUser::LOCK_Protect" << in);
 
 	if (ROOT->ConfigValue<bool>("nickserv.lock.protect"))
-		return;
+		MT_RET(false);
 
 	storage.PutField(id_, "lock_protect", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -832,16 +865,17 @@ bool StoredUser::LOCK_Protect() const
 	MT_EE
 }
 
-void StoredUser::LOCK_Secure(const bool &in)
+bool StoredUser::LOCK_Secure(const bool &in)
 {
 	MT_EB
 	MT_FUNC("StoredUser::LOCK_Secure" << in);
 
 	if (ROOT->ConfigValue<bool>("nickserv.lock.secure"))
-		return;
+		MT_RET(false);
 
 	storage.PutField(id_, "lock_secure", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -862,16 +896,17 @@ bool StoredUser::LOCK_Secure() const
 	MT_EE
 }
 
-void StoredUser::LOCK_NoMemo(const bool &in)
+bool StoredUser::LOCK_NoMemo(const bool &in)
 {
 	MT_EB
 	MT_FUNC("StoredUser::LOCK_NoMemo" << in);
 
 	if (ROOT->ConfigValue<bool>("nickserv.lock.nomemo"))
-		return;
+		MT_RET(false);
 
 	storage.PutField(id_, "lock_nomemo", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -892,16 +927,17 @@ bool StoredUser::LOCK_NoMemo() const
 	MT_EE
 }
 
-void StoredUser::LOCK_Private(const bool &in)
+bool StoredUser::LOCK_Private(const bool &in)
 {
 	MT_EB
 	MT_FUNC("StoredUser::LOCK_Private" << in);
 
 	if (ROOT->ConfigValue<bool>("nickserv.lock.private"))
-		return;
+		MT_RET(false);
 
 	storage.PutField(id_, "lock_private", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -922,16 +958,17 @@ bool StoredUser::LOCK_Private() const
 	MT_EE
 }
 
-void StoredUser::LOCK_PRIVMSG(const bool &in)
+bool StoredUser::LOCK_PRIVMSG(const bool &in)
 {
 	MT_EB
 	MT_FUNC("StoredUser::LOCK_PRIVMSG" << in);
 
 	if (ROOT->ConfigValue<bool>("nickserv.lock.privmsg"))
-		return;
+		MT_RET(false);
 
 	storage.PutField(id_, "lock_privmsg", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1222,9 +1259,159 @@ void StoredUser::DropInternal()
 	// This function is pretty much a no-op right now.  Its all handled
 	// by the DB function anyway (it will already drop nicknames for us).
 
-	online_users_.clear();
-	my_nicks_.clear();
-	my_channels_.clear();
+	{
+		SYNC_WLOCK(online_users_);
+		online_users_.clear();
+	}
+	{
+		SYNC_LOCK(my_nicks_);
+		my_nicks_.clear();
+	}
+	{
+		SYNC_LOCK(my_channels_);
+		my_channels_.clear();
+	}
+
+	MT_EE
+}
+
+static void check_option(std::string &str, const mantra::Storage::RecordMap &data,
+						 const std::string &key, const std::string &description)
+{
+	MT_EB
+	MT_FUNC("check_option");
+
+	if (ROOT->ConfigValue<bool>(("nickserv.lock." + key).c_str()))
+	{
+		if (ROOT->ConfigValue<bool>(("nickserv.defaults." + key).c_str()))
+		{
+			if (!str.empty())
+				str += ", ";
+			str += '\002' + description + '\017';
+		}
+	}
+	else
+	{
+		mantra::Storage::RecordMap::const_iterator i = data.find(key);
+		if (i != data.end())
+		{
+			if (boost::get<bool>(i->second))
+			{
+				i = data.find("lock_" + key);
+				if (i != data.end() && boost::get<bool>(i->second))
+				{
+					if (!str.empty())
+						str += ", ";
+					str += '\002' + description + '\017';
+				}
+				else
+				{
+					if (!str.empty())
+						str += ", ";
+					str += description;
+				}
+			}
+		}
+		else if (ROOT->ConfigValue<bool>(("nickserv.defaults." + key).c_str()))
+		{
+			if (!str.empty())
+				str += ", ";
+			str += description;
+		}
+	}
+
+	MT_EE
+}
+
+void StoredUser::SendInfo(const boost::shared_ptr<LiveUser> &service,
+						  const boost::shared_ptr<LiveUser> &user) const
+{
+	MT_EB
+	MT_FUNC("StoredUser::SendInfo" << service << user);
+
+	if (!service || !user || !service->GetService())
+		return;
+
+	bool opersop = (user->InCommittee(ROOT->ConfigValue<std::string>("commserv.oper.name")) ||
+					user->InCommittee(ROOT->ConfigValue<std::string>("commserv.sop.name")));
+
+	mantra::Storage::RecordMap data;
+	storage.GetRow(id_, data);
+
+	mantra::Storage::RecordMap::const_iterator i = data.find("email");
+	if (i != data.end())
+		SEND(service, user, N_("E-Mail Address : %1%"),
+			 boost::get<std::string>(i->second));
+
+	i = data.find("website");
+	if (i != data.end())
+		SEND(service, user, N_("Web Site       : %1%"),
+			 boost::get<std::string>(i->second));
+
+	i = data.find("icq");
+	if (i != data.end())
+		SEND(service, user, N_("ICQ UIN        : %1%"),
+			 boost::get<boost::uint32_t>(i->second));
+
+	i = data.find("aim");
+	if (i != data.end())
+		SEND(service, user, N_("AIM Screen Name: %1%"),
+			 boost::get<std::string>(i->second));
+
+	i = data.find("msn");
+	if (i != data.end())
+		SEND(service, user, N_("MSN account    : %1%"),
+			 boost::get<std::string>(i->second));
+
+	i = data.find("jabber");
+	if (i != data.end())
+		SEND(service, user, N_("Jabber ID      : %1%"),
+			 boost::get<std::string>(i->second));
+
+	i = data.find("yahoo");
+	if (i != data.end())
+		SEND(service, user, N_("Yahoo! ID      : %1%"),
+			 boost::get<std::string>(i->second));
+
+	i = data.find("description");
+	if (i != data.end())
+		SEND(service, user, N_("Description    : %1%"),
+			 boost::get<std::string>(i->second));
+
+	i = data.find("suspend_by");
+	if (i != data.end())
+	{
+		SEND(service, user, N_("Suspended By   : %1% at %2%"),
+			 boost::get<std::string>(i->second) %
+			 boost::get<boost::posix_time::ptime>(data["suspend_time"]));
+		i = data.find("suspend_reason");
+		SEND(service, user, N_("Suspended For  : %1%"),
+			 boost::get<std::string>(i->second));
+	}
+
+	std::string str;
+	check_option(str, data, "protect", N_("Nick Protection"));
+	check_option(str, data, "secure", N_("Secure"));
+	check_option(str, data, "nomemo", N_("No Memos"));
+	check_option(str, data, "private", N_("Private"));
+	if (opersop)
+		check_option(str, data, "noexpire", N_("No Expire"));
+	if (!str.empty())
+		SEND(service, user, N_("Options        : %1%"), str);
+
+	if (opersop)
+	{
+		i = data.find("comment");
+		if (i != data.end())
+			SEND(service, user, N_("OPER Comment   : %1%"),
+				 boost::get<std::string>(i->second));
+	}
+
+	i = data.find("picture");
+	if (i != data.end())
+	{
+		// TODO Info about picture ...
+	}
 
 	MT_EE
 }

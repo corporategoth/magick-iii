@@ -175,7 +175,15 @@ static bool ns_Link(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(user->Name());
+	if (nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is already registered."), user->Name());
+		MT_RET(false);
+	}
+
+	nick = ROOT->data.Get_StoredNick(params[1]);
 	if (!nick)
 	{
 		SEND(service, user,
@@ -254,9 +262,23 @@ static bool ns_Info(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
-	// TODO: To be implemented.
-	SEND(service, user,
-		 N_("The %1% command has not yet been implemented."), params[0]);
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 params[0]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	nick->SendInfo(service, user);
 
 	MT_RET(true);
 	MT_EE
@@ -1198,25 +1220,7 @@ static bool ns_Set_Description(const boost::shared_ptr<LiveUser> &service,
 		desc += " " + params[i];
 	nick->User()->Description(desc);
 	SEND(service, user, N_("Your description has been set to \002%1%\017."),
-		 params[1]);
-
-	MT_RET(true);
-	MT_EE
-}
-
-static bool ns_Set_Comment(const boost::shared_ptr<LiveUser> &service,
-					const boost::shared_ptr<LiveUser> &user,
-					const std::vector<std::string> &params)
-{
-	MT_EB
-	MT_FUNC("ns_Set_Comment" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	// TODO: To be implemented.
-	SEND(service, user,
-		 N_("The %1% command has not yet been implemented."), params[0]);
+		 desc);
 
 	MT_RET(true);
 	MT_EE
@@ -1258,9 +1262,11 @@ static bool ns_Set_Language(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	nick->User()->Language(params[1]);
-	SEND(service, user, N_("Your language has been set to \002%1%\017."),
-		 params[1]);
+	if (nick->User()->Language(params[1]))
+		SEND(service, user, N_("Your language has been set to \002%1%\017."),
+			 params[1]);
+	else
+		NSEND(service, user, N_("Your language setting is locked and cannot be changed."));
 
 	MT_RET(true);
 	MT_EE
@@ -1299,10 +1305,12 @@ static bool ns_Set_Protect(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	nick->User()->Protect(v);
-	NSEND(service, user, (v
-		  ? N_("Protect has been \002enabled\017.")
-		  : N_("Protect has been \002disabled\017.")));
+	if (nick->User()->Protect(v))
+		NSEND(service, user, (v
+			  ? N_("Protect has been \002enabled\017.")
+			  : N_("Protect has been \002disabled\017.")));
+	else
+		NSEND(service, user, N_("Your protect setting is locked and cannot be changed."));
 
 	MT_RET(true);
 	MT_EE
@@ -1341,10 +1349,12 @@ static bool ns_Set_Secure(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	nick->User()->Secure(v);
-	NSEND(service, user, (v
-		  ? N_("Secure has been \002enabled\017.")
-		  : N_("Secure has been \002disabled\017.")));
+	if (nick->User()->Secure(v))
+		NSEND(service, user, (v
+			  ? N_("Secure has been \002enabled\017.")
+			  : N_("Secure has been \002disabled\017.")));
+	else
+		NSEND(service, user, N_("Your secure setting is locked and cannot be changed."));
 
 	MT_RET(true);
 	MT_EE
@@ -1383,10 +1393,12 @@ static bool ns_Set_Nomemo(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	nick->User()->NoMemo(v);
-	NSEND(service, user, (v
-		  ? N_("No Memo has been \002enabled\017.")
-		  : N_("No Memo has been \002disabled\017.")));
+	if (nick->User()->NoMemo(v))
+		NSEND(service, user, (v
+			  ? N_("No Memo has been \002enabled\017.")
+			  : N_("No Memo has been \002disabled\017.")));
+	else
+		NSEND(service, user, N_("Your no memo setting is locked and cannot be changed."));
 
 	MT_RET(true);
 	MT_EE
@@ -1425,10 +1437,12 @@ static bool ns_Set_Private(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	nick->User()->Private(v);
-	NSEND(service, user, (v
-		  ? N_("Private has been \002enabled\017.")
-		  : N_("Private has been \002disabled\017.")));
+	if (nick->User()->Private(v))
+		NSEND(service, user, (v
+			  ? N_("Private has been \002enabled\017.")
+			  : N_("Private has been \002disabled\017.")));
+	else
+		NSEND(service, user, N_("Your private setting is locked and cannot be changed."));
 
 	MT_RET(true);
 	MT_EE
@@ -1467,28 +1481,12 @@ static bool ns_Set_Privmsg(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	nick->User()->PRIVMSG(v);
-	NSEND(service, user, (v
-		  ? N_("Private Messaging has been \002enabled\017.")
-		  : N_("Private Messaging has been \002disabled\017.")));
-
-	MT_RET(true);
-	MT_EE
-}
-
-static bool ns_Set_Noexpire(const boost::shared_ptr<LiveUser> &service,
-					const boost::shared_ptr<LiveUser> &user,
-					const std::vector<std::string> &params)
-{
-	MT_EB
-	MT_FUNC("ns_Set_Noexpire" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	// TODO: To be implemented.
-	SEND(service, user,
-		 N_("The %1% command has not yet been implemented."), params[0]);
+	if (nick->User()->PRIVMSG(v))
+		NSEND(service, user, (v
+			  ? N_("Private messaging has been \002enabled\017.")
+			  : N_("Private messaging has been \002disabled\017.")));
+	else
+		NSEND(service, user, N_("Your private messaging setting is locked and cannot be changed."));
 
 	MT_RET(true);
 	MT_EE
@@ -1720,24 +1718,6 @@ static bool ns_Unset_Description(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unset_Comment(const boost::shared_ptr<LiveUser> &service,
-					const boost::shared_ptr<LiveUser> &user,
-					const std::vector<std::string> &params)
-{
-	MT_EB
-	MT_FUNC("ns_Unset_Comment" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	// TODO: To be implemented.
-	SEND(service, user,
-		 N_("The %1% command has not yet been implemented."), params[0]);
-
-	MT_RET(true);
-	MT_EE
-}
-
 static bool ns_Unset_Language(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
@@ -1756,9 +1736,11 @@ static bool ns_Unset_Language(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	nick->User()->Language(std::string());
-	SEND(service, user, N_("Your language has been unset."),
-		 params[1]);
+	if (nick->User()->Language(std::string()))
+		SEND(service, user, N_("Your language has been unset."),
+			 params[1]);
+	else
+		NSEND(service, user, N_("Your language setting is locked and cannot be changed."));
 
 	MT_RET(true);
 	MT_EE
@@ -1782,9 +1764,11 @@ static bool ns_Unset_Protect(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	nick->User()->Protect(boost::logic::indeterminate);
-	SEND(service, user, N_("Protect has been reset to the default."),
-		 params[1]);
+	if (nick->User()->Protect(boost::logic::indeterminate))
+		SEND(service, user, N_("Protect has been reset to the default."),
+			 params[1]);
+	else
+		NSEND(service, user, N_("Your protect setting is locked and cannot be changed."));
 
 	MT_RET(true);
 	MT_EE
@@ -1808,9 +1792,11 @@ static bool ns_Unset_Secure(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	nick->User()->Secure(boost::logic::indeterminate);
-	SEND(service, user, N_("Secure has been reset to the default."),
-		 params[1]);
+	if (nick->User()->Secure(boost::logic::indeterminate))
+		SEND(service, user, N_("Secure has been reset to the default."),
+			 params[1]);
+	else
+		NSEND(service, user, N_("Your secure setting is locked and cannot be changed."));
 
 	MT_RET(true);
 	MT_EE
@@ -1834,9 +1820,11 @@ static bool ns_Unset_Nomemo(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	nick->User()->NoMemo(boost::logic::indeterminate);
-	SEND(service, user, N_("No Memo has been reset to the default."),
-		 params[1]);
+	if (nick->User()->NoMemo(boost::logic::indeterminate))
+		SEND(service, user, N_("No Memo has been reset to the default."),
+			 params[1]);
+	else
+		NSEND(service, user, N_("Your no memo setting is locked and cannot be changed."));
 
 	MT_RET(true);
 	MT_EE
@@ -1860,9 +1848,11 @@ static bool ns_Unset_Private(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	nick->User()->Private(boost::logic::indeterminate);
-	SEND(service, user, N_("Private has been reset to the default."),
-		 params[1]);
+	if (nick->User()->Private(boost::logic::indeterminate))
+		SEND(service, user, N_("Private has been reset to the default."),
+			 params[1]);
+	else
+		NSEND(service, user, N_("Your private setting is locked and cannot be changed."));
 
 	MT_RET(true);
 	MT_EE
@@ -1886,20 +1876,48 @@ static bool ns_Unset_Privmsg(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	nick->User()->PRIVMSG(boost::logic::indeterminate);
-	SEND(service, user, N_("Private Messaging has been reset to the default."),
+	if (nick->User()->PRIVMSG(boost::logic::indeterminate))
+		SEND(service, user, N_("Private Messaging has been reset to the default."),
+			 params[1]);
+	else
+		NSEND(service, user, N_("Your private messaging setting is locked and cannot be changed."));
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool ns_Unset_Picture(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("ns_Unset_Picture" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	nick->User()->ClearPicture();
+	SEND(service, user, N_("Stored picture has been erased."),
 		 params[1]);
 
 	MT_RET(true);
 	MT_EE
 }
 
-static bool ns_Unset_Noexpire(const boost::shared_ptr<LiveUser> &service,
+static bool ns_Set_Comment(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unset_Noexpire" << service << user << params);
+	MT_FUNC("ns_Set_Comment" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1912,12 +1930,48 @@ static bool ns_Unset_Noexpire(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unset_Picture(const boost::shared_ptr<LiveUser> &service,
+static bool ns_Set_Noexpire(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unset_Picture" << service << user << params);
+	MT_FUNC("ns_Set_Noexpire" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	// TODO: To be implemented.
+	SEND(service, user,
+		 N_("The %1% command has not yet been implemented."), params[0]);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool ns_Unset_Comment(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("ns_Unset_Comment" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	// TODO: To be implemented.
+	SEND(service, user,
+		 N_("The %1% command has not yet been implemented."), params[0]);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool ns_Unset_Noexpire(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("ns_Unset_Noexpire" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
