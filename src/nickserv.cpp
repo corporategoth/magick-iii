@@ -472,20 +472,104 @@ static bool ns_Unsuspend(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Forbid(const boost::shared_ptr<LiveUser> &service,
+static bool ns_Forbid_Add(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Forbid" << service << user << params);
+	MT_FUNC("ns_Forbid_Add" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
 
-	// TODO: To be implemented.
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	static boost::regex nick_rx("^[[:alpha:]\\x5B-\\x60\\x7B-\\x7D?*][-[:alnum:]\\x5B-\\x60\\x7B-\\x7D?*]*$");
+	if (!boost::regex_match(params[1], nick_rx))
+	{
+		NSEND(service, user,
+			  N_("Nickname mask specified is not a valid."));
+		MT_RET(false);
+	}
+
+	ROOT->data.Forbid_Add(params[1], nick);
 	SEND(service, user,
-		 N_("The %1% command has not yet been implemented."),
-		 boost::algorithm::to_upper_copy(params[0]));
+		 N_("Nickname mask \002%1%\017 has been added to the forbidden list."),
+		 params[1]);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool ns_Forbid_Del(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("ns_Forbid_Del" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	if (ROOT->data.Forbid_Del(params[1]))
+		SEND(service, user,
+			 N_("Nickname mask \002%1%\017 has been removed from the forbidden list."),
+			 params[1]);
+	else
+		SEND(service, user,
+			 N_("Nickname mask \002%1%\017 was not found on the forbidden list."),
+			 params[1]);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool ns_Forbid_List(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("ns_Forbid_List" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	std::vector<std::string> forbid = ROOT->data.Forbid_List_Nick();
+
+	if (forbid.empty())
+		NSEND(service, user, N_("The forbidden nickname list is empty"));
+	else
+	{
+		NSEND(service, user, N_("Forbidden Nicknames:"));
+		for (size_t i=0; i<forbid.size(); ++i)
+		{
+//			SEND(service, user, N_("%1% [Added by %2% at %3%]"),
+//				 forbid[i].entry, forbid[i].added_by, forbid[i].added);
+			SEND(service, user, N_("%1%"), forbid[i]);
+		}
+	}
 
 	MT_RET(true);
 	MT_EE
@@ -590,7 +674,7 @@ static bool ns_Access_Current(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	nick->User()->ACCESS_Add(mask);
-	SEND(service, user, N_("Mask %1% has been added to your nickname."),
+	SEND(service, user, N_("Mask \002%1%\017 has been added to your nickname."),
 		 mask);
 
 	MT_RET(true);
@@ -640,13 +724,14 @@ static bool ns_Access_Add(const boost::shared_ptr<LiveUser> &service,
 
 	if (nick->User()->ACCESS_Matches(params[1]))
 	{
-		NSEND(service, user,
-			 N_("A mask already matching your current hostmask already exists."));
+		SEND(service, user,
+			 N_("A mask already matching %1% already exists."),
+			 params[1]);
 		MT_RET(false);
 	}
 
 	nick->User()->ACCESS_Add(params[1]);
-	SEND(service, user, N_("Mask %1% has been added to your nickname."),
+	SEND(service, user, N_("Mask \002%1%\017 has been added to your nickname."),
 		 params[1]);
 
 	MT_RET(true);
@@ -701,7 +786,7 @@ static bool ns_Access_Del(const boost::shared_ptr<LiveUser> &service,
 		if (v.empty())
 		{
 			SEND(service, user,
-				 N_("No entries matching %1% could be found on your access list."),
+				 N_("No entries matching \002%1%\017 could be found on your access list."),
 				 params[1]);
 		}
 	}
@@ -775,7 +860,7 @@ static bool ns_Access_List(const boost::shared_ptr<LiveUser> &service,
 
 		if (!first)
 		{
-			SEND(service, user, N_("Access list for nickname %1%:"),
+			SEND(service, user, N_("Access list for nickname \002%1%\017:"),
 				 user->Name());
 			first = true;
 		}
@@ -786,7 +871,7 @@ static bool ns_Access_List(const boost::shared_ptr<LiveUser> &service,
 	if (!first)
 	{
 		if (params.size() > 1)
-			SEND(service, user, N_("No entries matching %1% are on your access list."),
+			SEND(service, user, N_("No entries matching \002%1%\017 are on your access list."),
 				 params[1]);
 		else
 			NSEND(service, user, N_("Your access list is empty."));
@@ -807,6 +892,46 @@ static bool ns_Ignore_Add(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> target = ROOT->data.Get_StoredNick(params[1]);
+	if (!target)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (nick == target)
+	{
+		NSEND(service, user, N_("Are you nuts?"));
+		MT_RET(false);
+	}
+
+	if (nick->User()->IGNORE_Matches(target->User()))
+	{
+		NSEND(service, user,
+			 N_("The nickname %1% is already on your memo ignore list."));
+		MT_RET(false);
+	}
+
+	nick->User()->IGNORE_Add(target->User());
+	SEND(service, user, N_("Nickname \002%1%\017 has been added to your memo ignore list."),
+		 target->Name());
 
 	MT_RET(true);
 	MT_EE
@@ -822,6 +947,80 @@ static bool ns_Ignore_Del(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	std::vector<unsigned int> v;
+	if (!mantra::ParseNumbers(params[1], v))
+	{
+		std::map<boost::uint32_t, std::pair<boost::shared_ptr<StoredUser>, boost::posix_time::ptime> > ent;
+		nick->User()->IGNORE_Get(ent);
+		std::map<boost::uint32_t, std::pair<boost::shared_ptr<StoredUser>, boost::posix_time::ptime> >::iterator i;
+		for (i = ent.begin(); i != ent.end(); ++i)
+		{
+			StoredUser::my_nicks_t nicks = i->second.first->Nicks();
+			if (nicks.empty())
+				continue;
+			StoredUser::my_nicks_t::const_iterator j;
+			for (j = nicks.begin(); j != nicks.end(); ++j)
+				if (**j == params[1])
+				{
+					v.push_back(i->first);
+					break;
+				}
+			if (j != nicks.end())
+				break;
+		}
+
+		if (v.empty())
+		{
+			SEND(service, user,
+				 N_("No entries matching \002%1%\017 could be found on your memo ignore list."),
+				 params[1]);
+		}
+	}
+
+	std::vector<unsigned int> ne;
+	for (size_t i = 0; i < v.size(); ++i)
+	{
+		if (!nick->User()->IGNORE_Exists(v[i]))
+		{
+			ne.push_back(v[i]);
+			continue;
+		}
+
+		nick->User()->IGNORE_Del(v[i]);
+	}
+	if (ne.empty())
+	{
+		SEND(service, user,
+			 N_("%1% entries removed from your memo ignore list."),
+			 v.size());
+	}
+	else if (v.size() != ne.size())
+	{
+		SEND(service, user,
+			 N_("%1% entries removed from your memo ignore list and %2% entries specified could not be found."),
+			 (v.size() - ne.size()) % ne.size());
+	}
+	else
+	{
+		NSEND(service, user,
+			  N_("No specified entries could be found on your memo ignore list."));
+	}
 
 	MT_RET(true);
 	MT_EE
@@ -836,6 +1035,58 @@ static bool ns_Ignore_List(const boost::shared_ptr<LiveUser> &service,
 
 	if (!service || !service->GetService())
 		MT_RET(false);
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	std::map<boost::uint32_t, std::pair<boost::shared_ptr<StoredUser>, boost::posix_time::ptime> > ent;
+	nick->User()->IGNORE_Get(ent);
+	if (ent.empty())
+	{
+		NSEND(service, user, N_("Your memo ignore list is empty."));
+		MT_RET(true);
+	}
+
+	bool first = false;
+	std::map<boost::uint32_t, std::pair<boost::shared_ptr<StoredUser>, boost::posix_time::ptime> >::iterator i;
+	for (i = ent.begin(); i != ent.end(); ++i)
+	{
+		StoredUser::my_nicks_t nicks = i->second.first->Nicks();
+		if (nicks.empty())
+			continue;
+
+		std::string str;
+		StoredUser::my_nicks_t::const_iterator j;
+		for (j = nicks.begin(); j != nicks.end(); ++j)
+		{
+			if (!*j)
+				continue;
+
+			if (!str.empty())
+				str += ", ";
+			str += (*j)->Name();
+		}
+
+		if (!first)
+		{
+			SEND(service, user, N_("Memo ignore list for nickname \002%1%\017:"),
+				 user->Name());
+			first = true;
+		}
+		SEND(service, user, N_("%1%. %2% [%3%]"),
+			 i->first % str % i->second.second);
+	}
+
+	if (!first)
+	{
+		NSEND(service, user, N_("Your memo ignore list is empty."));
+		MT_RET(false);
+	}
 
 
 	MT_RET(true);
@@ -1926,10 +2177,28 @@ static bool ns_Set_Comment(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
-	// TODO: To be implemented.
-	SEND(service, user,
-		 N_("The %1% command has not yet been implemented."),
-		 boost::algorithm::to_upper_copy(params[0]));
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	std::string comment(params[2]);
+	for (size_t i = 3; i < params.size(); ++i)
+		comment += " " + params[i];
+	nick->User()->Comment(comment);
+	SEND(service, user, N_("Comment for user %1% has been set to \002%2%\017."),
+		 nick->Name() % comment);
 
 	MT_RET(true);
 	MT_EE
@@ -1945,10 +2214,36 @@ static bool ns_Set_Noexpire(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
-	// TODO: To be implemented.
-	SEND(service, user,
-		 N_("The %1% command has not yet been implemented."),
-		 boost::algorithm::to_upper_copy(params[0]));
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::logic::tribool v = mantra::get_bool(params[2]);
+	if (boost::logic::indeterminate(v))
+	{
+		NSEND(service, user, N_("You may only specify ON or OFF."));
+		MT_RET(false);
+	}
+
+	if (nick->User()->NoExpire(v))
+		SEND(service, user, (v
+			 ? N_("No expire for %1% has been \002enabled\017.")
+			 : N_("No expire for %1% has been \002disabled\017.")),
+			 nick->Name());
+	else
+		NSEND(service, user, N_("The no expire setting is locked and cannot be changed."));
 
 	MT_RET(true);
 	MT_EE
@@ -1964,10 +2259,17 @@ static bool ns_Unset_Comment(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
-	// TODO: To be implemented.
-	SEND(service, user,
-		 N_("The %1% command has not yet been implemented."),
-		 boost::algorithm::to_upper_copy(params[0]));
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	nick->User()->Comment(std::string());
+	SEND(service, user, N_("The e-mail address for %1% has been unset."),
+		 user->Name());
 
 	MT_RET(true);
 	MT_EE
@@ -1983,10 +2285,19 @@ static bool ns_Unset_Noexpire(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
-	// TODO: To be implemented.
-	SEND(service, user,
-		 N_("The %1% command has not yet been implemented."),
-		 boost::algorithm::to_upper_copy(params[0]));
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (nick->User()->NoExpire(boost::logic::indeterminate))
+		SEND(service, user, N_("No expire for %1% has been reset to the default."),
+			 nick->Name());
+	else
+		NSEND(service, user, N_("The no expire setting is locked and cannot be changed."));
 
 	MT_RET(true);
 	MT_EE
@@ -2225,8 +2536,16 @@ void init_nickserv_functions(Service &serv)
 	serv.PushCommand("^SEND$", &ns_Send);
 	serv.PushCommand("^SUSPEND$", &ns_Suspend, comm_sop);
 	serv.PushCommand("^UN?SUSPEND$", &ns_Unsuspend, comm_sop);
-	serv.PushCommand("^FORBID$", &ns_Forbid, comm_sop);
 	serv.PushCommand("^SETPASS(WORD)?$", &ns_Setpass, comm_sop);
+
+	serv.PushCommand("^FORBID$",
+					 Service::CommandMerge(serv, 0, 1), comm_sop);
+	serv.PushCommand("^FORBID\\s+ADD$", &ns_Forbid_Add, comm_sop);
+	serv.PushCommand("^FORBID\\s+(ERASE|DEL(ETE)?)$", &ns_Forbid_Del, comm_sop);
+	serv.PushCommand("^FORBID\\s+(LIST|VIEW)$", &ns_Forbid_List, comm_sop);
+	serv.PushCommand("^FORBID\\s+HELP$",
+					 boost::bind(&Service::AuxHelp, &serv,
+								 _1, _2, _3), comm_sop);
 
 	serv.PushCommand("^ACC(ESS)?$",
 					 Service::CommandMerge(serv, 0, 1));

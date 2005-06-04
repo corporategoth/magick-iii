@@ -2743,3 +2743,113 @@ void Storage::Del(const boost::shared_ptr<Committee> &entry)
 	MT_EE
 }
 
+// --------------------------------------------------------------------------
+
+bool Storage::Forbid_Add(const std::string &in, const boost::shared_ptr<StoredNick> &nick)
+{
+	MT_EB
+	MT_FUNC("Storage::Forbid_Add" << in << nick);
+
+	mantra::Storage::RecordMap rec;
+	rec["name"] = in;
+	rec["last_updater"] = nick->Name();
+	rec["last_updater_id"] = nick->User()->ID();
+	backend_.first->InsertRow("forbidden", rec);
+
+	MT_RET(true);
+	MT_EE
+}
+
+bool Storage::Forbid_Del(const std::string &in)
+{
+	MT_EB
+	MT_FUNC("Storage::Forbid_Del" << in);
+
+	unsigned int entries = backend_.first->RemoveRow("forbidden", 
+			  mantra::Comparison<mantra::C_EqualToNC>::make("name", in));
+
+	MT_RET(entries != 0);
+	MT_EE
+}
+
+std::vector<std::string> Storage::Forbid_List_Nick() const
+{
+	MT_EB
+	MT_FUNC("Storage::Forbid_List_Nick");
+
+	std::vector<std::string> rv;
+	mantra::Storage::DataSet data;
+	mantra::Storage::FieldSet fields;
+	fields.insert("name");
+	backend_.first->RetrieveRow("forbidden", data,
+								mantra::ComparisonSet(), fields);
+
+	mantra::Storage::DataSet::const_iterator i = data.begin();
+	for (i = data.begin(); i != data.end(); ++i)
+	{
+		mantra::Storage::RecordMap::const_iterator j = i->find("name");
+		if (j == i->end() || j->second.type() == typeid(mantra::NullValue))
+			continue;
+
+		std::string res = boost::get<std::string>(j->second);
+		if (ROOT->proto.IsChannel(res))
+			continue;
+
+		rv.push_back(res);
+	}
+
+	MT_RET(rv);
+	MT_EE
+}
+
+std::vector<std::string> Storage::Forbid_List_Channel() const
+{
+	MT_EB
+	MT_FUNC("Storage::Forbid_List_Channel");
+
+	std::vector<std::string> rv;
+	mantra::Storage::DataSet data;
+	mantra::Storage::FieldSet fields;
+	fields.insert("name");
+	backend_.first->RetrieveRow("forbidden", data,
+								mantra::ComparisonSet(), fields);
+
+	mantra::Storage::DataSet::const_iterator i = data.begin();
+	for (i = data.begin(); i != data.end(); ++i)
+	{
+		mantra::Storage::RecordMap::const_iterator j = i->find("name");
+		if (j == i->end() || j->second.type() == typeid(mantra::NullValue))
+			continue;
+
+		std::string res = boost::get<std::string>(j->second);
+		if (!ROOT->proto.IsChannel(res))
+			continue;
+
+		rv.push_back(res);
+	}
+
+	MT_RET(rv);
+	MT_EE
+}
+
+bool Storage::Forbid_Check(const std::string &in) const
+{
+	MT_EB
+	MT_FUNC("Storage::Forbid_Check" << in);
+
+	std::vector<std::string> rv;
+	if (ROOT->proto.IsChannel(in))
+		rv = Forbid_List_Channel();
+	else
+		rv = Forbid_List_Nick();
+
+	for (size_t i=0; i < rv.size(); ++i)
+	{
+		if (mantra::glob_match(rv[i], in, true))
+			MT_RET(true);
+	}
+
+	MT_RET(false);
+	MT_EE
+}
+

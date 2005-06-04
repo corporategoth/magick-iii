@@ -398,8 +398,15 @@ bool Service::CommandMerge::operator()(const boost::shared_ptr<LiveUser> &serv,
 	MT_EB
 	MT_FUNC("Service::CommandMerge::operator()" << serv << user << params);
 
-	if (params.size() <= primary || params.size() <= secondary)
+	if (params.size() <= primary)
 		MT_RET(false);
+
+	if (params.size() <= secondary)
+	{
+		SEND(serv, user, N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[primary]));
+		MT_RET(false);
+	}
 
 	std::vector<std::string> p = params;
 	p[primary].append(" " + p[secondary]);
@@ -490,7 +497,7 @@ bool Service::Execute(const boost::shared_ptr<LiveUser> &service,
 	}
 	if (!f)
 	{
-		SEND(service, user, "No such command %1%.",
+		SEND(service, user, N_("No such command %1%."),
 			 boost::algorithm::to_upper_copy(params[0]));
 		MT_RET(true);
 	}

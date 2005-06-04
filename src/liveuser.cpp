@@ -116,7 +116,7 @@ boost::shared_ptr<LiveUser> LiveUser::create(const std::string &name,
 		if_StoredNick_LiveUser(stored).Online(rv);
 
 		std::set<boost::shared_ptr<Committee> > comm =
-			if_Committee_LiveUser::Live_Committees(stored->User());
+			Committee::FindCommittees(stored->User());
 		std::set<boost::shared_ptr<Committee> >::const_iterator i;
 		for (i = comm.begin(); i != comm.end(); ++i)
 			if (!(*i)->Secure())
@@ -144,7 +144,7 @@ void LiveUser::Stored(const boost::shared_ptr<StoredNick> &nick)
 
 		SYNC_LOCK(committees_);
 		std::set<boost::shared_ptr<Committee> > comm =
-			if_Committee_LiveUser::Live_Committees(nick->User());
+			Committee::FindCommittees(nick->User());
 		std::set<boost::shared_ptr<Committee> >::const_iterator i;
 		for (i = comm.begin(); i != comm.end(); ++i)
 			if (committees_.find(*i) == committees_.end())
@@ -222,7 +222,7 @@ void LiveUser::Name(const std::string &in)
 					stored_ = stored;
 
 					std::set<boost::shared_ptr<Committee> > comm =
-						if_Committee_LiveUser::Live_Committees(stored->User());
+						Committee::FindCommittees(stored->User());
 					std::set<boost::shared_ptr<Committee> >::const_iterator j;
 					for (j = comm.begin(); j != comm.end(); ++j)
 						if (!(*j)->Secure())
@@ -516,7 +516,7 @@ bool LiveUser::Identify(const std::string &in)
 
 		SYNC_LOCK(committees_);
 		std::set<boost::shared_ptr<Committee> > comm =
-			if_Committee_LiveUser::Live_Committees(stored->User());
+			Committee::FindCommittees(stored->User());
 		std::set<boost::shared_ptr<Committee> >::const_iterator i;
 		for (i = comm.begin(); i != comm.end(); ++i)
 			if (committees_.find(*i) == committees_.end())

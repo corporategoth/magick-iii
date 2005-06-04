@@ -101,6 +101,27 @@ public:
 	const std::string &Name() const { return name_; }
 	const boost::shared_ptr<LiveChannel> &Live() const;
 
+	inline bool operator<(const std::string &rhs) const
+	{
+#ifdef CASE_SPECIFIC_SORT
+		static mantra::less<std::string> cmp;
+#else
+		static mantra::iless<std::string> cmp;
+#endif
+		return cmp(Name(), rhs);
+	}
+	inline bool operator==(const std::string &rhs) const
+	{
+#ifdef CASE_SPECIFIC_SORT
+		static mantra::equal_to<std::string> cmp;
+#else
+		static mantra::iequal_to<std::string> cmp;
+#endif
+		return cmp(Name(), rhs);
+	}
+	inline bool operator<(const StoredChannel &rhs) const { return *this < rhs.Name(); }
+	inline bool operator==(const StoredChannel &rhs) const { return *this == rhs.Name(); }
+
 	boost::posix_time::ptime Registered() const
 		{ return boost::get<boost::posix_time::ptime>(storage.GetField(name_, "registered")); }
 	boost::posix_time::ptime Last_Update() const

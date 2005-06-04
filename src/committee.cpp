@@ -44,6 +44,16 @@ StorageInterface Committee::storage("committees", "name", "last_update");
 StorageInterface Committee::Member::storage("committees_member", std::string(), "last_update");
 StorageInterface Committee::Message::storage("committees_message", std::string(), "last_update");
 
+Committee::Committee(const std::string &name)
+	: name_(name), SYNC_NRWINIT(online_members_, reader_priority)
+{
+	MT_EB
+	MT_FUNC("Committee::Committee" << name);
+
+
+	MT_EE
+}
+
 boost::shared_ptr<Committee> Committee::create(const std::string &name)
 {
 	MT_EB
@@ -110,7 +120,7 @@ void Committee::Online(const boost::shared_ptr<LiveUser> &in)
 	MT_EB
 	MT_FUNC("Committee::Online" << in);
 
-	SYNC_LOCK(Committee);
+	SYNC_WLOCK(online_members_);
 	online_members_.insert(in);
 
 	MT_EE
@@ -121,13 +131,13 @@ void Committee::Offline(const boost::shared_ptr<LiveUser> &in)
 	MT_EB
 	MT_FUNC("Committee::Offline" << in);
 
-	SYNC_LOCK(Committee);
+	SYNC_WLOCK(online_members_);
 	online_members_.erase(in);
 
 	MT_EE
 }
 
-std::set<boost::shared_ptr<Committee> > Committee::Live_Committees(const boost::shared_ptr<StoredUser> &in)
+std::set<boost::shared_ptr<Committee> > Committee::FindCommittees(const boost::shared_ptr<StoredUser> &in)
 {
 	MT_EB
 	MT_FUNC("Committee::Live_Committees" << in);
@@ -533,9 +543,9 @@ bool Committee::IsMember(const boost::shared_ptr<LiveUser> &user) const
 	MT_FUNC("Committee::IsMember" << user);
 
 	bool rv = false;
-//    boost::shared_ptr<StoredNick> nick = user->Stored();
-//    if (nick)
-//        rv = MEMBER_Exists(nick->User());
+    boost::shared_ptr<StoredNick> nick = user->Stored();
+    if (nick)
+        rv = MEMBER_Exists(nick->User());
 
 	MT_RET(rv);
 	MT_EE
@@ -550,4 +560,207 @@ void Committee::Drop()
 
 	MT_EE
 }
+
+
+
+bool Committee::MEMBER_Exists(const boost::shared_ptr<StoredUser> &entry) const
+{
+	MT_EB
+	MT_FUNC("Committee::MEMBER_Exists" << entry);
+
+	bool rv = (Member::storage.RowExists(
+				mantra::Comparison<mantra::C_EqualToNC>::make("name", name_) &&
+				mantra::Comparison<mantra::C_EqualTo>::make("entry", entry->ID())));
+
+	MT_RET(rv);
+	MT_EE
+}
+
+Committee::Member Committee::MEMBER_Add(const boost::shared_ptr<StoredUser> &entry,
+										const boost::shared_ptr<StoredNick> &updater)
+{
+	MT_EB
+	MT_FUNC("Committee::MEMBER_Add" << entry << updater);
+
+	mantra::Storage::RecordMap rec;
+	rec["name"] = name_;
+	rec["entry"] = entry->ID();
+	rec["last_updater"] = updater->Name();
+	rec["last_updater_id"] = updater->User()->ID();
+	if (Member::storage.InsertRow(rec))
+	{
+		Member m(self.lock(), entry);
+		MT_RET(m);
+	}
+
+	Member m;
+	MT_RET(m);
+	MT_EE
+}
+
+void Committee::MEMBER_Del(const boost::shared_ptr<StoredUser> &entry)
+{
+	MT_EB
+	MT_FUNC("Committee::MEMBER_Del" << entry);
+
+	Member::storage.RemoveRow(
+				mantra::Comparison<mantra::C_EqualToNC>::make("name", name_) &&
+				mantra::Comparison<mantra::C_EqualTo>::make("entry", entry->ID()));
+
+	MT_EE
+}
+
+Committee::Member Committee::MEMBER_Get(const boost::shared_ptr<StoredUser> &entry) const
+{
+	MT_EB
+	MT_FUNC("Committee::MEMBER_Get" << entry);
+
+	if (MEMBER_Exists(entry))
+	{
+		Member m(self.lock(), entry);
+		MT_RET(m);
+	}
+
+	Member m;
+	MT_RET(m);
+	MT_EE
+}
+
+void Committee::MEMBER_Fill(std::set<Committee::Member> &fill) const
+{
+	MT_EB
+	MT_FUNC("Committee::MEMBER_Fill" << fill);
+
+	std::set<Member> rv;
+
+	mantra::Storage::DataSet data;
+	mantra::Storage::FieldSet fields;
+	fields.insert("entry");
+
+	Member::storage.RetrieveRow(data,
+				mantra::Comparison<mantra::C_EqualToNC>::make("name", name_),
+				fields);
+
+	mantra::Storage::DataSet::const_iterator i = data.begin();
+	for (i = data.begin(); i != data.end(); ++i)
+	{
+		mantra::Storage::RecordMap::const_iterator j = i->find("entry");
+		if (j == i->end() || j->second.type() == typeid(mantra::NullValue))
+			continue;
+
+		boost::shared_ptr<StoredUser> user = ROOT->data.Get_StoredUser(
+								boost::get<boost::uint32_t>(j->second));
+		if (!user)
+			continue;
+
+		rv.insert(Member(self.lock(), user));
+	}
+
+	MT_EE
+}
+
+
+bool Committee::MESSAGE_Exists(boost::uint32_t num) const
+{
+	MT_EB
+	MT_FUNC("Committee::MESSAGE_Exists" << num);
+
+	bool rv = (Message::storage.RowExists(
+				mantra::Comparison<mantra::C_EqualToNC>::make("name", name_) &&
+				mantra::Comparison<mantra::C_EqualTo>::make("number", num)));
+
+	MT_RET(rv);
+	MT_EE
+}
+
+Committee::Message Committee::MESSAGE_Add(const std::string &message, 
+										  const boost::shared_ptr<StoredNick> &updater)
+{
+	MT_EB
+	MT_FUNC("Committee::MESSAGE_Add" << message << updater);
+
+	boost::uint32_t number = 0;
+
+	SYNC_LOCK(message_number);
+	mantra::StorageValue rv = Message::storage.Maximum("number",
+				mantra::Comparison<mantra::C_EqualToNC>::make("name", name_));
+	if (rv.type() == typeid(mantra::NullValue))
+		number = 1;
+	else
+		number = boost::get<boost::uint32_t>(rv) + 1;
+
+	mantra::Storage::RecordMap rec;
+	rec["name"] = name_;
+	rec["number"] = number;
+	rec["message"] = message;
+	rec["last_updater"] = updater->Name();
+	rec["last_updater_id"] = updater->User()->ID();
+	if (Message::storage.InsertRow(rec))
+	{
+		Message m(self.lock(), number);
+		MT_RET(m);
+	}
+
+	Message m;
+	MT_RET(m);
+	MT_EE
+}
+
+void Committee::MESSAGE_Del(boost::uint32_t num)
+{
+	MT_EB
+	MT_FUNC("Committee::MESSAGE_Del" << num);
+
+	Member::storage.RemoveRow(
+				mantra::Comparison<mantra::C_EqualToNC>::make("name", name_) &&
+				mantra::Comparison<mantra::C_EqualTo>::make("number", num));
+
+	MT_EE
+}
+
+Committee::Message Committee::MESSAGE_Get(boost::uint32_t num) const
+{
+	MT_EB
+	MT_FUNC("Committee::MESSAGE_Get" << num);
+
+	if (MESSAGE_Exists(num))
+	{
+		Message m(self.lock(), num);
+		MT_RET(m);
+	}
+
+	Message m;
+	MT_RET(m);
+
+	MT_EE
+}
+
+void Committee::MESSAGE_Get(std::set<Committee::Message> &fill) const
+{
+	MT_EB
+	MT_FUNC("Committee::MESSAGE_Get" << fill);
+
+	std::set<Message> rv;
+
+	mantra::Storage::DataSet data;
+	mantra::Storage::FieldSet fields;
+	fields.insert("number");
+
+	Member::storage.RetrieveRow(data,
+				mantra::Comparison<mantra::C_EqualToNC>::make("name", name_),
+				fields);
+
+	mantra::Storage::DataSet::const_iterator i = data.begin();
+	for (i = data.begin(); i != data.end(); ++i)
+	{
+		mantra::Storage::RecordMap::const_iterator j = i->find("number");
+		if (j == i->end() || j->second.type() == typeid(mantra::NullValue))
+			continue;
+
+		rv.insert(Message(self.lock(), boost::get<boost::uint32_t>(j->second)));
+	}
+
+	MT_EE
+}
+
 

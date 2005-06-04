@@ -59,19 +59,19 @@ class Committee : private boost::noncopyable, public boost::totally_ordered1<Com
 
 	std::string name_;
 
-	NSYNC(Committee);
-	online_members_t online_members_;
+	NSYNC(message_number);
+
+	online_members_t RWSYNC(online_members_);
 
 	// use if_Committee_LiveUser
 	void Online(const boost::shared_ptr<LiveUser> &in);
 	void Offline(const boost::shared_ptr<LiveUser> &in);
-	static std::set<boost::shared_ptr<Committee> > Live_Committees(const boost::shared_ptr<StoredUser> &in);
 
 	// use if_Committee_Storage
 	static boost::shared_ptr<Committee> load(const std::string &name);
 	void DropInternal();
 
-	Committee(const std::string &name) : name_(name) {}
+	Committee(const std::string &name);
 
 public:
 	static boost::shared_ptr<Committee> create(const std::string &name);
@@ -108,6 +108,8 @@ public:
 	boost::shared_ptr<StoredUser> HeadUser() const;
 	boost::shared_ptr<Committee> HeadCommittee() const;
 
+	static std::set<boost::shared_ptr<Committee> > FindCommittees(const boost::shared_ptr<StoredUser> &in);
+
 	boost::posix_time::ptime Registered() const
 		{ return boost::get<boost::posix_time::ptime>(storage.GetField(name_, "registered")); }
 	boost::posix_time::ptime Last_Update() const
@@ -142,6 +144,10 @@ public:
 		boost::shared_ptr<Committee> owner_;
 		boost::shared_ptr<StoredUser> entry_;
 
+		Member() {}
+		Member(const boost::shared_ptr<Committee> &owner,
+			   const boost::shared_ptr<StoredUser> &entry)
+			: owner_(owner), entry_(entry) {}
 	public:
 		const boost::shared_ptr<Committee> &Owner() const { return owner_; }
 		const boost::shared_ptr<StoredUser> &Entry() const { return entry_; }
@@ -166,7 +172,7 @@ public:
 					  const boost::shared_ptr<StoredNick> &updater);
 	void MEMBER_Del(const boost::shared_ptr<StoredUser> &entry);
 	Member MEMBER_Get(const boost::shared_ptr<StoredUser> &entry) const;
-	void MEMBER_Fill(std::set<boost::shared_ptr<StoredUser> > &fill) const;
+	void MEMBER_Fill(std::set<Member> &fill) const;
 
 	class Message : public boost::totally_ordered1<Memo>
 	{
@@ -176,9 +182,10 @@ public:
 		boost::shared_ptr<Committee> owner_;
 		boost::uint32_t number_;
 
-		Message(const boost::shared_ptr<Committee> &owner, boost::uint32_t num);
-		Message(const boost::shared_ptr<Committee> &owner, const std::string &message,
-				const boost::shared_ptr<StoredNick> &updater);
+		Message() : number_(0) {}
+		Message(const boost::shared_ptr<Committee> &owner,
+				boost::uint32_t number)
+			: owner_(owner), number_(number) {}
 	public:
 		const boost::shared_ptr<Committee> &Owner() const { return owner_; }
 		boost::uint32_t Number() const { return number_; }
@@ -226,8 +233,6 @@ class if_Committee_LiveUser
 		{ base.Online(user); }
 	inline void Offline(const boost::shared_ptr<LiveUser> &user)
 		{ base.Offline(user); }
-	static inline std::set<boost::shared_ptr<Committee> > Live_Committees(const boost::shared_ptr<StoredUser> &in)
-		{ return Committee::Live_Committees(in); }
 };
 
 // Special interface used by Storage.

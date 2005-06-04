@@ -132,6 +132,12 @@ public:
 			 boost::logic::tribool deep = boost::logic::indeterminate) const;
 	boost::shared_ptr<Committee> Get_Committee(const std::string &name,
 			 boost::logic::tribool deep = boost::logic::indeterminate) const;
+
+	bool Forbid_Add(const std::string &in, const boost::shared_ptr<StoredNick> &nick);
+	bool Forbid_Del(const std::string &in);
+	std::vector<std::string> Forbid_List_Nick() const;
+	std::vector<std::string> Forbid_List_Channel() const;
+	bool Forbid_Check(const std::string &in) const;
 };
 
 // Perfect way to do single-table access :)

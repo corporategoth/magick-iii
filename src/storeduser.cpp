@@ -37,6 +37,7 @@ RCSID(magick__storeduser_cpp, "@(#)$Id$");
 #include "storednick.h"
 #include "liveuser.h"
 #include "storedchannel.h"
+#include "committee.h"
 
 #include <mantra/core/trace.h>
 
@@ -201,6 +202,17 @@ StoredUser::online_users_t StoredUser::Online() const
 	SYNC_RLOCK(online_users_);
 
 	MT_RET(online_users_);
+	MT_EE
+}
+
+StoredUser::my_nicks_t StoredUser::Nicks() const
+{
+	MT_EB
+	MT_FUNC("StoredUser::Nicks");
+
+	SYNC_LOCK(my_nicks_);
+
+	MT_RET(my_nicks_);
 	MT_EE
 }
 
@@ -1056,10 +1068,11 @@ bool StoredUser::ACCESS_Exists(boost::uint32_t num) const
 	MT_EB
 	MT_FUNC("StoredUser::ACCESS_Exists" << num);
 
-	return (storage_access.RowExists(
+	bool rv = (storage_access.RowExists(
 				mantra::Comparison<mantra::C_EqualTo>::make("id", id_) &&
 				mantra::Comparison<mantra::C_EqualTo>::make("number", num)));
 
+	MT_RET(rv);
 	MT_EE
 }
 
@@ -1425,6 +1438,30 @@ void StoredUser::SendInfo(const boost::shared_ptr<LiveUser> &service,
 		check_option(str, data, "noexpire", N_("No Expire"));
 	if (!str.empty())
 		SEND(service, user, N_("Options        : %1%"), str);
+
+	str.clear();
+	std::set<boost::shared_ptr<Committee> > comm =
+			Committee::FindCommittees(self.lock());
+	std::set<boost::shared_ptr<Committee> >::iterator j;
+	for (j = comm.begin(); j != comm.end(); ++j)
+	{
+		if ((*j)->Private())
+			continue;
+		else if ((*j)->HeadUser() == self.lock())
+		{
+			if (!str.empty())
+				str += ", ";
+			str += '\002' + (*j)->Name() + '\017';
+		}
+		else if ((*j)->MEMBER_Exists(self.lock()))
+		{
+			if (!str.empty())
+				str += ", ";
+			str += (*j)->Name();
+		}
+	}
+	if (!str.empty())
+		SEND(service, user, N_("Committees     : %1%"), str);
 
 	if (opersop)
 	{

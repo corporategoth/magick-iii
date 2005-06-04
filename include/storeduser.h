@@ -101,9 +101,10 @@ public:
 		{ return boost::get<boost::posix_time::ptime>(storage.GetField(id_, "last_update")); }
 	boost::shared_ptr<StoredNick> Last_Online() const;
 	online_users_t Online() const;
+	my_nicks_t Nicks() const;
 
-	bool operator<(const StoredUser &rhs) const { return ID() < rhs.ID(); }
-	bool operator==(const StoredUser &rhs) const { return ID() == rhs.ID(); }
+	inline bool operator<(const StoredUser &rhs) const { return id_ < rhs.id_; }
+	inline bool operator==(const StoredUser &rhs) const { return id_ == rhs.id_; }
 
 	void Password(const std::string &password);
 	bool CheckPassword(const std::string &password) const;
