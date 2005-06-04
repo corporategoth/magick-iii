@@ -360,7 +360,7 @@ bool Magick::set_config(const po::variables_map &vm)
 			for (iter=samev.begin(); iter!=samev.end(); ++iter)
 			{
 				std::list<mantra::Logger<char> *>::iterator i = loggers.begin();
-				for (i=loggers.begin(); i!=loggers.end(); i++)
+				for (i=loggers.begin(); i!=loggers.end(); ++i)
 					if (*iter == (*i)->backend())
 					{
 						if (*iter == "file")
@@ -788,7 +788,7 @@ bool Magick::set_config(const po::variables_map &vm)
 			for (iter = oldv.begin(); iter != oldv.end(); ++iter)
 			{
 				std::list<mantra::Logger<char> *>::iterator i = loggers.begin();
-				for (i=loggers.begin(); i!=loggers.end(); i++)
+				for (i=loggers.begin(); i!=loggers.end(); ++i)
 					if (*iter == (*i)->backend())
 					{
 						loggers.erase(i);

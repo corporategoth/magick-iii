@@ -706,7 +706,7 @@ static bool biMODE(const Message &m)
 
 		size_t modes_param = 1;
 		if (m.Params()[1].find_first_not_of("0123456789") == std::string::npos)
-			modes_param++;
+			++modes_param;
 		if (m.Params().size() < modes_param + 1)
 		{
 			std::vector<std::string> v;

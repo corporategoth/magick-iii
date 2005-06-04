@@ -97,21 +97,6 @@ inline boost::format format(const std::string &in,
 		} \
 	} while (0)
 
-enum TraceTypes_t
-	{
-		MAGICK_TRACE_LOST,
-		MAGICK_TRACE_MAIN,
-		MAGICK_TRACE_WORKER,
-		MAGICK_TRACE_NICKSERV,	// All of these are PRIVMSG stuff.
-		MAGICK_TRACE_CHANSERV,
-		MAGICK_TRACE_MEMOSERV,
-		MAGICK_TRACE_COMMSERV,
-		MAGICK_TRACE_OPERSERV,
-		MAGICK_TRACE_OTHER,		// Other services, still PRIVMSG
-		MAGICK_TRACE_DCC,
-		MAGICK_TRACE_SIZE
-	};
-
 class Magick
 {
 	friend class Protocol;
@@ -157,10 +142,10 @@ public:
 	const boost::shared_ptr<Uplink> &getUplink() const { return uplink; }
 	Protocol proto;
 
-	Service nickserv, chanserv, memoserv, commserv, operserv, other;
-
 	mantra::Events *event;
 	Storage data;
+
+	Service nickserv, chanserv, memoserv, commserv, operserv, other;
 
 	void Disconnect() { disconnect = true; }
 	bool Shutdown() const { return shutdown; }

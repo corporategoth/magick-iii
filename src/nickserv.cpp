@@ -150,8 +150,49 @@ static bool ns_Drop(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	user->Stored()->Drop();
-	NSEND(service, user, N_("Your nickname has been dropped."));
+	if (params.size() < 2)
+	{
+		std::string token;
+		for (size_t i = 0; i < ROOT->ConfigValue<unsigned int>("nickserv.drop-length"); ++i)
+		{
+			char c = (rand() % 64);
+			if (c < 10)
+				c += '0';
+			else if (c < 36)
+				c += 'A' - 10;
+			else if (c < 62)
+				c += 'a' - 36;
+			else if (c == 62)
+				c = '-';
+			else
+				c = '_';
+			token.append(1, c);
+		}
+		user->DropToken(token);
+		SEND(service, user, N_("Please re-issue your %1% command within %2% with the following parameter: %3%"),
+			 boost::algorithm::to_upper_copy(params[0]) %
+			 mantra::DurationToString(ROOT->ConfigValue<mantra::duration>("nickserv.drop"),
+									  mantra::Second) %
+			 token);
+	}
+	else
+	{
+		std::string token = user->DropToken();
+		if (token.empty())
+		{
+			NSEND(service, user, N_("Drop token has expired (nickname not dropped)."));
+		}
+		else if (params[1] == token)
+		{
+			user->DropToken(std::string());
+			user->Stored()->Drop();
+			NSEND(service, user, N_("Your nickname has been dropped."));
+		}
+		else
+		{
+			NSEND(service, user, N_("Drop token incorrect (nickname not dropped)."));
+		}
+	}
 
 	MT_RET(true);
 	MT_EE
@@ -198,10 +239,12 @@ static bool ns_Link(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
+	std::string other = nick->Name();
 	nick = StoredNick::create(user->Name(), nick->User());
+	ROOT->data.Add(nick);
 	user->Identify(params[2]);
     SEND(service, user, N_("Nickname %1% has been linked to %2%."),
-		 user->Name() % nick->Name());
+		 user->Name() % other);
 
 	MT_RET(true);
 	MT_EE

@@ -216,7 +216,7 @@ bool Protocol::reload(const std::string &file)
 		std::vector<std::pair<std::string, std::string> > tmp =
 			opt_protocol["token"].as<std::vector<std::pair<std::string, std::string> > >();
 		std::vector<std::pair<std::string, std::string> >::iterator i;
-		for (i=tmp.begin(); i!=tmp.end(); i++)
+		for (i=tmp.begin(); i!=tmp.end(); ++i)
 		{
 			fwd_tokens[i->first] = i->second;
 			rev_tokens[i->second] = i->first;

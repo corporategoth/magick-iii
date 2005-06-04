@@ -130,7 +130,8 @@ public:
 private:
 	typedef std::queue<boost::posix_time::ptime> messages_t;
 	typedef std::set<boost::shared_ptr<StoredChannel> > channel_identified_t;
-	typedef std::map<boost::shared_ptr<StoredChannel> , unsigned int> channel_password_fails_t;
+	typedef std::map<boost::shared_ptr<StoredChannel>, unsigned int> channel_password_fails_t;
+	typedef std::map<boost::shared_ptr<StoredChannel>, std::pair<std::string, unsigned int> > channel_drop_token_t;
 	typedef std::map<unsigned int, LiveMemo> pending_memos_t;
 
 	// This is used so we can send a shared_ptr to others.
@@ -169,10 +170,13 @@ private:
 	bool identified_;
 	boost::shared_ptr<StoredNick> RWSYNC(stored_);
 	unsigned int password_fails_;
+	std::pair<std::string, unsigned int> SYNC(drop_token_);
 
 	channel_joined_t SYNC(channel_joined_);
 	channel_identified_t SYNC(channel_identified_);
 	channel_password_fails_t channel_password_fails_;
+	channel_drop_token_t SYNC(channel_drop_token_);
+
 	committees_t SYNC(committees_);
 
 	boost::posix_time::ptime last_nick_reg_, last_channel_reg_;
@@ -301,10 +305,15 @@ public:
 	bool Recognized() const;
 	bool Identified() const;
 
+	void DropToken(const std::string &in);
+	std::string DropToken() const;
+
 	bool Identify(const boost::shared_ptr<StoredChannel> &channel,
 				  const std::string &in);
 	void UnIdentify(const boost::shared_ptr<StoredChannel> &channel);
 	bool Identified(const boost::shared_ptr<StoredChannel> &channel) const;
+	void DropToken(const boost::shared_ptr<StoredChannel> &chan, const std::string &in);
+	std::string DropToken(const boost::shared_ptr<StoredChannel> &chan) const;
 
 	bool InChannel(const boost::shared_ptr<LiveChannel> &channel) const;
 	bool InChannel(const std::string &channel) const;

@@ -54,6 +54,7 @@ LiveUser::LiveUser(Service *service, const std::string &name,
 	  seen_(mantra::GetCurrentDateTime()), service_(service),
 	  flood_triggers_(0), ignored_(false), identified_(true),
 	  SYNC_NRWINIT(stored_, reader_priority), password_fails_(0),
+	  drop_token_(std::make_pair(std::string(), 0)),
 	  last_nick_reg_(boost::date_time::not_a_date_time),
 	  last_channel_reg_(boost::date_time::not_a_date_time),
 	  last_memo_(boost::date_time::not_a_date_time)
@@ -84,6 +85,7 @@ LiveUser::LiveUser(const std::string &name, const std::string &real,
 	  server_(server), signon_(signon), seen_(mantra::GetCurrentDateTime()),
 	  service_(NULL), flood_triggers_(0), ignored_(false), identified_(false),
 	  SYNC_NRWINIT(stored_, reader_priority), password_fails_(0),
+	  drop_token_(std::make_pair(std::string(), 0)),
 	  last_nick_reg_(boost::date_time::not_a_date_time),
 	  last_channel_reg_(boost::date_time::not_a_date_time),
 	  last_memo_(boost::date_time::not_a_date_time)
@@ -158,6 +160,15 @@ void LiveUser::Stored(const boost::shared_ptr<StoredNick> &nick)
 		stored_ = nick;
 		identified_ = false;
 
+		{
+			SYNC_LOCK(drop_token_);
+			if (drop_token_.second)
+			{
+				ROOT->event->Cancel(drop_token_.second);
+				drop_token_ = std::make_pair(std::string(), 0);
+			}
+		}
+
 		SYNC_LOCK(committees_);
 		committees_t::iterator i;
 		for (i=committees_.begin(); i!=committees_.end(); ++i)
@@ -195,10 +206,27 @@ void LiveUser::Name(const std::string &in)
 	MT_EB
 	MT_FUNC("LiveUser::Name" << in);
 
+	std::string origname;
 	{
 		SYNC_WLOCK(name_);
+		origname = name_;
 		name_ = in;
 	}
+
+	// Case change, who cares!
+	static mantra::iequal_to<std::string> cmp;
+	if (cmp(origname, in))
+		return;
+
+	{
+		SYNC_LOCK(drop_token_);
+		if (drop_token_.second)
+		{
+			ROOT->event->Cancel(drop_token_.second);
+			drop_token_ = std::make_pair(std::string(), 0);
+		}
+	}
+
 	boost::shared_ptr<StoredNick> stored = ROOT->data.Get_StoredNick(in);
 	{
 		SYNC_WLOCK(stored_);
@@ -210,6 +238,7 @@ void LiveUser::Name(const std::string &in)
 			if (!stored_ || stored->User() != stored_->User())
 			{
 				identified_ = false;
+
 				if (!stored->User()->Secure() &&
 					stored->User()->ACCESS_Matches(User() + "@" + Host()))
 				{
@@ -279,6 +308,16 @@ void LiveUser::Quit(const std::string &reason)
 {
 	MT_EB
 	MT_FUNC("LiveUser::Quit" << reason);
+
+	// Cancel timer
+	{
+		SYNC_LOCK(drop_token_);
+		if (drop_token_.second)
+		{
+			ROOT->event->Cancel(drop_token_.second);
+			drop_token_ = std::make_pair(std::string(), 0);
+		}
+	}
 
 	// Part channels
 	{
@@ -598,6 +637,42 @@ bool LiveUser::Identified() const
 	MT_EE
 }
 
+void LiveUser::DropToken(const std::string &in)
+{
+	MT_EB
+	MT_FUNC("LiveUser::DropToken" << in);
+
+	SYNC_LOCK(drop_token_);
+	if (drop_token_.second)
+	{
+		ROOT->event->Cancel(drop_token_.second);
+		drop_token_ = std::make_pair(std::string(), 0);
+	}
+
+	if (in.empty())
+		return;
+
+	unsigned int id = ROOT->event->Schedule(
+		boost::bind((void (LiveUser::*)(const std::string &))
+						&LiveUser::DropToken, this, std::string()),
+					ROOT->ConfigValue<mantra::duration>("nickserv.drop"));
+
+	drop_token_ = std::make_pair(in, id);
+
+	MT_EE
+}
+
+std::string LiveUser::DropToken() const
+{
+	MT_EB
+	MT_FUNC("LiveUser::DropToken");
+
+	SYNC_LOCK(drop_token_);
+	MT_RET(drop_token_.first);
+
+	MT_EE
+}
+
 bool LiveUser::Identify(const boost::shared_ptr<StoredChannel> &channel,
 						const std::string &in)
 {
@@ -650,6 +725,48 @@ bool LiveUser::Identified(const boost::shared_ptr<StoredChannel> &channel) const
 	bool rv = (channel_identified_.find(channel) != channel_identified_.end());
 
 	MT_RET(rv);
+	MT_EE
+}
+
+void LiveUser::DropToken(const boost::shared_ptr<StoredChannel> &chan,
+						 const std::string &in)
+{
+	MT_EB
+	MT_FUNC("LiveUser::DropToken" << chan << in);
+
+	SYNC_LOCK(channel_drop_token_);
+	channel_drop_token_t::iterator i = channel_drop_token_.find(chan);
+	if (i != channel_drop_token_.end())
+	{
+		if (i->second.second)
+			ROOT->event->Cancel(i->second.second);
+		channel_drop_token_.erase(i);
+	}
+
+	if (in.empty())
+		return;
+
+	unsigned int id = ROOT->event->Schedule(
+		boost::bind((void (LiveUser::*)(const boost::shared_ptr<StoredChannel> &, const std::string &))
+						&LiveUser::DropToken, this, chan, std::string()),
+					ROOT->ConfigValue<mantra::duration>("chanserv.drop"));
+
+	channel_drop_token_[chan] = std::make_pair(in, id);
+
+	MT_EE
+}
+
+std::string LiveUser::DropToken(const boost::shared_ptr<StoredChannel> &chan) const
+{
+	MT_EB
+	MT_FUNC("LiveUser::DropToken" << chan);
+
+	SYNC_LOCK(channel_drop_token_);
+	channel_drop_token_t::const_iterator i = channel_drop_token_.find(chan);
+	if (i != channel_drop_token_.end())
+		MT_RET(i->second.first);
+
+	MT_RET(std::string());
 	MT_EE
 }
 

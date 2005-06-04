@@ -171,7 +171,7 @@ public:
 		bool add = true;
 		std::set<char> had;
 		size_t i=0, j=0;
-		for (; i<ent[0].size(); i++)
+		for (; i<ent[0].size(); ++i)
 		{
 			switch (ent[0][i])
 			{
@@ -815,6 +815,10 @@ static void add_nickserv_options(po::options_description &opts)
 					"how long the user has to ident before being renamed")
 		("nickserv.release", mantra::value<mantra::duration>()->default_value(mantra::duration("1n")),
 					"how long to keep a nickname being recovered")
+		("nickserv.drop", mantra::value<mantra::duration>()->default_value(mantra::duration("1n")),
+					"how long to keep a nickname drop token relevant")
+		("nickserv.drop-length", mantra::value<unsigned int>()->default_value(8)->parser(mantra::validate_min<unsigned int>(1u)),
+					"length of the token to generate for dropping nicknames")
 		("nickserv.password-fail", mantra::value<unsigned int>()->default_value(5),
 					"how many password faliures before killing the user")
 		("nickserv.picture-maxsize", mantra::value<boost::uint64_t>()->default_value(0)->parser(mantra::validate_space()),
@@ -854,6 +858,10 @@ static void add_chanserv_options(po::options_description &opts)
 					"how long before a channel is unregistered for inactivity")
 		("chanserv.delay", mantra::value<mantra::duration>()->default_value(mantra::duration("30s")),
 					"minimum amount of time between registrations")
+		("chanserv.drop", mantra::value<mantra::duration>()->default_value(mantra::duration("1n")),
+					"how long to keep a channel drop token relevant")
+		("chanserv.drop-length", mantra::value<unsigned int>()->default_value(8)->parser(mantra::validate_min<unsigned int>(1u)),
+					"length of the token to generate for dropping channels")
 		("chanserv.max-per-nick", mantra::value<unsigned int>()->default_value(15),
 					"maximum channels to be registered for a nickname")
 		("chanserv.ovr-per-nick", mantra::value<std::string>(),

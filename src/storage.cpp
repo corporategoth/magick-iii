@@ -65,7 +65,7 @@ namespace po = boost::program_options;
 Storage::Storage()
 	: finalstage_(std::pair<mantra::FinalStage *, void (*)(mantra::FinalStage *)>(NULL, NULL)),
 	  backend_(std::pair<mantra::Storage *, void (*)(mantra::Storage *)>(NULL, NULL)),
-	  event_(0), handle_(NULL), crypt_handle_(NULL), compress_handle_(NULL),
+	  have_cascade(false), event_(0), handle_(NULL), crypt_handle_(NULL), compress_handle_(NULL),
 	  hasher(mantra::Hasher::NONE), SYNC_NRWINIT(LiveUsers_, reader_priority),
 	  SYNC_NRWINIT(LiveChannels_, reader_priority),
 	  SYNC_NRWINIT(StoredUsers_, reader_priority),
@@ -104,7 +104,7 @@ void Storage::reset()
 			delete finalstage_.first;
 		finalstage_ = std::pair<mantra::FinalStage *, void (*)(mantra::FinalStage *)>(NULL, NULL);
 	}
-	for (size_t i=0; i<stages_.size(); i++)
+	for (size_t i=0; i<stages_.size(); ++i)
 	{
 		if (stages_[i].second)
 			(*stages_[i].second)(stages_[i].first);
@@ -545,7 +545,7 @@ bool Storage::init(const po::variables_map &vm,
 
 			if (newstages_.size() == oldstages_.size())
 			{
-				for (size_t i=0; i<newstages_.size(); i++)
+				for (size_t i=0; i<newstages_.size(); ++i)
 					if (newstages_[i] != oldstages_[i])
 					{
 						samestorage = false;
@@ -560,7 +560,7 @@ bool Storage::init(const po::variables_map &vm,
 			samestorage = check_old_new<bool>("storage.inifile.tollerant", opt_config, vm);
 
 		bool b = false;
-		for (size_t i=0; i<newstages_.size(); i++)
+		for (size_t i=0; i<newstages_.size(); ++i)
 		{
 			if (newstages_[i] == "file")
 			{
@@ -675,7 +675,7 @@ bool Storage::init(const po::variables_map &vm,
 			boost::mutex::scoped_lock lock(lock_);
 			reset();
 
-			for (size_t i=0; i<newstages_.size(); i++)
+			for (size_t i=0; i<newstages_.size(); ++i)
 			{
 				if (newstages_[i] == "file")
 				{
@@ -808,12 +808,13 @@ bool Storage::init(const po::variables_map &vm,
 				}
 			}
 			std::vector<std::pair<mantra::Stage *, void (*)(mantra::Stage *)> >::reverse_iterator ri;
-			for (ri = stages_.rbegin(); ri != stages_.rend(); ri++)
+			for (ri = stages_.rbegin(); ri != stages_.rend(); ++ri)
 				*finalstage_.first << *ri->first;
 
 			backend_.second = (void (*)(mantra::Storage *)) destroy_IniFileStorage;
 			backend_.first = create_IniFileStorage(*finalstage_.first, 
 						vm["storage.inifile.tollerant"].as<bool>());
+			have_cascade = false;
 			init();
 			if (event_)
 			{
@@ -866,6 +867,7 @@ bool Storage::init(const po::variables_map &vm,
 				vm["storage.berkeleydb.private"].as<bool>(),
 				vm["storage.berkeleydb.password"].as<std::string>().c_str(),
 				vm["storage.berkeleydb.btree"].as<bool>());
+			have_cascade = false;
 			init();
 			if (event_)
 			{
@@ -893,7 +895,7 @@ bool Storage::init(const po::variables_map &vm,
 
 			if (newstages_.size() == oldstages_.size())
 			{
-				for (size_t i=0; i<newstages_.size(); i++)
+				for (size_t i=0; i<newstages_.size(); ++i)
 					if (newstages_[i] != oldstages_[i])
 					{
 						samestorage = false;
@@ -908,7 +910,7 @@ bool Storage::init(const po::variables_map &vm,
 			samestorage = check_old_new<bool>("storage.xml.tollerant", opt_config, vm);
 
 		bool b = false;
-		for (size_t i=0; i<newstages_.size(); i++)
+		for (size_t i=0; i<newstages_.size(); ++i)
 		{
 			if (newstages_[i] == "file")
 			{
@@ -1023,7 +1025,7 @@ bool Storage::init(const po::variables_map &vm,
 			boost::mutex::scoped_lock lock(lock_);
 			reset();
 
-			for (size_t i=0; i<newstages_.size(); i++)
+			for (size_t i=0; i<newstages_.size(); ++i)
 			{
 				if (newstages_[i] == "file")
 				{
@@ -1156,7 +1158,7 @@ bool Storage::init(const po::variables_map &vm,
 				}
 			}
 			std::vector<std::pair<mantra::Stage *, void (*)(mantra::Stage *)> >::reverse_iterator ri;
-			for (ri = stages_.rbegin(); ri != stages_.rend(); ri++)
+			for (ri = stages_.rbegin(); ri != stages_.rend(); ++ri)
 				*finalstage_.first << *ri->first;
 
 			handle_ = dlopen("libmantra_storage_xml.so", RTLD_NOW | RTLD_GLOBAL);
@@ -1174,6 +1176,7 @@ bool Storage::init(const po::variables_map &vm,
 
 			backend_.first = create(*finalstage_.first, vm["storage.xml.tollerant"].as<bool>(),
 						vm["storage.xml.encoding"].as<std::string>().c_str());
+			have_cascade = false;
 			init();
 			if (event_)
 			{
@@ -1254,6 +1257,7 @@ bool Storage::init(const po::variables_map &vm,
 				vm["storage.mysql.timeout"].as<unsigned int>(),
 				vm["storage.mysql.compression"].as<bool>(),
 				vm["storage.mysql.max-conn-count"].as<unsigned int>());
+			have_cascade = false;
 			init();
 			if (event_)
 			{
@@ -1334,6 +1338,7 @@ bool Storage::init(const po::variables_map &vm,
 				vm["storage.postgresql.timeout"].as<unsigned int>(),
 				vm["storage.postgresql.ssl-only"].as<bool>(),
 				vm["storage.postgresql.max-conn-count"].as<unsigned int>());
+			have_cascade = true;
 			init();
 			if (event_)
 			{
@@ -1382,6 +1387,7 @@ bool Storage::init(const po::variables_map &vm,
 			backend_.first = create(vm["storage.sqlite.db-name"].as<std::string>().c_str(),
 				vm["storage.sqlite.tollerant"].as<bool>(),
 				vm["storage.sqlite.max-conn-count"].as<unsigned int>());
+			have_cascade = false;
 			init();
 			if (event_)
 			{
@@ -2450,30 +2456,33 @@ void Storage::DelInternal(const boost::shared_ptr<StoredUser> &entry)
 	}
 	SYNC_UNLOCK(StoredChannels_);
 
-	if (!entries.empty())
+	if (!have_cascade)
 	{
-		cs = mantra::Comparison<mantra::C_OneOfNC>::make("name", entries);
-		backend_.first->RemoveRow("channels_level", cs);
+		if (!entries.empty())
+		{
+			cs = mantra::Comparison<mantra::C_OneOfNC>::make("name", entries);
+			backend_.first->RemoveRow("channels_level", cs);
+			backend_.first->RemoveRow("channels_access", cs);
+			backend_.first->RemoveRow("channels_akick", cs);
+			backend_.first->RemoveRow("channels_greet", cs);
+			backend_.first->RemoveRow("channels_message", cs);
+			backend_.first->RemoveRow("channels_news", cs);
+			backend_.first->RemoveRow("channels_news_read", cs);
+			backend_.first->RemoveRow("channels", cs);
+		}
+
+		cs = mantra::Comparison<mantra::C_EqualTo>::make("entry_user", entry->ID());
 		backend_.first->RemoveRow("channels_access", cs);
 		backend_.first->RemoveRow("channels_akick", cs);
+		cs = mantra::Comparison<mantra::C_EqualTo>::make("entry", entry->ID());
 		backend_.first->RemoveRow("channels_greet", cs);
-		backend_.first->RemoveRow("channels_message", cs);
-		backend_.first->RemoveRow("channels_news", cs);
 		backend_.first->RemoveRow("channels_news_read", cs);
-		backend_.first->RemoveRow("channels", cs);
+
+		rec.clear();
+		rec["successor"] = mantra::NullValue();
+		backend_.first->ChangeRow("channels", rec,
+				mantra::Comparison<mantra::C_EqualTo>::make("successor", entry->ID()));
 	}
-
-	cs = mantra::Comparison<mantra::C_EqualTo>::make("entry_user", entry->ID());
-	backend_.first->RemoveRow("channels_access", cs);
-	backend_.first->RemoveRow("channels_akick", cs);
-	cs = mantra::Comparison<mantra::C_EqualTo>::make("entry", entry->ID());
-	backend_.first->RemoveRow("channels_greet", cs);
-	backend_.first->RemoveRow("channels_news_read", cs);
-
-	rec.clear();
-	rec["successor"] = mantra::NullValue();
-	backend_.first->ChangeRow("channels", rec,
-			mantra::Comparison<mantra::C_EqualTo>::make("successor", entry->ID()));
 
 	entries.clear();
 	backend_.first->RetrieveRow("committees", data,
@@ -2500,37 +2509,40 @@ void Storage::DelInternal(const boost::shared_ptr<StoredUser> &entry)
 	if (!entries.empty())
 		DelInternalRecurse(entries);
 
-	backend_.first->RemoveRow("committees_member",
-			mantra::Comparison<mantra::C_EqualTo>::make("entry", entry->ID()));
+	if (!have_cascade)
+	{
+		backend_.first->RemoveRow("committees_member",
+				mantra::Comparison<mantra::C_EqualTo>::make("entry", entry->ID()));
 
-	cs = mantra::Comparison<mantra::C_EqualTo>::make("suspend_by_id", entry->ID());
-	rec.clear();
-	rec["suspend_by_id"] = mantra::NullValue();
-	backend_.first->ChangeRow("users", rec, cs);
-	backend_.first->ChangeRow("channels", rec, cs);
+		cs = mantra::Comparison<mantra::C_EqualTo>::make("suspend_by_id", entry->ID());
+		rec.clear();
+		rec["suspend_by_id"] = mantra::NullValue();
+		backend_.first->ChangeRow("users", rec, cs);
+		backend_.first->ChangeRow("channels", rec, cs);
 
-	cs = mantra::Comparison<mantra::C_EqualTo>::make("sender_id", entry->ID());
-	rec.clear();
-	rec["sender_id"] = mantra::NullValue();
-	backend_.first->ChangeRow("users_memo", rec, cs);
-	backend_.first->ChangeRow("channels_news", rec, cs);
+		cs = mantra::Comparison<mantra::C_EqualTo>::make("sender_id", entry->ID());
+		rec.clear();
+		rec["sender_id"] = mantra::NullValue();
+		backend_.first->ChangeRow("users_memo", rec, cs);
+		backend_.first->ChangeRow("channels_news", rec, cs);
 
-	cs = mantra::Comparison<mantra::C_EqualTo>::make("last_updater_id", entry->ID());
-	rec.clear();
-	rec["last_updater_id"] = mantra::NullValue();
-	backend_.first->ChangeRow("committees_member", rec, cs);
-	backend_.first->ChangeRow("committees_message", rec, cs);
-	backend_.first->ChangeRow("channels_level", rec, cs);
-	backend_.first->ChangeRow("channels_access", rec, cs);
-	backend_.first->ChangeRow("channels_akick", rec, cs);
-	backend_.first->ChangeRow("channels_greet", rec, cs);
-	backend_.first->ChangeRow("channels_message", rec, cs);
-	backend_.first->ChangeRow("forbidden", rec, cs);
-	backend_.first->ChangeRow("akills", rec, cs);
-	backend_.first->ChangeRow("clones", rec, cs);
-	backend_.first->ChangeRow("operdenies", rec, cs);
-	backend_.first->ChangeRow("ignores", rec, cs);
-	backend_.first->ChangeRow("killchans", rec, cs);
+		cs = mantra::Comparison<mantra::C_EqualTo>::make("last_updater_id", entry->ID());
+		rec.clear();
+		rec["last_updater_id"] = mantra::NullValue();
+		backend_.first->ChangeRow("committees_member", rec, cs);
+		backend_.first->ChangeRow("committees_message", rec, cs);
+		backend_.first->ChangeRow("channels_level", rec, cs);
+		backend_.first->ChangeRow("channels_access", rec, cs);
+		backend_.first->ChangeRow("channels_akick", rec, cs);
+		backend_.first->ChangeRow("channels_greet", rec, cs);
+		backend_.first->ChangeRow("channels_message", rec, cs);
+		backend_.first->ChangeRow("forbidden", rec, cs);
+		backend_.first->ChangeRow("akills", rec, cs);
+		backend_.first->ChangeRow("clones", rec, cs);
+		backend_.first->ChangeRow("operdenies", rec, cs);
+		backend_.first->ChangeRow("ignores", rec, cs);
+		backend_.first->ChangeRow("killchans", rec, cs);
+	}
 
 	entries.clear();
 	backend_.first->RetrieveRow("nicks", data,
@@ -2553,18 +2565,24 @@ void Storage::DelInternal(const boost::shared_ptr<StoredUser> &entry)
 	}
 	SYNC_UNLOCK(StoredNicks_);
 
-	backend_.first->RemoveRow("nicks",
-			mantra::Comparison<mantra::C_OneOfNC>::make("name", entries));
+	if (!have_cascade)
+	{
+		backend_.first->RemoveRow("nicks",
+				mantra::Comparison<mantra::C_OneOfNC>::make("name", entries));
 
-	backend_.first->RemoveRow("users_ignore",
-			mantra::Comparison<mantra::C_EqualTo>::make("entry", entry->ID()));
+		backend_.first->RemoveRow("users_ignore",
+				mantra::Comparison<mantra::C_EqualTo>::make("entry", entry->ID()));
+	}
 
 	if_StoredUser_Storage(entry).DropInternal();
 
 	cs = mantra::Comparison<mantra::C_EqualTo>::make("id", entry->ID());
-	backend_.first->RemoveRow("users_access", cs);
-	backend_.first->RemoveRow("users_ignore", cs);
-	backend_.first->RemoveRow("users_memo", cs);
+	if (!have_cascade)
+	{
+		backend_.first->RemoveRow("users_access", cs);
+		backend_.first->RemoveRow("users_ignore", cs);
+		backend_.first->RemoveRow("users_memo", cs);
+	}
 	backend_.first->RemoveRow("users", cs);
 
 	MT_EE
@@ -2701,10 +2719,13 @@ void Storage::DelInternalRecurse(const std::vector<mantra::StorageValue> &entrie
 	if (!subentries.empty())
 		DelInternalRecurse(subentries);
 
-	mantra::ComparisonSet cs = mantra::Comparison<mantra::C_OneOfNC>::make("name", entries);
-	backend_.first->RemoveRow("committees_member", cs);
-	backend_.first->RemoveRow("committees_message", cs);
-	backend_.first->RemoveRow("committees", cs);
+	if (!have_cascade)
+	{
+		mantra::ComparisonSet cs = mantra::Comparison<mantra::C_OneOfNC>::make("name", entries);
+		backend_.first->RemoveRow("committees_member", cs);
+		backend_.first->RemoveRow("committees_message", cs);
+		backend_.first->RemoveRow("committees", cs);
+	}
 
 	MT_EE
 }
@@ -2715,13 +2736,19 @@ void Storage::DelInternal(const boost::shared_ptr<Committee> &entry)
 	MT_FUNC("Storage::DelInternal" << entry);
 
 	mantra::ComparisonSet cs = mantra::Comparison<mantra::C_EqualToNC>::make("entry_committee", entry->Name());
-	backend_.first->RemoveRow("channels_access", cs);
-	backend_.first->RemoveRow("channels_akick", cs);
+	if (!have_cascade)
+	{
+		backend_.first->RemoveRow("channels_access", cs);
+		backend_.first->RemoveRow("channels_akick", cs);
+	}
 
 	if_Committee_Storage(entry).DropInternal();
 	std::vector<mantra::StorageValue> entries;
 	entries.push_back(entry->Name());
 	DelInternalRecurse(entries);
+
+	if (have_cascade)
+		backend_.first->RemoveRow("committees", cs);
 
 	MT_EE
 }

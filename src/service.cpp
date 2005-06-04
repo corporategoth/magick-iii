@@ -37,8 +37,8 @@ RCSID(magick__service_cpp, "@(#)$Id$");
 #include "storednick.h"
 #include "storeduser.h"
 
-Service::Service()
-	: SYNC_NRWINIT(users_, reader_priority),
+Service::Service(TraceTypes_t trace)
+	: trace_(trace), SYNC_NRWINIT(users_, reader_priority),
 	  SYNC_NRWINIT(func_map_, reader_priority)
 {
 }
@@ -469,41 +469,54 @@ bool Service::Execute(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("ServiceExecute" << service << user << params << key);
+	unsigned int codetype = MT_ASSIGN(trace_);
 
-	functor f;
+	try
 	{
-		SYNC_RLOCK(func_map_);
-		func_map_t::const_iterator i;
-		for (i = func_map_.begin(); i != func_map_.end(); ++i)
+		functor f;
 		{
-			if (boost::regex_match(params[key], i->rx))
+			SYNC_RLOCK(func_map_);
+			func_map_t::const_iterator i;
+			for (i = func_map_.begin(); i != func_map_.end(); ++i)
 			{
-				if (!i->perms.empty())
+				if (boost::regex_match(params[key], i->rx))
 				{
-					std::vector<std::string>::const_iterator j;
-					for (j = i->perms.begin(); j != i->perms.end(); ++j)
+					if (!i->perms.empty())
 					{
-						if (user->InCommittee(*j))
-							break;
+						std::vector<std::string>::const_iterator j;
+						for (j = i->perms.begin(); j != i->perms.end(); ++j)
+						{
+							if (user->InCommittee(*j))
+								break;
+						}
+						// Not in any required committee, skip.
+						if (j == i->perms.end())
+							continue;
 					}
-					// Not in any required committee, skip.
-					if (j == i->perms.end())
-						continue;
+					f = i->func;
+					break;
 				}
-				f = i->func;
-				break;
 			}
 		}
+		if (!f)
+		{
+			SEND(service, user, N_("No such command %1%."),
+				 boost::algorithm::to_upper_copy(params[0]));
+
+			MT_ASSIGN(codetype);
+			MT_RET(true);
+		}
+
+		bool rv = f(service, user, params);
+		MT_ASSIGN(codetype);
+		MT_RET(rv);
 	}
-	if (!f)
+	catch (...)
 	{
-		SEND(service, user, N_("No such command %1%."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(true);
+		MT_ASSIGN(codetype);
+		throw;
 	}
 
-	bool rv = f(service, user, params);
-	MT_RET(rv);
 	MT_EE
 }
 

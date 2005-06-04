@@ -72,6 +72,7 @@ class Storage
 	std::pair<mantra::FinalStage *, void (*)(mantra::FinalStage *)> finalstage_;
 	std::vector<std::pair<mantra::Stage *, void (*)(mantra::Stage *)> > stages_;
 	std::pair<mantra::Storage *, void (*)(mantra::Storage *)> backend_;
+	bool have_cascade;
 	unsigned int event_;
 	void *handle_, *crypt_handle_, *compress_handle_;
 	mantra::Hasher hasher;

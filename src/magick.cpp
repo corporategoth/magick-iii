@@ -41,7 +41,10 @@ Magick::Magick()
 	  opt_common("Config File Overrides"),
 	  opt_config_file_only("Config File Only Options"),
 	  logger_lock(boost::read_write_scheduling_policy::reader_priority),
-	  disconnect(false), shutdown(false), event(NULL)
+	  disconnect(false), shutdown(false), event(NULL),
+	  nickserv(MAGICK_TRACE_NICKSERV), chanserv(MAGICK_TRACE_CHANSERV),
+	  memoserv(MAGICK_TRACE_MEMOSERV), commserv(MAGICK_TRACE_COMMSERV),
+	  operserv(MAGICK_TRACE_OPERSERV), other(MAGICK_TRACE_OTHER)
 {
 	init_config();
 }

@@ -48,6 +48,21 @@ RCSID(magick__service_h, "@(#) $Id$");
 
 class LiveUser;
 
+enum TraceTypes_t
+	{
+		MAGICK_TRACE_LOST,
+		MAGICK_TRACE_MAIN,
+		MAGICK_TRACE_WORKER,
+		MAGICK_TRACE_NICKSERV,	// All of these are PRIVMSG stuff.
+		MAGICK_TRACE_CHANSERV,
+		MAGICK_TRACE_MEMOSERV,
+		MAGICK_TRACE_COMMSERV,
+		MAGICK_TRACE_OPERSERV,
+		MAGICK_TRACE_OTHER,		// Other services, still PRIVMSG
+		MAGICK_TRACE_DCC,
+		MAGICK_TRACE_SIZE
+	};
+
 class Service
 {
 	friend class if_Service_LiveUser;
@@ -71,6 +86,7 @@ private:
 
 	typedef std::deque<Command_t> func_map_t;
 
+	TraceTypes_t trace_;
 	std::string real_;
 	std::string primary_;
 	nicks_t nicks_;
@@ -82,7 +98,7 @@ private:
 	void SIGNOFF(const boost::shared_ptr<LiveUser> &user);
 	boost::shared_ptr<LiveUser> SIGNON(const std::string &nick);
 public:
-	Service();
+	Service(TraceTypes_t trace);
 	virtual ~Service();
 
 	void Check();

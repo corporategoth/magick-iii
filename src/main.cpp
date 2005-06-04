@@ -64,7 +64,7 @@ int main(int argc, const char *argv[])
 	flow = &fc;
 
 	bool background = true;
-	for (int i=0; i<argc; i++)
+	for (int i=0; i<argc; ++i)
 		if (strcmp(argv[i], "--nofork")==0)
 			background = false;
 
@@ -156,12 +156,13 @@ static int create_instance(int prv, const boost::function0<bool> &check,
 
 	try
 	{
+		srand(time(NULL) * getpid());
 		textdomain("magick");
 
 		ROOT = new Magick;
 		if (!check())
 			return rv;
-		rv++;
+		++rv;
 
 		if (!ROOT->parse_config(args))
 			return -rv;
@@ -173,7 +174,7 @@ static int create_instance(int prv, const boost::function0<bool> &check,
 		return -rv;
 	}
 
-	rv++;
+	++rv;
 	return rv;
 }
 
@@ -185,7 +186,7 @@ static int start_threads(int prv, const boost::function0<bool> &check,
 
 	ROOT->event = new mantra::Events;
 
-	rv++;
+	++rv;
 	return rv;
 }
 
@@ -242,7 +243,7 @@ static int stop_threads(int prv, const boost::function0<bool> &check)
 	if (ROOT->event)
 		delete ROOT->event;
 
-	rv--;
+	--rv;
 	return rv;
 }
 
