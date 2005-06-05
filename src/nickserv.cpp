@@ -2298,6 +2298,14 @@ static bool ns_Unset_Comment(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
 	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
 	if (!nick)
 	{
@@ -2323,6 +2331,14 @@ static bool ns_Unset_Noexpire(const boost::shared_ptr<LiveUser> &service,
 
 	if (!service || !service->GetService())
 		MT_RET(false);
+
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
 
 	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
 	if (!nick)
@@ -2352,6 +2368,40 @@ static bool ns_Lock_Language(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	try
+	{
+		std::locale(params[2]);
+	}
+	catch (std::exception &e)
+	{
+		NSEND(service, user, N_("Invalid language specified."));
+		MT_RET(false);
+	}
+
+	if (!nick->User()->LOCK_Language(false))
+		NSEND(service, user, N_("The language setting is globally locked and cannot be locked."));
+
+	nick->User()->Language(params[2]);
+	nick->User()->LOCK_Language(true);
+	SEND(service, user, N_("Language for %1% has been locked at \002%1%\017."),
+		 nick->Name() % params[2]);
+
 	MT_RET(true);
 	MT_EE
 }
@@ -2366,6 +2416,38 @@ static bool ns_Lock_Protect(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::logic::tribool v = mantra::get_bool(params[2]);
+	if (boost::logic::indeterminate(v))
+	{
+		NSEND(service, user, N_("You may only specify ON or OFF."));
+		MT_RET(false);
+	}
+
+	if (!nick->User()->LOCK_Protect(false))
+		NSEND(service, user, N_("The nick protect setting is globally locked and cannot be locked."));
+
+	nick->User()->Protect(v);
+	nick->User()->LOCK_Protect(true);
+	SEND(service, user, (v
+		  ? N_("Nick protect for %1% has been \002enabled\017 and locked.")
+		  : N_("Nick protect for %1% has been \002disabled\017 and locked.")),
+		  nick->Name());
 
 	MT_RET(true);
 	MT_EE
@@ -2381,6 +2463,38 @@ static bool ns_Lock_Secure(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::logic::tribool v = mantra::get_bool(params[2]);
+	if (boost::logic::indeterminate(v))
+	{
+		NSEND(service, user, N_("You may only specify ON or OFF."));
+		MT_RET(false);
+	}
+
+	if (!nick->User()->LOCK_Secure(false))
+		NSEND(service, user, N_("The secure setting is globally locked and cannot be locked."));
+
+	nick->User()->Secure(v);
+	nick->User()->LOCK_Secure(true);
+	SEND(service, user, (v
+		  ? N_("Secure for %1% has been \002enabled\017 and locked.")
+		  : N_("Secure for %1% has been \002disabled\017 and locked.")),
+		  nick->Name());
 
 	MT_RET(true);
 	MT_EE
@@ -2396,6 +2510,38 @@ static bool ns_Lock_Nomemo(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::logic::tribool v = mantra::get_bool(params[2]);
+	if (boost::logic::indeterminate(v))
+	{
+		NSEND(service, user, N_("You may only specify ON or OFF."));
+		MT_RET(false);
+	}
+
+	if (!nick->User()->LOCK_NoMemo(false))
+		NSEND(service, user, N_("The no memo setting is globally locked and cannot be locked."));
+
+	nick->User()->NoMemo(v);
+	nick->User()->LOCK_NoMemo(true);
+	SEND(service, user, (v
+		  ? N_("No memo for %1% has been \002enabled\017 and locked.")
+		  : N_("No memo for %1% has been \002disabled\017 and locked.")),
+		  nick->Name());
 
 	MT_RET(true);
 	MT_EE
@@ -2411,6 +2557,38 @@ static bool ns_Lock_Private(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::logic::tribool v = mantra::get_bool(params[2]);
+	if (boost::logic::indeterminate(v))
+	{
+		NSEND(service, user, N_("You may only specify ON or OFF."));
+		MT_RET(false);
+	}
+
+	if (!nick->User()->LOCK_Private(false))
+		NSEND(service, user, N_("The private setting is globally locked and cannot be locked."));
+
+	nick->User()->Private(v);
+	nick->User()->LOCK_Private(true);
+	SEND(service, user, (v
+		  ? N_("Private for %1% has been \002enabled\017 and locked.")
+		  : N_("Private for %1% has been \002disabled\017 and locked.")),
+		  nick->Name());
 
 	MT_RET(true);
 	MT_EE
@@ -2426,6 +2604,38 @@ static bool ns_Lock_Privmsg(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::logic::tribool v = mantra::get_bool(params[2]);
+	if (boost::logic::indeterminate(v))
+	{
+		NSEND(service, user, N_("You may only specify ON or OFF."));
+		MT_RET(false);
+	}
+
+	if (!nick->User()->LOCK_PRIVMSG(false))
+		NSEND(service, user, N_("The private messaging setting is globally locked and cannot be locked."));
+
+	nick->User()->PRIVMSG(v);
+	nick->User()->LOCK_PRIVMSG(true);
+	SEND(service, user, (v
+		  ? N_("Private messaging for %1% has been \002enabled\017 and locked.")
+		  : N_("Private messaging for %1% has been \002disabled\017 and locked.")),
+		  nick->Name());
 
 	MT_RET(true);
 	MT_EE
@@ -2441,6 +2651,27 @@ static bool ns_Unlock_Language(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (nick->User()->LOCK_Language(false))
+		SEND(service, user, N_("Language for %1% has been unlocked."),
+			 nick->Name());
+	else
+		NSEND(service, user, N_("The language setting is globally locked and unlocked."));
 
 	MT_RET(true);
 	MT_EE
@@ -2455,6 +2686,28 @@ static bool ns_Unlock_Protect(const boost::shared_ptr<LiveUser> &service,
 
 	if (!service || !service->GetService())
 		MT_RET(false);
+
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (nick->User()->LOCK_Protect(false))
+		SEND(service, user, N_("Nick protect for %1% has been unlocked."),
+			 nick->Name());
+	else
+		NSEND(service, user, N_("The nick protect setting is globally locked and unlocked."));
 
 
 	MT_RET(true);
@@ -2471,6 +2724,27 @@ static bool ns_Unlock_Secure(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (nick->User()->LOCK_Secure(false))
+		SEND(service, user, N_("Secure for %1% has been unlocked."),
+			 nick->Name());
+	else
+		NSEND(service, user, N_("The secure setting is globally locked and unlocked."));
 
 	MT_RET(true);
 	MT_EE
@@ -2486,6 +2760,27 @@ static bool ns_Unlock_Nomemo(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (nick->User()->LOCK_NoMemo(false))
+		SEND(service, user, N_("No memo for %1% has been unlocked."),
+			 nick->Name());
+	else
+		NSEND(service, user, N_("The no memo setting is globally locked and unlocked."));
 
 	MT_RET(true);
 	MT_EE
@@ -2501,6 +2796,27 @@ static bool ns_Unlock_Private(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (nick->User()->Private(false))
+		SEND(service, user, N_("Private for %1% has been unlocked."),
+			 nick->Name());
+	else
+		NSEND(service, user, N_("The private setting is globally locked and unlocked."));
 
 	MT_RET(true);
 	MT_EE
@@ -2516,6 +2832,27 @@ static bool ns_Unlock_Privmsg(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (nick->User()->PRIVMSG(false))
+		SEND(service, user, N_("Private messaging for %1% has been unlocked."),
+			 nick->Name());
+	else
+		NSEND(service, user, N_("The private messaging setting is globally locked and unlocked."));
 
 	MT_RET(true);
 	MT_EE
@@ -2531,6 +2868,10 @@ static bool ns_StoredList(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	// TODO: To be implemented.
+	SEND(service, user,
+		 N_("The %1% command has not yet been implemented."),
+		 boost::algorithm::to_upper_copy(params[0]));
 
 	MT_RET(true);
 	MT_EE
@@ -2546,6 +2887,10 @@ static bool ns_LiveList(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	// TODO: To be implemented.
+	SEND(service, user,
+		 N_("The %1% command has not yet been implemented."),
+		 boost::algorithm::to_upper_copy(params[0]));
 
 	MT_RET(true);
 	MT_EE

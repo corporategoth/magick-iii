@@ -766,7 +766,8 @@ std::string LiveUser::DropToken(const boost::shared_ptr<StoredChannel> &chan) co
 	if (i != channel_drop_token_.end())
 		MT_RET(i->second.first);
 
-	MT_RET(std::string());
+	std::string rv;
+	MT_RET(rv);
 	MT_EE
 }
 
