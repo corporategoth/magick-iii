@@ -155,17 +155,13 @@ static bool ns_Drop(const boost::shared_ptr<LiveUser> &service,
 		std::string token;
 		for (size_t i = 0; i < ROOT->ConfigValue<unsigned int>("nickserv.drop-length"); ++i)
 		{
-			char c = (rand() % 64);
+			char c = (rand() % 62);
 			if (c < 10)
 				c += '0';
 			else if (c < 36)
 				c += 'A' - 10;
-			else if (c < 62)
-				c += 'a' - 36;
-			else if (c == 62)
-				c = '-';
 			else
-				c = '_';
+				c += 'a' - 36;
 			token.append(1, c);
 		}
 		user->DropToken(token);
