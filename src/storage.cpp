@@ -1882,9 +1882,7 @@ void Storage::Load()
 			Committees_[sadmin->Name()] = sadmin;
 		}
 		else
-		{
 			sadmin = i->second;
-		}
 
 		// Re-do the committee membership ...
 		backend_.first->RemoveRow("committees_member", mantra::Comparison<mantra::C_EqualToNC>::make("name", sadmin->Name()));
@@ -1914,9 +1912,7 @@ void Storage::Load()
 			Committees_[admin->Name()] = admin;
 		}
 		else
-		{
 			admin = i->second;
-		}
 
 		i = Committees_.find(ROOT->ConfigValue<std::string>("commserv.sop.name"));
 		if (i == Committees_.end())
@@ -1933,6 +1929,36 @@ void Storage::Load()
 									 admin);
 			Committees_[comm->Name()] = comm;
 		}
+
+		mantra::Storage::RecordMap rec;
+		rec["private"] = true;
+		rec["openmemos"] = false;
+		rec["secure"] = false;
+		rec["lock_private"] = true;
+		rec["lock_openmemos"] = true;
+		rec["lock_secure"] = true;
+
+		i = Committees_.find(ROOT->ConfigValue<std::string>("commserv.regd.name"));
+		if (i == Committees_.end())
+		{
+			comm = Committee::create(ROOT->ConfigValue<std::string>("commserv.regd.name"));
+			Committees_[comm->Name()] = comm;
+		}
+		else
+			comm = i->second;
+		backend_.first->ChangeRow("committees", rec, mantra::Comparison<mantra::C_EqualToNC>::make("name", comm->Name()));
+		backend_.first->RemoveRow("committees_member", mantra::Comparison<mantra::C_EqualToNC>::make("name", comm->Name()));
+
+		i = Committees_.find(ROOT->ConfigValue<std::string>("commserv.all.name"));
+		if (i == Committees_.end())
+		{
+			comm = Committee::create(ROOT->ConfigValue<std::string>("commserv.all.name"));
+			Committees_[comm->Name()] = comm;
+		}
+		else
+			comm = i->second;
+		backend_.first->ChangeRow("committees", rec, mantra::Comparison<mantra::C_EqualToNC>::make("name", comm->Name()));
+		backend_.first->RemoveRow("committees_member", mantra::Comparison<mantra::C_EqualToNC>::make("name", comm->Name()));
 	}
 
 	LOG(Info, _("Database loaded in %1% seconds."), t.elapsed());

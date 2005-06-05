@@ -2901,7 +2901,8 @@ void init_nickserv_functions(Service &serv)
 	MT_EB
 	MT_FUNC("init_nickserv_functions");
 
-	std::vector<std::string> comm_oper, comm_sop, comm_opersop;
+	std::vector<std::string> comm_regd, comm_oper, comm_sop, comm_opersop;
+	comm_regd.push_back(ROOT->ConfigValue<std::string>("commserv.regd.name"));
 	comm_oper.push_back(ROOT->ConfigValue<std::string>("commserv.oper.name"));
 	comm_sop.push_back(ROOT->ConfigValue<std::string>("commserv.sop.name"));
 	comm_opersop.push_back(ROOT->ConfigValue<std::string>("commserv.oper.name"));
@@ -2911,7 +2912,7 @@ void init_nickserv_functions(Service &serv)
 										   _1, _2, _3));
 
 	serv.PushCommand("^REGISTER$", &ns_Register);
-	serv.PushCommand("^DROP$", &ns_Drop);
+	serv.PushCommand("^DROP$", &ns_Drop, comm_regd);
 	serv.PushCommand("^LINK$", &ns_Link);
 	serv.PushCommand("^ID(ENT(IFY)?)?$", &ns_Identify);
 	serv.PushCommand("^INFO$", &ns_Info);
@@ -2932,104 +2933,104 @@ void init_nickserv_functions(Service &serv)
 								 _1, _2, _3), comm_sop);
 
 	serv.PushCommand("^ACC(ESS)?$",
-					 Service::CommandMerge(serv, 0, 1));
+					 Service::CommandMerge(serv, 0, 1), comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+CUR(R(ENT)?)?$",
-					 &ns_Access_Current);
+					 &ns_Access_Current, comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+ADD$",
-					 &ns_Access_Add);
+					 &ns_Access_Add, comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+(ERASE|DEL(ETE)?)$",
-					 &ns_Access_Del);
+					 &ns_Access_Del, comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+(LIST|VIEW)$",
-					 &ns_Access_List);
+					 &ns_Access_List, comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3));
+								 _1, _2, _3), comm_regd);
 
 	serv.PushCommand("^IGNORE$",
-					 Service::CommandMerge(serv, 0, 1));
+					 Service::CommandMerge(serv, 0, 1), comm_regd);
 	serv.PushCommand("^IGNORE\\s+ADD$",
-					 &ns_Ignore_Add);
+					 &ns_Ignore_Add, comm_regd);
 	serv.PushCommand("^IGNORE\\s+(ERASE|DEL(ETE)?)$",
-					 &ns_Ignore_Del);
+					 &ns_Ignore_Del, comm_regd);
 	serv.PushCommand("^IGNORE\\s+(LIST|VIEW)$",
-					 &ns_Ignore_List);
+					 &ns_Ignore_List, comm_regd);
 	serv.PushCommand("^IGNORE\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3));
+								 _1, _2, _3), comm_regd);
 
 	serv.PushCommand("^SET$",
-					 Service::CommandMerge(serv, 0, 1));
+					 Service::CommandMerge(serv, 0, 1), comm_regd);
 	serv.PushCommand("^SET\\s+PASS(W(OR)?D)?$",
-					 &ns_Set_Password);
+					 &ns_Set_Password, comm_regd);
 	serv.PushCommand("^SET\\s+E-?MAIL$",
-					 &ns_Set_Email);
+					 &ns_Set_Email, comm_regd);
 	serv.PushCommand("^SET\\s+(URL|WWW|WEB(PAGE|SITE)?|HTTPS?)$",
-					 &ns_Set_Website);
+					 &ns_Set_Website, comm_regd);
 	serv.PushCommand("^SET\\s+(UIN|ICQ)$",
-					 &ns_Set_Icq);
+					 &ns_Set_Icq, comm_regd);
 	serv.PushCommand("^SET\\s+(AIM)$",
-					 &ns_Set_Aim);
+					 &ns_Set_Aim, comm_regd);
 	serv.PushCommand("^SET\\s+MSN$",
-					 &ns_Set_Msn);
+					 &ns_Set_Msn, comm_regd);
 	serv.PushCommand("^SET\\s+JABBER$",
-					 &ns_Set_Jabber);
+					 &ns_Set_Jabber, comm_regd);
 	serv.PushCommand("^SET\\s+YAHOO$",
-					 &ns_Set_Yahoo);
+					 &ns_Set_Yahoo, comm_regd);
 	serv.PushCommand("^SET\\s+DESC(RIPT(ION)?)?$",
-					 &ns_Set_Description);
+					 &ns_Set_Description, comm_regd);
 	serv.PushCommand("^SET\\s+LANG(UAGE)?$",
-					 &ns_Set_Language);
+					 &ns_Set_Language, comm_regd);
 	serv.PushCommand("^SET\\s+PROT(ECT)?$",
-					 &ns_Set_Protect);
+					 &ns_Set_Protect, comm_regd);
 	serv.PushCommand("^SET\\s+SECURE$",
-					 &ns_Set_Secure);
+					 &ns_Set_Secure, comm_regd);
 	serv.PushCommand("^SET\\s+NOMEMO$",
-					 &ns_Set_Nomemo);
+					 &ns_Set_Nomemo, comm_regd);
 	serv.PushCommand("^SET\\s+PRIV(ATE)?$",
-					 &ns_Set_Private);
+					 &ns_Set_Private, comm_regd);
 	serv.PushCommand("^SET\\s+((PRIV)?MSG)$",
-					 &ns_Set_Privmsg);
+					 &ns_Set_Privmsg, comm_regd);
 	serv.PushCommand("^SET\\s+PIC(TURE)?$",
-					 &ns_Set_Picture);
+					 &ns_Set_Picture, comm_regd);
 	serv.PushCommand("^SET\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3));
+								 _1, _2, _3), comm_regd);
 
 	serv.PushCommand("^(UN|RE)SET$",
-					 Service::CommandMerge(serv, 0, 1));
+					 Service::CommandMerge(serv, 0, 1), comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+E-?MAIL$",
-					 &ns_Unset_Email);
+					 &ns_Unset_Email, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+(URL|WWW|WEB(PAGE|SITE)?|HTTPS?)$",
-					 &ns_Unset_Website);
+					 &ns_Unset_Website, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+(UIN|ICQ)$",
-					 &ns_Unset_Icq);
+					 &ns_Unset_Icq, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+(AIM)$",
-					 &ns_Unset_Aim);
+					 &ns_Unset_Aim, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+MSN$",
-					 &ns_Unset_Msn);
+					 &ns_Unset_Msn, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+JABBER$",
-					 &ns_Unset_Jabber);
+					 &ns_Unset_Jabber, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+YAHOO$",
-					 &ns_Unset_Yahoo);
+					 &ns_Unset_Yahoo, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+DESC(RIPT(ION)?)?$",
-					 &ns_Unset_Description);
+					 &ns_Unset_Description, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+LANG(UAGE)?$",
-					 &ns_Unset_Language);
+					 &ns_Unset_Language, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+PROT(ECT)?$",
-					 &ns_Unset_Protect);
+					 &ns_Unset_Protect, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+SECURE$",
-					 &ns_Unset_Secure);
+					 &ns_Unset_Secure, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+NOMEMO$",
-					 &ns_Unset_Nomemo);
+					 &ns_Unset_Nomemo, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+PRIV(ATE)?$",
-					 &ns_Unset_Private);
+					 &ns_Unset_Private, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+((PRIV)?MSG)$",
-					 &ns_Unset_Privmsg);
+					 &ns_Unset_Privmsg, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+PIC(TURE)?$",
-					 &ns_Unset_Picture);
+					 &ns_Unset_Picture, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3));
+								 _1, _2, _3), comm_regd);
 
 	serv.PushCommand("^SET\\s+COMMENT$",
 					 &ns_Set_Comment, comm_opersop);

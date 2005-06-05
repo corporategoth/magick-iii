@@ -297,12 +297,21 @@ void Dependency::Update()
 	}
 	else if (msg_.ID() == "NICK")
 	{
-		if (msg_.Params().size() > ROOT->proto.Param_Nick_Name())
-			Add(NickNotExists, msg_.Params()[ROOT->proto.Param_Nick_Name()]);
-//        else if (msg_.Params().size() > ROOT->proto.Param_Nick_ID())
-//            Add(NickNotExists, msg_.Params()[ROOT->proto.Param_Nick_ID()]);
-		else if (msg_.Params().size() > ROOT->proto.Param_Nick_Server())
-			Add(ServerExists, msg_.Params()[ROOT->proto.Param_Nick_Server()]);
+		if (msg_.Params().size() < 4)
+		{
+			static mantra::iequal_to<std::string> cmp;
+			if (!cmp(msg_.Source(), msg_.Params()[0]))
+				Add(NickNotExists, msg_.Params()[0]);
+		}
+		else
+		{
+			if (msg_.Params().size() > ROOT->proto.Param_Nick_Name())
+				Add(NickNotExists, msg_.Params()[ROOT->proto.Param_Nick_Name()]);
+//	        else if (msg_.Params().size() > ROOT->proto.Param_Nick_ID())
+// 	           Add(NickNotExists, msg_.Params()[ROOT->proto.Param_Nick_ID()]);
+			else if (msg_.Params().size() > ROOT->proto.Param_Nick_Server())
+				Add(ServerExists, msg_.Params()[ROOT->proto.Param_Nick_Server()]);
+		}
 	}
 	else if (msg_.ID() == "PART")
 	{

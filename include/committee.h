@@ -122,18 +122,18 @@ public:
 	void Website(const std::string &in);
 	std::string Website() const;
 
-	void Private(const boost::logic::tribool &in);
+	bool Private(const boost::logic::tribool &in);
 	bool Private() const;
-	void OpenMemos(const boost::logic::tribool &in);
+	bool OpenMemos(const boost::logic::tribool &in);
 	bool OpenMemos() const;
-	void Secure(const boost::logic::tribool &in);
+	bool Secure(const boost::logic::tribool &in);
 	bool Secure() const;
 
-	void LOCK_Private(const bool &in);
+	bool LOCK_Private(const bool &in);
 	bool LOCK_Private() const;
-	void LOCK_OpenMemos(const bool &in);
+	bool LOCK_OpenMemos(const bool &in);
 	bool LOCK_OpenMemos() const;
-	void LOCK_Secure(const bool &in);
+	bool LOCK_Secure(const bool &in);
 	bool LOCK_Secure() const;
 
 	class Member : public boost::totally_ordered1<Member>

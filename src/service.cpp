@@ -486,7 +486,15 @@ bool Service::Execute(const boost::shared_ptr<LiveUser> &service,
 						std::vector<std::string>::const_iterator j;
 						for (j = i->perms.begin(); j != i->perms.end(); ++j)
 						{
-							if (user->InCommittee(*j))
+							static mantra::iequal_to<std::string> cmp;
+							if (cmp(*j, ROOT->ConfigValue<std::string>("commserv.all.name")))
+								break;
+							else if (cmp(*j, ROOT->ConfigValue<std::string>("commserv.regd.name")))
+							{
+								if (user->Recognized())
+									break;
+							}
+							else if (user->InCommittee(*j))
 								break;
 						}
 						// Not in any required committee, skip.

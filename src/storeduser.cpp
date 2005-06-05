@@ -610,10 +610,16 @@ std::string StoredUser::Language() const
 	MT_FUNC("StoredUser::Language");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(id_, "language");
-	if (rv.type() == typeid(mantra::NullValue))
-		MT_RET(ret);
-	ret = boost::get<std::string>(rv);
+	if (ROOT->ConfigValue<bool>("nickserv.lock.language"))
+		ret = ROOT->ConfigValue<std::string>("nickserv.defaults.language");
+	else
+	{
+		mantra::StorageValue rv = storage.GetField(id_, "language");
+		if (rv.type() == typeid(mantra::NullValue))
+			ret = ROOT->ConfigValue<std::string>("nickserv.defaults.language");
+		else
+			ret = boost::get<std::string>(rv);
+	}
 
 	MT_RET(ret);
 	MT_EE
@@ -642,11 +648,16 @@ bool StoredUser::Protect() const
 	MT_FUNC("StoredUser::Protect");
 
 	bool ret;
-	mantra::StorageValue rv = storage.GetField(id_, "protect");
-	if (rv.type() == typeid(mantra::NullValue))
+	if (ROOT->ConfigValue<bool>("nickserv.lock.protect"))
 		ret = ROOT->ConfigValue<bool>("nickserv.defaults.protect");
 	else
-		ret = boost::get<bool>(rv);
+	{
+		mantra::StorageValue rv = storage.GetField(id_, "protect");
+		if (rv.type() == typeid(mantra::NullValue))
+			ret = ROOT->ConfigValue<bool>("nickserv.defaults.protect");
+		else
+			ret = boost::get<bool>(rv);
+	}
 
 	MT_RET(ret);
 	MT_EE
@@ -675,11 +686,16 @@ bool StoredUser::Secure() const
 	MT_FUNC("StoredUser::Secure");
 
 	bool ret;
-	mantra::StorageValue rv = storage.GetField(id_, "secure");
-	if (rv.type() == typeid(mantra::NullValue))
+	if (ROOT->ConfigValue<bool>("nickserv.lock.protect"))
 		ret = ROOT->ConfigValue<bool>("nickserv.defaults.secure");
 	else
-		ret = boost::get<bool>(rv);
+	{
+		mantra::StorageValue rv = storage.GetField(id_, "secure");
+		if (rv.type() == typeid(mantra::NullValue))
+			ret = ROOT->ConfigValue<bool>("nickserv.defaults.secure");
+		else
+			ret = boost::get<bool>(rv);
+	}
 
 	MT_RET(ret);
 	MT_EE
@@ -708,11 +724,16 @@ bool StoredUser::NoMemo() const
 	MT_FUNC("StoredUser::NoMemo");
 
 	bool ret;
-	mantra::StorageValue rv = storage.GetField(id_, "nomemo");
-	if (rv.type() == typeid(mantra::NullValue))
+	if (ROOT->ConfigValue<bool>("nickserv.lock.nomemo"))
 		ret = ROOT->ConfigValue<bool>("nickserv.defaults.nomemo");
 	else
-		ret = boost::get<bool>(rv);
+	{
+		mantra::StorageValue rv = storage.GetField(id_, "nomemo");
+		if (rv.type() == typeid(mantra::NullValue))
+			ret = ROOT->ConfigValue<bool>("nickserv.defaults.nomemo");
+		else
+			ret = boost::get<bool>(rv);
+	}
 
 	MT_RET(ret);
 	MT_EE
@@ -741,11 +762,16 @@ bool StoredUser::Private() const
 	MT_FUNC("StoredUser::Private");
 
 	bool ret;
-	mantra::StorageValue rv = storage.GetField(id_, "private");
-	if (rv.type() == typeid(mantra::NullValue))
+	if (ROOT->ConfigValue<bool>("nickserv.lock.private"))
 		ret = ROOT->ConfigValue<bool>("nickserv.defaults.private");
 	else
-		ret = boost::get<bool>(rv);
+	{
+		mantra::StorageValue rv = storage.GetField(id_, "private");
+		if (rv.type() == typeid(mantra::NullValue))
+			ret = ROOT->ConfigValue<bool>("nickserv.defaults.private");
+		else
+			ret = boost::get<bool>(rv);
+	}
 
 	MT_RET(ret);
 	MT_EE
@@ -774,11 +800,16 @@ bool StoredUser::PRIVMSG() const
 	MT_FUNC("StoredUser::PRIVMSG");
 
 	bool ret;
-	mantra::StorageValue rv = storage.GetField(id_, "privmsg");
-	if (rv.type() == typeid(mantra::NullValue))
+	if (ROOT->ConfigValue<bool>("nickserv.lock.privmsg"))
 		ret = ROOT->ConfigValue<bool>("nickserv.defaults.privmsg");
 	else
-		ret = boost::get<bool>(rv);
+	{
+		mantra::StorageValue rv = storage.GetField(id_, "privmsg");
+		if (rv.type() == typeid(mantra::NullValue))
+			ret = ROOT->ConfigValue<bool>("nickserv.defaults.privmsg");
+		else
+			ret = boost::get<bool>(rv);
+	}
 
 	MT_RET(ret);
 	MT_EE
@@ -807,11 +838,16 @@ bool StoredUser::NoExpire() const
 	MT_FUNC("StoredUser::NoExpire");
 
 	bool ret;
-	mantra::StorageValue rv = storage.GetField(id_, "noexpire");
-	if (rv.type() == typeid(mantra::NullValue))
+	if (ROOT->ConfigValue<bool>("nickserv.lock.noexpire"))
 		ret = ROOT->ConfigValue<bool>("nickserv.defaults.noexpire");
 	else
-		ret = boost::get<bool>(rv);
+	{
+		mantra::StorageValue rv = storage.GetField(id_, "noexpire");
+		if (rv.type() == typeid(mantra::NullValue))
+			ret = ROOT->ConfigValue<bool>("nickserv.defaults.noexpire");
+		else
+			ret = boost::get<bool>(rv);
+	}
 
 	MT_RET(ret);
 	MT_EE

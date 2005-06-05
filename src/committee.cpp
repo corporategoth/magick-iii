@@ -50,7 +50,6 @@ Committee::Committee(const std::string &name)
 	MT_EB
 	MT_FUNC("Committee::Committee" << name);
 
-
 	MT_EE
 }
 
@@ -58,6 +57,15 @@ boost::shared_ptr<Committee> Committee::create(const std::string &name)
 {
 	MT_EB
 	MT_FUNC("Committee::create" << name);
+
+	static mantra::iequal_to<std::string> cmp;
+	if (cmp(name, ROOT->ConfigValue<std::string>("commserv.oper.name")) ||
+		cmp(name, ROOT->ConfigValue<std::string>("commserv.sop.name")) ||
+		cmp(name, ROOT->ConfigValue<std::string>("commserv.admin.name")))
+	{
+		boost::shared_ptr<Committee> rv;
+		MT_RET(rv);
+	}
 
 	mantra::Storage::RecordMap rec;
 	rec["name"] = name;
@@ -75,6 +83,15 @@ boost::shared_ptr<Committee> Committee::create(const std::string &name,
 	MT_EB
 	MT_FUNC("Committee::create" << name << head);
 
+	static mantra::iequal_to<std::string> cmp;
+	if (cmp(name, ROOT->ConfigValue<std::string>("commserv.all.name")) ||
+		cmp(name, ROOT->ConfigValue<std::string>("commserv.regd.name")) ||
+		cmp(name, ROOT->ConfigValue<std::string>("commserv.sadmin.name")))
+	{
+		boost::shared_ptr<Committee> rv;
+		MT_RET(rv);
+	}
+
 	mantra::Storage::RecordMap rec;
 	rec["name"] = name;
 	rec["head_committee"] = head->Name();
@@ -91,6 +108,18 @@ boost::shared_ptr<Committee> Committee::create(const std::string &name,
 {
 	MT_EB
 	MT_FUNC("Committee::create" << name << head);
+
+	static mantra::iequal_to<std::string> cmp;
+	if (cmp(name, ROOT->ConfigValue<std::string>("commserv.all.name")) ||
+		cmp(name, ROOT->ConfigValue<std::string>("commserv.regd.name")) ||
+		cmp(name, ROOT->ConfigValue<std::string>("commserv.oper.name")) ||
+		cmp(name, ROOT->ConfigValue<std::string>("commserv.sop.name")) ||
+		cmp(name, ROOT->ConfigValue<std::string>("commserv.admin.name")) ||
+		cmp(name, ROOT->ConfigValue<std::string>("commserv.sadmin.name")))
+	{
+		boost::shared_ptr<Committee> rv;
+		MT_RET(rv);
+	}
 
 	mantra::Storage::RecordMap rec;
 	rec["name"] = name;
@@ -219,6 +248,16 @@ void Committee::Head(const boost::shared_ptr<StoredUser> &head)
 	MT_EB
 	MT_FUNC("Committee::Head" << head);
 
+	if (*this == ROOT->ConfigValue<std::string>("commserv.all.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.regd.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.oper.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.sop.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.admin.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.sadmin.name"))
+	{
+		return;
+	}
+
 	mantra::Storage::RecordMap rec;
 	rec["head_committee"] = mantra::NullValue();
 	rec["head_user"] = head->ID();
@@ -231,6 +270,16 @@ void Committee::Head(const boost::shared_ptr<Committee> &head)
 {
 	MT_EB
 	MT_FUNC("Committee::Head" << head);
+
+	if (*this == ROOT->ConfigValue<std::string>("commserv.all.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.regd.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.oper.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.sop.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.admin.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.sadmin.name"))
+	{
+		return;
+	}
 
 	mantra::Storage::RecordMap rec;
 	rec["head_committee"] = head->Name();
@@ -351,19 +400,20 @@ std::string Committee::Website() const
 	MT_EE
 }
 
-void Committee::Private(const boost::logic::tribool &in)
+bool Committee::Private(const boost::logic::tribool &in)
 {
 	MT_EB
 	MT_FUNC("Committee::Private" << in);
 
 	if (LOCK_Private())
-		return;
+		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
 		storage.PutField(name_, "private", mantra::NullValue::instance());
 	else
 		storage.PutField(name_, "private", (bool) in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -373,29 +423,35 @@ bool Committee::Private() const
 	MT_FUNC("Committee::Private");
 
 	bool ret;
-	mantra::StorageValue rv = storage.GetField(name_, "private");
-	if (rv.type() == typeid(mantra::NullValue))
+	if (ROOT->ConfigValue<bool>("commserv.lock.private"))
 		ret = ROOT->ConfigValue<bool>("commserv.defaults.private");
 	else
-		ret = boost::get<bool>(rv);
+	{
+		mantra::StorageValue rv = storage.GetField(name_, "private");
+		if (rv.type() == typeid(mantra::NullValue))
+			ret = ROOT->ConfigValue<bool>("commserv.defaults.private");
+		else
+			ret = boost::get<bool>(rv);
+	}
 
 	MT_RET(ret);
 	MT_EE
 }
 
-void Committee::OpenMemos(const boost::logic::tribool &in)
+bool Committee::OpenMemos(const boost::logic::tribool &in)
 {
 	MT_EB
 	MT_FUNC("Committee::OpenMemos" << in);
 
 	if (LOCK_OpenMemos())
-		return;
+		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
 		storage.PutField(name_, "openmemos", mantra::NullValue::instance());
 	else
 		storage.PutField(name_, "openmemos", (bool) in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -405,29 +461,35 @@ bool Committee::OpenMemos() const
 	MT_FUNC("Committee::OpenMemos");
 
 	bool ret;
-	mantra::StorageValue rv = storage.GetField(name_, "openmemos");
-	if (rv.type() == typeid(mantra::NullValue))
+	if (ROOT->ConfigValue<bool>("commserv.lock.openmemos"))
 		ret = ROOT->ConfigValue<bool>("commserv.defaults.openmemos");
 	else
-		ret = boost::get<bool>(rv);
+	{
+		mantra::StorageValue rv = storage.GetField(name_, "openmemos");
+		if (rv.type() == typeid(mantra::NullValue))
+			ret = ROOT->ConfigValue<bool>("commserv.defaults.openmemos");
+		else
+			ret = boost::get<bool>(rv);
+	}
 
 	MT_RET(ret);
 	MT_EE
 }
 
-void Committee::Secure(const boost::logic::tribool &in)
+bool Committee::Secure(const boost::logic::tribool &in)
 {
 	MT_EB
 	MT_FUNC("Committee::Secure" << in);
 
 	if (LOCK_Secure())
-		return;
+		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
 		storage.PutField(name_, "secure", mantra::NullValue::instance());
 	else
 		storage.PutField(name_, "secure", (bool) in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -437,26 +499,39 @@ bool Committee::Secure() const
 	MT_FUNC("Committee::Secure");
 
 	bool ret;
-	mantra::StorageValue rv = storage.GetField(name_, "secure");
-	if (rv.type() == typeid(mantra::NullValue))
+	if (ROOT->ConfigValue<bool>("commserv.lock.secure"))
 		ret = ROOT->ConfigValue<bool>("commserv.defaults.secure");
 	else
-		ret = boost::get<bool>(rv);
+	{
+		mantra::StorageValue rv = storage.GetField(name_, "secure");
+		if (rv.type() == typeid(mantra::NullValue))
+			ret = ROOT->ConfigValue<bool>("commserv.defaults.secure");
+		else
+			ret = boost::get<bool>(rv);
+	}
 
 	MT_RET(ret);
 	MT_EE
 }
 
-void Committee::LOCK_Private(const bool &in)
+bool Committee::LOCK_Private(const bool &in)
 {
 	MT_EB
 	MT_FUNC("Committee::LOCK_Private" << in);
 
 	if (ROOT->ConfigValue<bool>("commserv.lock.private"))
-		return;
+		MT_RET(false);
+
+	if (*this == ROOT->ConfigValue<std::string>("commserv.all.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.regd.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.sadmin.name"))
+	{
+		MT_RET(false);
+	}
 
 	storage.PutField(name_, "lock_private", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -477,16 +552,24 @@ bool Committee::LOCK_Private() const
 	MT_EE
 }
 
-void Committee::LOCK_OpenMemos(const bool &in)
+bool Committee::LOCK_OpenMemos(const bool &in)
 {
 	MT_EB
 	MT_FUNC("Committee::LOCK_OpenMemos" << in);
 
 	if (ROOT->ConfigValue<bool>("commserv.lock.openmemos"))
-		return;
+		MT_RET(false);
+
+	if (*this == ROOT->ConfigValue<std::string>("commserv.all.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.regd.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.sadmin.name"))
+	{
+		MT_RET(false);
+	}
 
 	storage.PutField(name_, "lock_openmemos", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -507,16 +590,24 @@ bool Committee::LOCK_OpenMemos() const
 	MT_EE
 }
 
-void Committee::LOCK_Secure(const bool &in)
+bool Committee::LOCK_Secure(const bool &in)
 {
 	MT_EB
 	MT_FUNC("Committee::LOCK_Secure" << in);
 
 	if (ROOT->ConfigValue<bool>("commserv.lock.secure"))
-		return;
+		MT_RET(false);
+
+	if (*this == ROOT->ConfigValue<std::string>("commserv.all.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.regd.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.sadmin.name"))
+	{
+		MT_RET(false);
+	}
 
 	storage.PutField(name_, "lock_secure", in);
 
+	MT_RET(true);
 	MT_EE
 }
 
@@ -561,8 +652,6 @@ void Committee::Drop()
 	MT_EE
 }
 
-
-
 bool Committee::MEMBER_Exists(const boost::shared_ptr<StoredUser> &entry) const
 {
 	MT_EB
@@ -581,6 +670,14 @@ Committee::Member Committee::MEMBER_Add(const boost::shared_ptr<StoredUser> &ent
 {
 	MT_EB
 	MT_FUNC("Committee::MEMBER_Add" << entry << updater);
+
+	if (*this == ROOT->ConfigValue<std::string>("commserv.all.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.regd.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.sadmin.name"))
+	{
+		Member m;
+		MT_RET(m);
+	}
 
 	mantra::Storage::RecordMap rec;
 	rec["name"] = name_;

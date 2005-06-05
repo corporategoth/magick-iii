@@ -110,6 +110,11 @@ boost::shared_ptr<LiveUser> LiveUser::create(const std::string &name,
 												server, signon, id));
 	rv->self = rv;
 
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(
+		ROOT->ConfigValue<std::string>("commserv.all.name"));
+	rv->committees_.insert(comm);
+	if_Committee_LiveUser(comm).Online(rv);
+
 	boost::shared_ptr<StoredNick> stored = ROOT->data.Get_StoredNick(name);
 	if (stored && !stored->User()->Secure() &&
 		stored->User()->ACCESS_Matches(user + "@" + host))
@@ -117,10 +122,15 @@ boost::shared_ptr<LiveUser> LiveUser::create(const std::string &name,
 		rv->stored_ = stored;
 		if_StoredNick_LiveUser(stored).Online(rv);
 
-		std::set<boost::shared_ptr<Committee> > comm =
+		comm = ROOT->data.Get_Committee(
+			ROOT->ConfigValue<std::string>("commserv.regd.name"));
+		rv->committees_.insert(comm);
+		if_Committee_LiveUser(comm).Online(rv);
+
+		std::set<boost::shared_ptr<Committee> > allcomm =
 			Committee::FindCommittees(stored->User());
 		std::set<boost::shared_ptr<Committee> >::const_iterator i;
-		for (i = comm.begin(); i != comm.end(); ++i)
+		for (i = allcomm.begin(); i != allcomm.end(); ++i)
 			if (!(*i)->Secure())
 			{
 				rv->committees_.insert(*i);
@@ -141,19 +151,33 @@ void LiveUser::Stored(const boost::shared_ptr<StoredNick> &nick)
 	SYNC_WLOCK(stored_);
 	if (nick)
 	{
-		stored_ = nick;
-		identified_ = true;
+		// This should not happen, but ...
+		if (stored_)
+		{
+			SYNC_UNLOCK(stored_);
+			Stored(boost::shared_ptr<StoredNick>());
+			SYNC_RELOCK(stored_);
+		}
 
 		SYNC_LOCK(committees_);
-		std::set<boost::shared_ptr<Committee> > comm =
+		boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(
+			ROOT->ConfigValue<std::string>("commserv.regd.name"));
+		committees_.insert(comm);
+		if_Committee_LiveUser(comm).Online(self.lock());
+
+		std::set<boost::shared_ptr<Committee> > allcomm =
 			Committee::FindCommittees(nick->User());
 		std::set<boost::shared_ptr<Committee> >::const_iterator i;
-		for (i = comm.begin(); i != comm.end(); ++i)
+		for (i = allcomm.begin(); i != allcomm.end(); ++i)
 			if (committees_.find(*i) == committees_.end())
 			{
 				committees_.insert(*i);
 				if_Committee_LiveUser(*i).Online(self.lock());
 			}
+
+		stored_ = nick;
+		identified_ = true;
+
 	}
 	else
 	{
@@ -170,10 +194,21 @@ void LiveUser::Stored(const boost::shared_ptr<StoredNick> &nick)
 		}
 
 		SYNC_LOCK(committees_);
+		boost::shared_ptr<Committee> comm;
 		committees_t::iterator i;
 		for (i=committees_.begin(); i!=committees_.end(); ++i)
+		{
+			// Don't let us remove ourselves from 'all'.
+			if (**i == ROOT->ConfigValue<std::string>("commserv.all.name"))
+			{
+				comm = *i;
+				continue;
+			}
 			if_Committee_LiveUser(*i).Offline(self.lock());
+		}
 		committees_.clear();
+		if (comm)
+			committees_.insert(comm);
 	}
 
 	MT_EE
@@ -242,31 +277,58 @@ void LiveUser::Name(const std::string &in)
 				if (!stored->User()->Secure() &&
 					stored->User()->ACCESS_Matches(User() + "@" + Host()))
 				{
-					SYNC_LOCK(committees_);
-					committees_t::iterator i;
-					for (i=committees_.begin(); i!=committees_.end(); ++i)
-						if_Committee_LiveUser(*i).Offline(self.lock());
-					committees_.clear();
-
 					stored_ = stored;
 
-					std::set<boost::shared_ptr<Committee> > comm =
+					SYNC_LOCK(committees_);
+					std::set<boost::shared_ptr<Committee> > allcomm =
 						Committee::FindCommittees(stored->User());
+
+					committees_t::iterator i = committees_.begin();
+					while (i != committees_.end())
+					{
+						if (**i == ROOT->ConfigValue<std::string>("commserv.all.name") ||
+							**i == ROOT->ConfigValue<std::string>("commserv.regd.name"))
+						{
+							++i;
+						}
+						else if (allcomm.find(*i) == allcomm.end() ||
+								 (*i)->Secure())
+						{
+							if_Committee_LiveUser(*i).Offline(self.lock());
+							committees_.erase(i++);
+						}
+						else
+							++i;
+					}
+
 					std::set<boost::shared_ptr<Committee> >::const_iterator j;
-					for (j = comm.begin(); j != comm.end(); ++j)
-						if (!(*j)->Secure())
+					for (j = allcomm.begin(); j != allcomm.end(); ++j)
+					{
+						if (committees_.find(*j) == committees_.end() &&
+							!(*j)->Secure())
 						{
 							committees_.insert(*j);
 							if_Committee_LiveUser(*j).Online(self.lock());
 						}
+					}
 				}
 				else
 				{
+					boost::shared_ptr<Committee> comm;
 					SYNC_LOCK(committees_);
 					committees_t::iterator i;
 					for (i=committees_.begin(); i!=committees_.end(); ++i)
+					{
+						if (**i == ROOT->ConfigValue<std::string>("commserv.all.name"))
+						{
+							comm = *i;
+							continue;
+						}
 						if_Committee_LiveUser(*i).Offline(self.lock());
+					}
 					committees_.clear();
+					if (comm)
+						committees_.insert(*i);
 
 					stored_.reset();
 				}
@@ -278,11 +340,21 @@ void LiveUser::Name(const std::string &in)
 		}
 		else
 		{
+			boost::shared_ptr<Committee> comm;
 			SYNC_LOCK(committees_);
 			committees_t::iterator i;
 			for (i=committees_.begin(); i!=committees_.end(); ++i)
+			{
+				if (**i == ROOT->ConfigValue<std::string>("commserv.all.name"))
+				{
+					comm = *i;
+					continue;
+				}
 				if_Committee_LiveUser(*i).Offline(self.lock());
+			}
 			committees_.clear();
+			if (comm)
+				committees_.insert(*i);
 
 			identified_ = false;
 			stored_.reset();
@@ -338,6 +410,7 @@ void LiveUser::Quit(const std::string &reason)
 	}
 	// Sign off committees
 	{
+		// this time we DO want to sign off EVERYTHING!
 		SYNC_LOCK(committees_);
 		committees_t::iterator i;
 		for (i=committees_.begin(); i!=committees_.end(); ++i)
@@ -549,15 +622,20 @@ bool LiveUser::Identify(const std::string &in)
 		if (!stored_)
 		{
 			if_StoredNick_LiveUser(stored).Online(self.lock());
+			SYNC_LOCK(committees_);
+			boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(
+				ROOT->ConfigValue<std::string>("commserv.regd.name"));
+			committees_.insert(comm);
+			if_Committee_LiveUser(comm).Online(self.lock());
 		}
 		stored_ = stored;
 		password_fails_ = 0;
 
 		SYNC_LOCK(committees_);
-		std::set<boost::shared_ptr<Committee> > comm =
+		std::set<boost::shared_ptr<Committee> > allcomm =
 			Committee::FindCommittees(stored->User());
 		std::set<boost::shared_ptr<Committee> >::const_iterator i;
-		for (i = comm.begin(); i != comm.end(); ++i)
+		for (i = allcomm.begin(); i != allcomm.end(); ++i)
 			if (committees_.find(*i) == committees_.end())
 			{
 				committees_.insert(*i);
@@ -591,17 +669,28 @@ void LiveUser::UnIdentify()
 		if_StoredNick_LiveUser(stored_).Offline(std::string());
 		stored_.reset();
 
+		boost::shared_ptr<Committee> comm;
 		SYNC_LOCK(committees_);
 		committees_t::iterator i;
 		for (i=committees_.begin(); i!=committees_.end(); ++i)
+		{
+			if (**i == ROOT->ConfigValue<std::string>("commserv.all.name"))
+			{
+				comm = *i;
+				continue;
+			}
 			if_Committee_LiveUser(*i).Offline(self.lock());
+		}
 		committees_.clear();
+		if (comm)
+			committees_.insert(*i);
 	}
 	else
 	{
 		SYNC_LOCK(committees_);
 		committees_t::iterator i = committees_.begin();
 		while (i != committees_.end())
+		{
 			if ((*i)->Secure())
 			{
 				if_Committee_LiveUser(*i).Offline(self.lock());
@@ -609,6 +698,7 @@ void LiveUser::UnIdentify()
 			}
 			else
 				++i;
+		}
 	}
 
 	MT_EE
