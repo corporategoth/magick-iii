@@ -246,6 +246,61 @@ static bool ns_Link(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
+static bool ns_Links(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("ns_Ignore_List" << service << user << params);
+
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	boost::shared_ptr<StoredNick> nick;
+	if (params.size() < 2)
+	{
+		nick = user->Stored();
+		if (!nick)
+		{
+			SEND(service, user,
+				 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+			MT_RET(false);
+		}
+	}
+	else
+	{
+		nick = ROOT->data.Get_StoredNick(params[1]);
+		if (!nick)
+		{
+			SEND(service, user,
+				 N_("Nickname %1% is not registered."), params[1]);
+			MT_RET(false);
+		}
+	}
+
+	StoredUser::my_nicks_t nicks = nick->User()->Nicks();
+	std::string str;
+	StoredUser::my_nicks_t::const_iterator j;
+	for (j = nicks.begin(); j != nicks.end(); ++j)
+	{
+		if (!*j)
+			continue;
+
+		if (!str.empty())
+			str += ", ";
+		str += (*j)->Name();
+	}
+
+	if (params.size() < 2)
+		SEND(service, user, N_("Your nicknames: %1%"), str);
+	else
+		SEND(service, user, N_("Linked nicknames for %1%: %2%"),
+			 nick->Name() % str);
+
+	MT_RET(true);
+	MT_EE
+}
+
 static bool ns_Identify(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
@@ -1126,7 +1181,6 @@ static bool ns_Ignore_List(const boost::shared_ptr<LiveUser> &service,
 		NSEND(service, user, N_("Your memo ignore list is empty."));
 		MT_RET(false);
 	}
-
 
 	MT_RET(true);
 	MT_EE
@@ -2914,6 +2968,7 @@ void init_nickserv_functions(Service &serv)
 	serv.PushCommand("^REGISTER$", &ns_Register);
 	serv.PushCommand("^DROP$", &ns_Drop, comm_regd);
 	serv.PushCommand("^LINK$", &ns_Link);
+	serv.PushCommand("^LINK(S|LIST)$", &ns_Links);
 	serv.PushCommand("^ID(ENT(IFY)?)?$", &ns_Identify);
 	serv.PushCommand("^INFO$", &ns_Info);
 	serv.PushCommand("^GHOST$", &ns_Ghost);
