@@ -56,6 +56,7 @@ boost::shared_ptr<StoredChannel> StoredChannel::create(const std::string &name,
 	storage.InsertRow(rec);
 	
 	boost::shared_ptr<StoredChannel> rv = load(name);
+	ROOT->data.Add(rv);
 
 	MT_RET(rv);
 	MT_EE
@@ -73,6 +74,55 @@ boost::shared_ptr<StoredChannel> StoredChannel::load(const std::string &name)
 		if_LiveChannel_StoredChannel(rv->live_).Stored(rv);
 
 	MT_RET(rv);
+	MT_EE
+}
+
+void StoredChannel::expire()
+{
+	MT_EB
+	MT_FUNC("StoredChannel::expire");
+
+	bool locked = false;
+	if (ROOT->ConfigValue<bool>("chanserv.lock.noexpire"))
+	{
+		if (ROOT->ConfigValue<bool>("chanserv.defaults.noexpire"))
+			return;
+		else
+			locked = true;
+	}
+
+	boost::posix_time::ptime exptime = mantra::GetCurrentDateTime() - 
+					ROOT->ConfigValue<mantra::duration>("chanserv.expire");
+
+	mantra::Storage::DataSet data;
+	mantra::Storage::FieldSet fields;
+	fields.insert("name");
+
+	mantra::ComparisonSet cs = mantra::Comparison<mantra::C_LessThan>::make("last_used", exptime);
+	if (!locked)
+		cs.And(mantra::Comparison<mantra::C_EqualTo>::make("noexpire", false) ||
+			   mantra::Comparison<mantra::C_EqualTo>::make("noexpire", mantra::NullValue()));
+	storage.RetrieveRow(data, cs, fields);
+
+	if (data.empty())
+		return;
+
+	mantra::Storage::DataSet::const_iterator i = data.begin();
+	for (i = data.begin(); i != data.end(); ++i)
+	{
+		mantra::Storage::RecordMap::const_iterator j = i->find("name");
+		if (j == i->end() || j->second.type() == typeid(mantra::NullValue))
+			continue;
+
+		boost::shared_ptr<StoredChannel> channel = ROOT->data.Get_StoredChannel(
+									boost::get<std::string>(j->second));
+		if (!channel)
+			continue;
+
+		LOG(Notice, "Expiring channel %1%.", channel->Name());
+		channel->Drop();
+	}
+
 	MT_EE
 }
 

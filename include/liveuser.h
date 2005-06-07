@@ -165,8 +165,10 @@ private:
 	messages_t SYNC(messages_);
 	unsigned int flood_triggers_;
 	bool ignored_;
+	unsigned int ignore_timer_;
 
 	// If this is set, we're recognized.
+	unsigned int ident_timer_;
 	bool identified_;
 	boost::shared_ptr<StoredNick> RWSYNC(stored_);
 	unsigned int password_fails_;
@@ -202,6 +204,7 @@ private:
 	void Memo();
 
 	void unignore();
+	void protect();
 	LiveUser(Service *service, const std::string &name,
 			 const std::string &real,
 			 const boost::shared_ptr<Server> &server,
@@ -212,15 +215,12 @@ private:
 			 const boost::posix_time::ptime &signon,
 			 const std::string &id);
 public:
-	static inline boost::shared_ptr<LiveUser> create(Service *s,
+	~LiveUser();
+
+	static boost::shared_ptr<LiveUser> create(Service *s,
 			const std::string &name, const std::string &real,
 			const boost::shared_ptr<Server> &server,
-			const std::string &id = std::string())
-	{
-		boost::shared_ptr<LiveUser> rv(new LiveUser(s, name, real, server, id));
-		rv->self = rv;
-		return rv;
-	}
+			const std::string &id = std::string());
 
 	static boost::shared_ptr<LiveUser> create(const std::string &name,
 			const std::string &real, const std::string &user,

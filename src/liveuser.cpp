@@ -52,9 +52,9 @@ LiveUser::LiveUser(Service *service, const std::string &name,
 	: SYNC_RWINIT(name_, reader_priority, name), id_(id), real_(real),
 	  server_(server), signon_(mantra::GetCurrentDateTime()),
 	  seen_(mantra::GetCurrentDateTime()), service_(service),
-	  flood_triggers_(0), ignored_(false), identified_(true),
-	  SYNC_NRWINIT(stored_, reader_priority), password_fails_(0),
-	  drop_token_(std::make_pair(std::string(), 0)),
+	  flood_triggers_(0), ignored_(false), ignore_timer_(0), ident_timer_(0),
+	  identified_(true), SYNC_NRWINIT(stored_, reader_priority),
+	  password_fails_(0), drop_token_(std::make_pair(std::string(), 0)),
 	  last_nick_reg_(boost::date_time::not_a_date_time),
 	  last_channel_reg_(boost::date_time::not_a_date_time),
 	  last_memo_(boost::date_time::not_a_date_time)
@@ -83,15 +83,44 @@ LiveUser::LiveUser(const std::string &name, const std::string &real,
 	: SYNC_RWINIT(name_, reader_priority, name),
 	  id_(id), real_(real), user_(user), host_(host),
 	  server_(server), signon_(signon), seen_(mantra::GetCurrentDateTime()),
-	  service_(NULL), flood_triggers_(0), ignored_(false), identified_(false),
-	  SYNC_NRWINIT(stored_, reader_priority), password_fails_(0),
-	  drop_token_(std::make_pair(std::string(), 0)),
+	  service_(NULL), flood_triggers_(0), ignored_(false), ignore_timer_(0),
+	  ident_timer_(0), identified_(false), SYNC_NRWINIT(stored_, reader_priority),
+	  password_fails_(0), drop_token_(std::make_pair(std::string(), 0)),
 	  last_nick_reg_(boost::date_time::not_a_date_time),
 	  last_channel_reg_(boost::date_time::not_a_date_time),
 	  last_memo_(boost::date_time::not_a_date_time)
 {
 	MT_EB
 	MT_FUNC("LiveUser::LiveUser" << name << real << user << host << server << signon << id);
+
+	MT_EE
+}
+
+LiveUser::~LiveUser()
+{
+	// Cancel ALL pending timers ...
+	if (ignore_timer_)
+		ROOT->event->Cancel(ignore_timer_);
+	if (ident_timer_)
+		ROOT->event->Cancel(ident_timer_);
+	if (drop_token_.second)
+		ROOT->event->Cancel(drop_token_.second);
+	channel_drop_token_t::iterator i;
+	for (i = channel_drop_token_.begin(); i != channel_drop_token_.end(); ++i)
+		ROOT->event->Cancel(i->second.second);
+}
+
+boost::shared_ptr<LiveUser> LiveUser::create(Service *s,
+			const std::string &name, const std::string &real,
+			const boost::shared_ptr<Server> &server, const std::string &id)
+{
+	MT_EB
+	MT_FUNC("LiveUser::create" << s << name << real << server << id);
+
+	boost::shared_ptr<LiveUser> rv(new LiveUser(s, name, real, server, id));
+	rv->self = rv;
+	ROOT->data.Add(rv);
+	MT_RET(rv);
 
 	MT_EE
 }
@@ -114,28 +143,57 @@ boost::shared_ptr<LiveUser> LiveUser::create(const std::string &name,
 		ROOT->ConfigValue<std::string>("commserv.all.name"));
 	rv->committees_.insert(comm);
 	if_Committee_LiveUser(comm).Online(rv);
+	ROOT->data.Add(rv);
 
-	boost::shared_ptr<StoredNick> stored = ROOT->data.Get_StoredNick(name);
-	if (stored && !stored->User()->Secure() &&
-		stored->User()->ACCESS_Matches(user + "@" + host))
+	if (ROOT->data.Forbid_Check(name))
 	{
-		rv->stored_ = stored;
-		if_StoredNick_LiveUser(stored).Online(rv);
-
-		comm = ROOT->data.Get_Committee(
-			ROOT->ConfigValue<std::string>("commserv.regd.name"));
-		rv->committees_.insert(comm);
-		if_Committee_LiveUser(comm).Online(rv);
-
-		std::set<boost::shared_ptr<Committee> > allcomm =
-			Committee::FindCommittees(stored->User());
-		std::set<boost::shared_ptr<Committee> >::const_iterator i;
-		for (i = allcomm.begin(); i != allcomm.end(); ++i)
-			if (!(*i)->Secure())
+		rv->ident_timer_ = ROOT->event->Schedule(boost::bind(&LiveUser::protect, rv.get()),
+							 ROOT->ConfigValue<mantra::duration>("nickserv.ident"));
+		if (ROOT->ConfigValue<bool>("nickserv.defaults.privmsg"))
+			ROOT->nickserv.PRIVMSG(rv, boost::format(_("This nickname is forbidden, you have %1% to change nicknames.")) %
+				   mantra::DurationToString(ROOT->ConfigValue<mantra::duration>("nickserv.ident"), mantra::Second));
+		else
+			ROOT->nickserv.NOTICE(rv, boost::format(_("This nickname is forbidden, you have %1% to change nicknames.")) %
+				   mantra::DurationToString(ROOT->ConfigValue<mantra::duration>("nickserv.ident"), mantra::Second));
+	}
+	else
+	{
+		boost::shared_ptr<StoredNick> stored = ROOT->data.Get_StoredNick(name);
+		if (stored)
+		{
+			if (!stored->User()->Secure() &&
+				stored->User()->ACCESS_Matches(user + "@" + host))
 			{
-				rv->committees_.insert(*i);
-				if_Committee_LiveUser(*i).Online(rv);
+				rv->stored_ = stored;
+				if_StoredNick_LiveUser(stored).Online(rv);
+
+				comm = ROOT->data.Get_Committee(
+					ROOT->ConfigValue<std::string>("commserv.regd.name"));
+				rv->committees_.insert(comm);
+				if_Committee_LiveUser(comm).Online(rv);
+
+				std::set<boost::shared_ptr<Committee> > allcomm =
+					Committee::FindCommittees(stored->User());
+				std::set<boost::shared_ptr<Committee> >::const_iterator i;
+				for (i = allcomm.begin(); i != allcomm.end(); ++i)
+					if (!(*i)->Secure())
+					{
+						rv->committees_.insert(*i);
+						if_Committee_LiveUser(*i).Online(rv);
+					}
 			}
+			else if (stored->User()->Protect())
+			{
+				rv->ident_timer_ = ROOT->event->Schedule(boost::bind(&LiveUser::protect, rv.get()),
+									 ROOT->ConfigValue<mantra::duration>("nickserv.ident"));
+				if (ROOT->ConfigValue<bool>("nickserv.defaults.privmsg"))
+					ROOT->nickserv.PRIVMSG(rv, boost::format(_("This nickname is registered, you have %1% to identify.")) %
+						   mantra::DurationToString(ROOT->ConfigValue<mantra::duration>("nickserv.ident"), mantra::Second));
+				else
+					ROOT->nickserv.NOTICE(rv, boost::format(_("This nickname is registered, you have %1% to identify.")) %
+						   mantra::DurationToString(ROOT->ConfigValue<mantra::duration>("nickserv.ident"), mantra::Second));
+			}
+		}
 	}
 
 	MT_RET(rv);
@@ -151,6 +209,12 @@ void LiveUser::Stored(const boost::shared_ptr<StoredNick> &nick)
 	SYNC_WLOCK(stored_);
 	if (nick)
 	{
+		if (ident_timer_)
+		{
+			ROOT->event->Cancel(ident_timer_);
+			ident_timer_ = 0;
+		}
+
 		// This should not happen, but ...
 		if (stored_)
 		{
@@ -181,6 +245,19 @@ void LiveUser::Stored(const boost::shared_ptr<StoredNick> &nick)
 	}
 	else
 	{
+		if (stored_ && stored_->User()->Protect() && (stored_->User()->Secure() ||
+			!stored_->User()->ACCESS_Matches(user_ + "@" + host_)))
+		{
+			ident_timer_ = ROOT->event->Schedule(boost::bind(&LiveUser::protect, this),
+								 ROOT->ConfigValue<mantra::duration>("nickserv.ident"));
+			if (ROOT->ConfigValue<bool>("nickserv.defaults.privmsg"))
+				ROOT->nickserv.PRIVMSG(self.lock(), boost::format(_("This nickname is registered, you have %1% to identify.")) %
+					   mantra::DurationToString(ROOT->ConfigValue<mantra::duration>("nickserv.ident"), mantra::Second));
+			else
+				ROOT->nickserv.NOTICE(self.lock(), boost::format(_("This nickname is registered, you have %1% to identify.")) %
+					   mantra::DurationToString(ROOT->ConfigValue<mantra::duration>("nickserv.ident"), mantra::Second));
+		}
+
 		stored_ = nick;
 		identified_ = false;
 
@@ -262,84 +339,29 @@ void LiveUser::Name(const std::string &in)
 		}
 	}
 
-	boost::shared_ptr<StoredNick> stored = ROOT->data.Get_StoredNick(in);
 	{
 		SYNC_WLOCK(stored_);
 		if (stored_)
+		{
 			if_StoredNick_LiveUser(stored_).Offline(
 				(boost::format(_("NICK CHANGE -> %1%")) % in).str());
-		if (stored)
-		{
-			if (!stored_ || stored->User() != stored_->User())
-			{
-				identified_ = false;
-
-				if (!stored->User()->Secure() &&
-					stored->User()->ACCESS_Matches(User() + "@" + Host()))
-				{
-					stored_ = stored;
-
-					SYNC_LOCK(committees_);
-					std::set<boost::shared_ptr<Committee> > allcomm =
-						Committee::FindCommittees(stored->User());
-
-					committees_t::iterator i = committees_.begin();
-					while (i != committees_.end())
-					{
-						if (**i == ROOT->ConfigValue<std::string>("commserv.all.name") ||
-							**i == ROOT->ConfigValue<std::string>("commserv.regd.name"))
-						{
-							++i;
-						}
-						else if (allcomm.find(*i) == allcomm.end() ||
-								 (*i)->Secure())
-						{
-							if_Committee_LiveUser(*i).Offline(self.lock());
-							committees_.erase(i++);
-						}
-						else
-							++i;
-					}
-
-					std::set<boost::shared_ptr<Committee> >::const_iterator j;
-					for (j = allcomm.begin(); j != allcomm.end(); ++j)
-					{
-						if (committees_.find(*j) == committees_.end() &&
-							!(*j)->Secure())
-						{
-							committees_.insert(*j);
-							if_Committee_LiveUser(*j).Online(self.lock());
-						}
-					}
-				}
-				else
-				{
-					boost::shared_ptr<Committee> comm;
-					SYNC_LOCK(committees_);
-					committees_t::iterator i;
-					for (i=committees_.begin(); i!=committees_.end(); ++i)
-					{
-						if (**i == ROOT->ConfigValue<std::string>("commserv.all.name"))
-						{
-							comm = *i;
-							continue;
-						}
-						if_Committee_LiveUser(*i).Offline(self.lock());
-					}
-					committees_.clear();
-					if (comm)
-						committees_.insert(*i);
-
-					stored_.reset();
-				}
-			}
-			else
-				stored_ = stored;
-			if (stored_)
-				if_StoredNick_LiveUser(stored_).Online(self.lock());
 		}
-		else
+		if (ident_timer_)
 		{
+			ROOT->event->Cancel(ident_timer_);
+			ident_timer_ = 0;
+		}
+		if (ROOT->data.Forbid_Check(in))
+		{
+			ident_timer_ = ROOT->event->Schedule(boost::bind(&LiveUser::protect, this),
+								 ROOT->ConfigValue<mantra::duration>("nickserv.ident"));
+			if (ROOT->ConfigValue<bool>("nickserv.defaults.privmsg"))
+				ROOT->nickserv.PRIVMSG(self.lock(), boost::format(_("This nickname is forbidden, you have %1% to change nicknames.")) %
+					   mantra::DurationToString(ROOT->ConfigValue<mantra::duration>("nickserv.ident"), mantra::Second));
+			else
+				ROOT->nickserv.NOTICE(self.lock(), boost::format(_("This nickname is forbidden, you have %1% to change nicknames.")) %
+					   mantra::DurationToString(ROOT->ConfigValue<mantra::duration>("nickserv.ident"), mantra::Second));
+
 			boost::shared_ptr<Committee> comm;
 			SYNC_LOCK(committees_);
 			committees_t::iterator i;
@@ -354,10 +376,117 @@ void LiveUser::Name(const std::string &in)
 			}
 			committees_.clear();
 			if (comm)
-				committees_.insert(*i);
+				committees_.insert(comm);
 
 			identified_ = false;
 			stored_.reset();
+		}
+		else
+		{
+			boost::shared_ptr<StoredNick> stored = ROOT->data.Get_StoredNick(in);
+			if (stored)
+			{
+				if (!stored_ || stored->User() != stored_->User())
+				{
+					identified_ = false;
+
+					if (!stored->User()->Secure() &&
+						stored->User()->ACCESS_Matches(User() + "@" + Host()))
+					{
+						stored_ = stored;
+
+						SYNC_LOCK(committees_);
+						std::set<boost::shared_ptr<Committee> > allcomm =
+							Committee::FindCommittees(stored->User());
+
+						committees_t::iterator i = committees_.begin();
+						while (i != committees_.end())
+						{
+							if (**i == ROOT->ConfigValue<std::string>("commserv.all.name") ||
+								**i == ROOT->ConfigValue<std::string>("commserv.regd.name"))
+							{
+								++i;
+							}
+							else if (allcomm.find(*i) == allcomm.end() ||
+									 (*i)->Secure())
+							{
+								if_Committee_LiveUser(*i).Offline(self.lock());
+								committees_.erase(i++);
+							}
+							else
+								++i;
+						}
+
+						std::set<boost::shared_ptr<Committee> >::const_iterator j;
+						for (j = allcomm.begin(); j != allcomm.end(); ++j)
+						{
+							if (committees_.find(*j) == committees_.end() &&
+								!(*j)->Secure())
+							{
+								committees_.insert(*j);
+								if_Committee_LiveUser(*j).Online(self.lock());
+							}
+						}
+					}
+					else
+					{
+						if (stored->User()->Protect())
+						{
+							ident_timer_ = ROOT->event->Schedule(boost::bind(&LiveUser::protect, this),
+												 ROOT->ConfigValue<mantra::duration>("nickserv.ident"));
+							if (ROOT->ConfigValue<bool>("nickserv.defaults.privmsg"))
+								ROOT->nickserv.PRIVMSG(self.lock(), boost::format(_("This nickname is registered, you have %1% to identify.")) %
+									   mantra::DurationToString(ROOT->ConfigValue<mantra::duration>("nickserv.ident"), mantra::Second));
+							else
+								ROOT->nickserv.NOTICE(self.lock(), boost::format(_("This nickname is registered, you have %1% to identify.")) %
+									   mantra::DurationToString(ROOT->ConfigValue<mantra::duration>("nickserv.ident"), mantra::Second));
+						}
+
+						boost::shared_ptr<Committee> comm;
+						SYNC_LOCK(committees_);
+						committees_t::iterator i;
+						for (i=committees_.begin(); i!=committees_.end(); ++i)
+						{
+							if (**i == ROOT->ConfigValue<std::string>("commserv.all.name"))
+							{
+								comm = *i;
+								continue;
+							}
+							if_Committee_LiveUser(*i).Offline(self.lock());
+						}
+						committees_.clear();
+						if (comm)
+							committees_.insert(comm);
+
+						stored_.reset();
+					}
+				}
+				else
+					stored_ = stored;
+				if (stored_)
+					if_StoredNick_LiveUser(stored_).Online(self.lock());
+			}
+			else
+			{
+				boost::shared_ptr<Committee> comm;
+				SYNC_LOCK(committees_);
+				committees_t::iterator i;
+				for (i=committees_.begin(); i!=committees_.end(); ++i)
+				{
+					if (**i == ROOT->ConfigValue<std::string>("commserv.all.name"))
+					{
+						comm = *i;
+						continue;
+					}
+					if_Committee_LiveUser(*i).Offline(self.lock());
+				}
+				committees_.clear();
+				if (comm)
+					committees_.insert(comm);
+
+				identified_ = false;
+				stored_.reset();
+			}
 		}
 	}
 
@@ -540,11 +669,88 @@ std::set<char> LiveUser::Modes() const
 void LiveUser::unignore()
 {
 	MT_EB
+	unsigned long codetype = MT_ASSIGN(MAGICK_TRACE_EVENT);
 	MT_FUNC("LiveUser::unignore");
 
 	SYNC_LOCK(messages_);
 	ignored_ = false;
 
+	MT_ASSIGN(codetype);
+	MT_EE
+}
+
+void LiveUser::protect()
+{
+	MT_EB
+	unsigned long codetype = MT_ASSIGN(MAGICK_TRACE_EVENT);
+	MT_FUNC("LiveUser::protect");
+
+	if (ROOT->proto.ConfigValue<std::string>("svsnick").empty())
+	{
+		if (ROOT->data.Forbid_Check(Name()))
+			ROOT->nickserv.KILL(self.lock(), _("Nickname forbidden."));
+		else
+			ROOT->nickserv.KILL(self.lock(), _("Failed to identify."));
+		MT_ASSIGN(codetype);
+		return;
+	}
+
+	std::string newnick;
+	if (ROOT->ConfigValue<bool>("nickserv.append"))
+	{
+		std::string suffixes = ROOT->ConfigValue<std::string>("nickserv.suffixes");
+		size_t i;
+		for (i = 0; i < suffixes.size(); ++i)
+		{
+			newnick = Name();
+			while (newnick.size() <= ROOT->proto.ConfigValue<unsigned int>("nick-length"))
+			{
+				newnick.append(1, suffixes[i]);
+				boost::shared_ptr<LiveUser> user = ROOT->data.Get_LiveUser(newnick);
+				if (!user)
+					break;
+			}
+			if (newnick.size() <= ROOT->proto.ConfigValue<unsigned int>("nick-length"))
+				break;
+		}
+		if (i == suffixes.size())
+		{
+			if (ROOT->data.Forbid_Check(Name()))
+				ROOT->nickserv.KILL(self.lock(), _("Nickname forbidden."));
+			else
+				ROOT->nickserv.KILL(self.lock(), _("Failed to identify."));
+			MT_ASSIGN(codetype);
+			return;
+		}
+	}
+	else
+	{
+		size_t attempt = 0;
+		boost::shared_ptr<LiveUser> user;
+		do
+		{
+			unsigned short num = (rand() % 10000);
+			newnick = (boost::format("%1%%2%") %
+					   ROOT->ConfigValue<std::string>("nickserv.prefix") %
+					   num).str();
+			user = ROOT->data.Get_LiveUser(newnick);
+			++attempt;
+		}
+		while (user && attempt < 16);
+		if (user)
+		{
+			if (ROOT->data.Forbid_Check(Name()))
+				ROOT->nickserv.KILL(self.lock(), _("Nickname forbidden."));
+			else
+				ROOT->nickserv.KILL(self.lock(), _("Failed to identify."));
+			MT_ASSIGN(codetype);
+			return;
+		}
+	}
+
+	ROOT->nickserv.SVSNICK(self.lock(), newnick);
+
+	MT_ASSIGN(codetype);
 	MT_EE
 }
 
@@ -574,7 +780,7 @@ bool LiveUser::Action()
 		}
 		else
 		{
-			ROOT->event->Schedule(boost::bind(&LiveUser::unignore, this),
+			ignore_timer_ = ROOT->event->Schedule(boost::bind(&LiveUser::unignore, this),
 								 ROOT->ConfigValue<mantra::duration>("operserv.ignore.expire"));
 			// Message to user re: temp ignore.
 		}
@@ -619,6 +825,11 @@ bool LiveUser::Identify(const std::string &in)
 	identified_ = stored->User()->CheckPassword(in);
 	if (identified_)
 	{
+		if (ident_timer_)
+		{
+			ROOT->event->Cancel(ident_timer_);
+			ident_timer_ = 0;
+		}
 		if (!stored_)
 		{
 			if_StoredNick_LiveUser(stored).Online(self.lock());
@@ -646,7 +857,7 @@ bool LiveUser::Identify(const std::string &in)
 	{
 		if (++password_fails_ >= ROOT->ConfigValue<unsigned int>("nickserv.password-fail"))
 		{
-			LOG(Notice, _("Password failed tryint to identify user %1%."), Name());
+			LOG(Notice, _("Password failed trying to identify user %1%."), Name());
 			ROOT->nickserv.KILL(self.lock(), _("Too many password failures."));
 		}
 	}
@@ -666,6 +877,18 @@ void LiveUser::UnIdentify()
 	if (stored_->User()->Secure() ||
 		!stored_->User()->ACCESS_Matches(User() + "@" + Host()))
 	{
+		if (stored_->User()->Protect())
+		{
+			ident_timer_ = ROOT->event->Schedule(boost::bind(&LiveUser::protect, this),
+								 ROOT->ConfigValue<mantra::duration>("nickserv.ident"));
+			if (ROOT->ConfigValue<bool>("nickserv.defaults.privmsg"))
+				ROOT->nickserv.PRIVMSG(self.lock(), boost::format(_("This nickname is registered, you have %1% to identify.")) %
+					   mantra::DurationToString(ROOT->ConfigValue<mantra::duration>("nickserv.ident"), mantra::Second));
+			else
+				ROOT->nickserv.NOTICE(self.lock(), boost::format(_("This nickname is registered, you have %1% to identify.")) %
+					   mantra::DurationToString(ROOT->ConfigValue<mantra::duration>("nickserv.ident"), mantra::Second));
+		}
+
 		if_StoredNick_LiveUser(stored_).Offline(std::string());
 		stored_.reset();
 
@@ -683,7 +906,7 @@ void LiveUser::UnIdentify()
 		}
 		committees_.clear();
 		if (comm)
-			committees_.insert(*i);
+			committees_.insert(comm);
 	}
 	else
 	{
@@ -784,7 +1007,9 @@ bool LiveUser::Identify(const boost::shared_ptr<StoredChannel> &channel,
 			channel_password_fails_.insert(std::make_pair(channel, 0));
 		if (++rv.first->second >= ROOT->ConfigValue<unsigned int>("chanserv.password-fail"))
 		{
-			// Kill user ...
+			LOG(Notice, _("Password failed trying to identify user %1% to channel %2%."),
+				Name() % channel->Name());
+			ROOT->chanserv.KILL(self.lock(), _("Too many password failures."));
 		}
 		MT_RET(false);
 	}

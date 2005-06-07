@@ -176,11 +176,29 @@ void Service::Check()
 				uplink->KILL(u, _("Nickname reserved for services."));
 			u = SIGNON(*i);
 		}
-		ROOT->data.Add(u);
 		users.insert(u);
 	}
-	SYNC_WLOCK(users_);
-	users_.swap(users);
+
+	{
+		SYNC_WLOCK(users_);
+		users_.swap(users);
+	}
+
+	{
+		SYNC_LOCK(pending_privmsg);
+		pending_t::const_iterator j;
+		for (j = pending_privmsg.begin(); j != pending_privmsg.end(); ++j)
+			PRIVMSG(j->first, j->second);
+		pending_privmsg.clear();
+	}
+
+	{
+		SYNC_LOCK(pending_notice);
+		pending_t::const_iterator j;
+		for (j = pending_notice.begin(); j != pending_notice.end(); ++j)
+			NOTICE(j->first, j->second);
+		pending_notice.clear();
+	}
 
 	MT_EE
 }
@@ -302,7 +320,7 @@ void Service::PRIVMSG(const boost::shared_ptr<LiveUser> &source,
 
 
 void Service::PRIVMSG(const boost::shared_ptr<LiveUser> &target,
-					  const boost::format &message) const
+					  const boost::format &message)
 {
 	MT_EB
 	MT_FUNC("Service::PRIVMSG" << target << message);
@@ -312,9 +330,12 @@ void Service::PRIVMSG(const boost::shared_ptr<LiveUser> &target,
 												 users_.end(),
 												 primary_);
 	if (j == users_.end())
-		return;
-
-	PRIVMSG(*j, target, message);
+	{
+		SYNC_LOCK(pending_privmsg);
+		pending_privmsg.push_back(std::make_pair(target, message));
+	}
+	else
+		PRIVMSG(*j, target, message);
 
 	MT_EE
 }
@@ -338,7 +359,7 @@ void Service::NOTICE(const boost::shared_ptr<LiveUser> &source,
 }
 
 void Service::NOTICE(const boost::shared_ptr<LiveUser> &target,
-					 const boost::format &message) const
+					 const boost::format &message)
 {
 	MT_EB
 	MT_FUNC("Service::NOTICE" << target << message);
@@ -347,10 +368,14 @@ void Service::NOTICE(const boost::shared_ptr<LiveUser> &target,
 	users_t::const_iterator j = std::lower_bound(users_.begin(),
 												 users_.end(),
 												 primary_);
-	if (j == users_.end())
-		return;
 
-	NOTICE(*j, target, message);
+	if (j == users_.end())
+	{
+		SYNC_LOCK(pending_notice);
+		pending_notice.push_back(std::make_pair(target, message));
+	}
+	else
+		NOTICE(*j, target, message);
 
 	MT_EE
 }
@@ -387,6 +412,43 @@ void Service::ANNOUNCE(const boost::format &message) const
 		return;
 
 	ANNOUNCE(*j, message);
+
+	MT_EE
+}
+
+void Service::SVSNICK(const boost::shared_ptr<LiveUser> &source,
+					  const boost::shared_ptr<LiveUser> &target,
+					  const std::string &newnick) const
+{
+	MT_EB
+	MT_FUNC("Service::SVSNICK" << source << target << newnick);
+
+	if (!source || source->GetService() != this)
+		return;
+
+	std::string out;
+	ROOT->proto.addline(*source, out,
+						(boost::format(ROOT->proto.ConfigValue<std::string>("svsnick")) %
+									   target->Name() % newnick % mantra::GetCurrentDateTime()).str());
+	ROOT->proto.send(out);
+
+	MT_EE
+}
+
+void Service::SVSNICK(const boost::shared_ptr<LiveUser> &target,
+					  const std::string &newnick) const
+{
+	MT_EB
+	MT_FUNC("Service::SVSNICK" << target << newnick);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator j = std::lower_bound(users_.begin(),
+												 users_.end(),
+												 primary_);
+	if (j == users_.end())
+		return;
+
+	SVSNICK(*j, target, newnick);
 
 	MT_EE
 }

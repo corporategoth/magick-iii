@@ -790,6 +790,8 @@ static void add_general_options(po::options_description &opts)
 					"how long a thread must have not checked in to be dead")
 		("general.message-expire", mantra::value<mantra::duration>()->default_value(mantra::duration("30s")),
 					"maximum time to delay a message with a dependancy")
+		("general.expire-check", mantra::value<mantra::duration>()->default_value(mantra::duration("5n")),
+					"how often to check if anything needs to be expired")
 	;
 
 	MT_EE

@@ -52,12 +52,12 @@ CREATE TABLE users (
 		noexpire boolean,
 		picture integer,
 		picture_ext varchar(8),
-		lock_language boolean,
-		lock_protect boolean,
-		lock_secure boolean,
-		lock_nomemo boolean,
-		lock_private boolean,
-		lock_privmsg boolean
+		lock_language boolean NOT NULL DEFAULT false,
+		lock_protect boolean NOT NULL DEFAULT false,
+		lock_secure boolean NOT NULL DEFAULT false,
+		lock_nomemo boolean NOT NULL DEFAULT false,
+		lock_private boolean NOT NULL DEFAULT false,
+		lock_privmsg boolean NOT NULL DEFAULT false
 	);
 CREATE INDEX users_suspend_by_id_idx ON users(suspend_by_id);
 
@@ -118,9 +118,9 @@ CREATE TABLE committees (
 		private boolean,
 		openmemos boolean,
 		secure boolean,
-		lock_private boolean,
-		lock_openmemos boolean,
-		lock_secure boolean
+		lock_private boolean NOT NULL DEFAULT false,
+		lock_openmemos boolean NOT NULL DEFAULT false,
+		lock_secure boolean NOT NULL DEFAULT false
 	);
 CREATE UNIQUE INDEX committees_idx ON committees(lower(name));
 CREATE INDEX committees_head_user_idx ON committees(head_user);
@@ -184,18 +184,18 @@ CREATE TABLE channels (
 		mlock_off varchar(32),
 		mlock_key varchar(32),
 		mlock_limit integer,
-		lock_keeptopic boolean,
-		lock_tpoiclock boolean,
-		lock_private boolean,
-		lock_secureops boolean,
-		lock_secure boolean,
-		lock_anarchy boolean,
-		lock_kickonban boolean,
-		lock_restricted boolean,
-		lock_cjoin boolean,
-		lock_bantime boolean,
-		lock_parttime boolean,
-		lock_revenge boolean,
+		lock_keeptopic boolean NOT NULL DEFAULT false,
+		lock_tpoiclock boolean NOT NULL DEFAULT false,
+		lock_private boolean NOT NULL DEFAULT false,
+		lock_secureops boolean NOT NULL DEFAULT false,
+		lock_secure boolean NOT NULL DEFAULT false,
+		lock_anarchy boolean NOT NULL DEFAULT false,
+		lock_kickonban boolean NOT NULL DEFAULT false,
+		lock_restricted boolean NOT NULL DEFAULT false,
+		lock_cjoin boolean NOT NULL DEFAULT false,
+		lock_bantime boolean NOT NULL DEFAULT false,
+		lock_parttime boolean NOT NULL DEFAULT false,
+		lock_revenge boolean NOT NULL DEFAULT false,
 		lock_mlock_on varchar(32),
 		lock_mlock_off varchar(32),
 		suspend_by varchar(32),

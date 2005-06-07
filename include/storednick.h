@@ -67,6 +67,7 @@ class StoredNick : public boost::noncopyable, public boost::totally_ordered1<Sto
 	void DropInternal();
 	static boost::shared_ptr<StoredNick> load(const std::string &name,
 											  const boost::shared_ptr<StoredUser> &user);
+	static void expire();
 
 	StoredNick(const std::string &name, const boost::shared_ptr<StoredUser> &user)
 		: name_(name), user_(user) {}
@@ -160,6 +161,8 @@ class if_StoredNick_Storage
 	static inline boost::shared_ptr<StoredNick> load(const std::string &name,
 													 const boost::shared_ptr<StoredUser> &user)
 		{ return StoredNick::load(name, user); }
+	static inline void expire()
+		{ StoredNick::expire(); }
 	inline void DropInternal()
 		{ base.DropInternal(); }
 };

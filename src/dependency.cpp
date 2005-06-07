@@ -40,6 +40,7 @@ RCSID(magick__dependency_cpp, "@(#)$Id$");
 void Dependency::operator()()
 {
 	MT_EB
+	unsigned long codetype = MT_ASSIGN(MAGICK_TRACE_EVENT);
 	MT_FUNC("Dependency::operator()");
 
 	// So we don't try to cancel ourselves anymore.
@@ -66,6 +67,7 @@ void Dependency::operator()()
 		outstanding_.clear();
 	}
 
+	MT_ASSIGN(codetype);
 	MT_EE
 }
 

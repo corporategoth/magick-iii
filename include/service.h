@@ -60,6 +60,7 @@ enum TraceTypes_t
 		MAGICK_TRACE_OPERSERV,
 		MAGICK_TRACE_OTHER,		// Other services, still PRIVMSG
 		MAGICK_TRACE_DCC,
+		MAGICK_TRACE_EVENT,
 		MAGICK_TRACE_SIZE
 	};
 
@@ -74,6 +75,7 @@ public:
 							 const std::vector<std::string> &> functor;
 	typedef std::set<std::string, mantra::iless<std::string> > nicks_t;
 	typedef std::set<boost::shared_ptr<LiveUser> > users_t;
+	typedef std::vector<std::pair<boost::shared_ptr<LiveUser>, boost::format> > pending_t;
 
 private:
 	struct Command_t
@@ -93,6 +95,9 @@ private:
 	users_t RWSYNC(users_);
 
 	func_map_t RWSYNC(func_map_);
+
+	pending_t SYNC(pending_privmsg);
+	pending_t SYNC(pending_notice);
 
 	void Set(const std::vector<std::string> &nicks, const std::string &real = std::string());
 	void SIGNOFF(const boost::shared_ptr<LiveUser> &user);
@@ -133,17 +138,23 @@ public:
 				 const boost::shared_ptr<LiveUser> &target,
 				 const boost::format &message) const;
 	void PRIVMSG(const boost::shared_ptr<LiveUser> &target,
-				 const boost::format &message) const;
+				 const boost::format &message);
 
 	void NOTICE(const boost::shared_ptr<LiveUser> &source,
 				const boost::shared_ptr<LiveUser> &target,
 				const boost::format &message) const;
 	void NOTICE(const boost::shared_ptr<LiveUser> &target,
-				const boost::format &message) const;
+				const boost::format &message);
 
 	void ANNOUNCE(const boost::shared_ptr<LiveUser> &source,
 				  const boost::format &message) const;
 	void ANNOUNCE(const boost::format &message) const;
+
+	void SVSNICK(const boost::shared_ptr<LiveUser> &source,
+				 const boost::shared_ptr<LiveUser> &target,
+				 const std::string &newnick) const;
+	void SVSNICK(const boost::shared_ptr<LiveUser> &target,
+				 const std::string &newnick) const;
 
 	class CommandMerge
 	{

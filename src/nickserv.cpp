@@ -65,6 +65,12 @@ static bool ns_Register(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
+	if (ROOT->data.Forbid_Check(user->Name()))
+	{
+		SEND(service, user, N_("Nickname %1% is forbidden."), user->Name());
+		MT_RET(false);
+	}
+
 	static mantra::iequal_to<std::string> cmp;
 	if (params[1].size() < 5 || cmp(params[1], user->Name()))
 	{
@@ -92,7 +98,6 @@ static bool ns_Register(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	ROOT->data.Add(nick);
 	if (params.size() > 2)
 	{
 		nick->User()->Email(params[2]);
@@ -220,6 +225,12 @@ static bool ns_Link(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
+	if (ROOT->data.Forbid_Check(user->Name()))
+	{
+		SEND(service, user, N_("Nickname %1% is forbidden."), user->Name());
+		MT_RET(false);
+	}
+
 	nick = ROOT->data.Get_StoredNick(params[1]);
 	if (!nick)
 	{
@@ -237,7 +248,6 @@ static bool ns_Link(const boost::shared_ptr<LiveUser> &service,
 
 	std::string other = nick->Name();
 	nick = StoredNick::create(user->Name(), nick->User());
-	ROOT->data.Add(nick);
 	user->Identify(params[2]);
     SEND(service, user, N_("Nickname %1% has been linked to %2%."),
 		 user->Name() % other);

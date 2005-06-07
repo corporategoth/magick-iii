@@ -40,6 +40,20 @@ RCSID(magick__livechannel_cpp, "@(#)$Id$");
 
 #include <mantra/core/trace.h>
 
+boost::shared_ptr<LiveChannel> LiveChannel::create(const std::string &name,
+		const boost::posix_time::ptime &created, const std::string &id)
+{
+	MT_EB
+	MT_FUNC("LiveChannel::create" << name << created << id);
+
+	boost::shared_ptr<LiveChannel> rv(new LiveChannel(name, created, id));
+	rv->self = rv;
+	ROOT->data.Add(rv);
+	return rv;
+
+	MT_EE
+}
+
 LiveChannel::PendingModes::PendingModes(const boost::shared_ptr<LiveChannel> &channel,
 										const boost::shared_ptr<LiveUser> &user)
 	: channel_(channel), user_(user)
@@ -56,9 +70,10 @@ LiveChannel::PendingModes::PendingModes(const boost::shared_ptr<LiveChannel> &ch
 void LiveChannel::PendingModes::operator()() const
 {
 	MT_EB
+	unsigned long codetype = MT_ASSIGN(MAGICK_TRACE_EVENT);
 	MT_FUNC("LiveChannel::PendingModes::operator()");
 
-
+	MT_ASSIGN(codetype);
 	MT_EE
 }
 
@@ -78,6 +93,19 @@ void LiveChannel::PendingModes::Cancel()
 
 	ROOT->event->Cancel(event_);
 
+	MT_EE
+}
+
+void LiveChannel::ClearPart::operator()() const
+{
+	MT_EB
+	unsigned long codetype = MT_ASSIGN(MAGICK_TRACE_EVENT);
+	MT_FUNC("LiveChannel::ClearPart::operator()");
+
+	SYNCP_LOCK(channel_, recent_parts_);
+	channel_->recent_parts_.erase(user_);
+
+	MT_ASSIGN(codetype);
 	MT_EE
 }
 

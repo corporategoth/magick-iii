@@ -76,11 +76,7 @@ class LiveChannel : private boost::noncopyable, public boost::totally_ordered1<L
 				  const boost::shared_ptr<LiveUser> &user)
 			: channel_(channel), user_(user) {}
 
-		void operator()() const
-		{
-			SYNCP_LOCK(channel_, recent_parts_);
-			channel_->recent_parts_.erase(user_);
-		}
+		void operator()() const;
 	};
 
 public:
@@ -129,14 +125,9 @@ private:
 				const boost::posix_time::ptime &created,
 				const std::string &id);
 public:
-	static inline boost::shared_ptr<LiveChannel> create(const std::string &name,
+	static boost::shared_ptr<LiveChannel> create(const std::string &name,
 			const boost::posix_time::ptime &created = mantra::GetCurrentDateTime(),
-			const std::string &id = std::string())
-	{
-		boost::shared_ptr<LiveChannel> rv(new LiveChannel(name, created, id));
-		rv->self = rv;
-		return rv;
-	}
+			const std::string &id = std::string());
 
 	const std::string &Name() const { return name_; }
 	const std::string &ID() const { return id_; }

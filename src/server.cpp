@@ -234,6 +234,7 @@ void Uplink::Disconnect()
 void Uplink::operator()()
 {
 	MT_ASSIGN(MAGICK_TRACE_WORKER);
+	MT_AUTOFLUSH(true);
 
 	MT_EB
 	MT_FUNC("Uplink::operator()");

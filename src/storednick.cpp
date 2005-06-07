@@ -49,7 +49,6 @@ boost::shared_ptr<StoredNick> StoredNick::create(const std::string &name,
 
 	boost::shared_ptr<StoredNick> rv =
 		create(name, if_StoredUser_StoredNick::create(password));
-	ROOT->data.Add(rv->user_);
 
 	MT_RET(rv);
 	MT_EE
@@ -69,6 +68,7 @@ boost::shared_ptr<StoredNick> StoredNick::create(const std::string &name,
 	boost::shared_ptr<StoredNick> rv = load(name, user);
 	if (rv->live_)
 		if_LiveUser_StoredNick(rv->live_).Nick_Reg();
+	ROOT->data.Add(rv);
 
 	MT_RET(rv);
 	MT_EE
@@ -186,6 +186,53 @@ boost::shared_ptr<StoredNick> StoredNick::Last_Seen(const boost::shared_ptr<Stor
 	MT_EE
 }
 
+void StoredNick::expire()
+{
+	MT_EB
+	MT_FUNC("StoredNick::expire");
+
+	bool locked = false;
+	if (ROOT->ConfigValue<bool>("nickserv.lock.noexpire"))
+	{
+		if (ROOT->ConfigValue<bool>("nickserv.defaults.noexpire"))
+			return;
+		else
+			locked = true;
+	}
+
+	boost::posix_time::ptime exptime = mantra::GetCurrentDateTime() - 
+					ROOT->ConfigValue<mantra::duration>("nickserv.expire");
+
+	mantra::Storage::DataSet data;
+	mantra::Storage::FieldSet fields;
+	fields.insert("name");
+
+	storage.RetrieveRow(data, mantra::Comparison<mantra::C_LessThan>::make("last_seen", exptime), fields);
+	if (data.empty())
+		return;
+
+	mantra::Storage::DataSet::const_iterator i = data.begin();
+	for (i = data.begin(); i != data.end(); ++i)
+	{
+		mantra::Storage::RecordMap::const_iterator j = i->find("name");
+		if (j == i->end() || j->second.type() == typeid(mantra::NullValue))
+			continue;
+
+		boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(
+									boost::get<std::string>(j->second));
+		if (!nick)
+			continue;
+
+		if (!locked && nick->User()->NoExpire())
+			continue;
+
+		LOG(Notice, "Expiring nickname %1%.", nick->Name());
+		nick->Drop();
+	}
+
+	MT_EE
+}
+
 boost::shared_ptr<LiveUser> StoredNick::Live() const
 {
 	MT_EB
@@ -292,6 +339,14 @@ void StoredNick::SendInfo(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !user || !service->GetService())
 		return;
 
+	bool priv = false;
+	if (!(user->InCommittee(ROOT->ConfigValue<std::string>("commserv.oper.name")) ||
+		  user->InCommittee(ROOT->ConfigValue<std::string>("commserv.sop.name"))))
+	{
+		if (!user->Stored() || user->Stored()->User() != user_)
+			priv = user_->Private();
+	}
+
 	mantra::Storage::RecordMap data, last_data;
 	mantra::Storage::RecordMap::const_iterator i, j;
 	storage.GetRow(name_, data);
@@ -329,7 +384,7 @@ void StoredNick::SendInfo(const boost::shared_ptr<LiveUser> &service,
 	SEND(service, user, N_("Registered     : %1%"),
 		 boost::get<boost::posix_time::ptime>(data["registered"]));
 
-	if (!live)
+	if (!live && !priv)
 	{
 		i = data.find("last_seen");
 		j = data.find("last_mask");
@@ -346,7 +401,7 @@ void StoredNick::SendInfo(const boost::shared_ptr<LiveUser> &service,
 	StoredUser::online_users_t online = user_->Online();
 	if (online.empty())
 	{
-		if (last != self.lock())
+		if (last != self.lock() && !priv)
 		{
 			i = last_data.find("last_seen");
 			j = last_data.find("last_mask");

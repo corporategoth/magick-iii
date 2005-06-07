@@ -262,7 +262,6 @@ static bool biCLIENT(const Message &m)
 		MT_RET(false);
 	}
 
-	ROOT->data.Add(user);
 	uplink->de.Satisfy(Dependency::NickExists, user->Name());
 
 	MT_RET(true);
@@ -315,7 +314,6 @@ static bool biCREATE(const Message &m)
 		if (!channel)
 		{
 			channel = LiveChannel::create(*i);
-			ROOT->data.Add(channel);
 			uplink->de.Satisfy(Dependency::ChannelExists, channel->Name());
 		}
 
@@ -498,7 +496,6 @@ static bool biJOIN(const Message &m)
 		if (!channel)
 		{
 			channel = LiveChannel::create(*i);
-			ROOT->data.Add(channel);
 			uplink->de.Satisfy(Dependency::ChannelExists, channel->Name());
 		}
 
@@ -832,7 +829,6 @@ static bool biNICK(const Message &m)
 			MT_RET(false);
 		}
 
-		ROOT->data.Add(user);
 		uplink->de.Satisfy(Dependency::NickExists, user->Name());
 	}
 
@@ -1222,7 +1218,6 @@ static bool biSJOIN(const Message &m)
 		if (!channel)
 		{
 			channel = LiveChannel::create(m.Params()[1]);
-			ROOT->data.Add(channel);
 			uplink->de.Satisfy(Dependency::ChannelExists, channel->Name());
 		}
 
@@ -1340,7 +1335,6 @@ static bool biSJOIN(const Message &m)
 			if (!channel)
 			{
 				channel = LiveChannel::create(m.Params()[i]);
-				ROOT->data.Add(channel);
 				uplink->de.Satisfy(Dependency::ChannelExists, channel->Name());
 			}
 
@@ -1646,7 +1640,6 @@ static bool biUSER(const Message &m)
 		MT_RET(false);
 	}
 
-	ROOT->data.Add(user);
 	uplink->de.Satisfy(Dependency::NickExists, user->Name());
 
 	MT_RET(true);

@@ -78,6 +78,7 @@ boost::shared_ptr<StoredUser> StoredUser::create(const std::string &password)
 	}
 
 	boost::shared_ptr<StoredUser> rv = load(id);
+	ROOT->data.Add(rv);
 
 	MT_RET(rv);
 	MT_EE
@@ -1417,10 +1418,26 @@ void StoredUser::SendInfo(const boost::shared_ptr<LiveUser> &service,
 	mantra::Storage::RecordMap data;
 	storage.GetRow(id_, data);
 
-	mantra::Storage::RecordMap::const_iterator i = data.find("email");
-	if (i != data.end())
-		SEND(service, user, N_("E-Mail Address : %1%"),
-			 boost::get<std::string>(i->second));
+	mantra::Storage::RecordMap::const_iterator i;
+	bool priv = false;
+	if (!opersop)
+	{
+		if (!user->Stored() || user->Stored()->User() != self.lock())
+		{
+			priv = ROOT->ConfigValue<bool>("nickserv.defaults.private");
+			i = data.find("private");
+			if (i != data.end() && !ROOT->ConfigValue<bool>("nickserv.lock.private"))
+				priv = boost::get<bool>(i->second);
+		}
+	}
+
+	if (!priv)
+	{
+		i = data.find("email");
+		if (i != data.end())
+			SEND(service, user, N_("E-Mail Address : %1%"),
+				 boost::get<std::string>(i->second));
+	}
 
 	i = data.find("website");
 	if (i != data.end())
@@ -1468,39 +1485,42 @@ void StoredUser::SendInfo(const boost::shared_ptr<LiveUser> &service,
 			 boost::get<std::string>(i->second));
 	}
 
-	std::string str;
-	check_option(str, data, "protect", N_("Nick Protection"));
-	check_option(str, data, "secure", N_("Secure"));
-	check_option(str, data, "nomemo", N_("No Memos"));
-	check_option(str, data, "private", N_("Private"));
-	if (opersop)
-		check_option(str, data, "noexpire", N_("No Expire"));
-	if (!str.empty())
-		SEND(service, user, N_("Options        : %1%"), str);
-
-	str.clear();
-	std::set<boost::shared_ptr<Committee> > comm =
-			Committee::FindCommittees(self.lock());
-	std::set<boost::shared_ptr<Committee> >::iterator j;
-	for (j = comm.begin(); j != comm.end(); ++j)
+	if (!priv)
 	{
-		if ((*j)->Private())
-			continue;
-		else if ((*j)->HeadUser() == self.lock())
+		std::string str;
+		check_option(str, data, "protect", N_("Nick Protection"));
+		check_option(str, data, "secure", N_("Secure"));
+		check_option(str, data, "nomemo", N_("No Memos"));
+		check_option(str, data, "private", N_("Private"));
+		if (opersop)
+			check_option(str, data, "noexpire", N_("No Expire"));
+		if (!str.empty())
+			SEND(service, user, N_("Options        : %1%"), str);
+
+		str.clear();
+		std::set<boost::shared_ptr<Committee> > comm =
+				Committee::FindCommittees(self.lock());
+		std::set<boost::shared_ptr<Committee> >::iterator j;
+		for (j = comm.begin(); j != comm.end(); ++j)
 		{
-			if (!str.empty())
-				str += ", ";
-			str += '\002' + (*j)->Name() + '\017';
+			if ((*j)->Private())
+				continue;
+			else if ((*j)->HeadUser() == self.lock())
+			{
+				if (!str.empty())
+					str += ", ";
+				str += '\002' + (*j)->Name() + '\017';
+			}
+			else if ((*j)->MEMBER_Exists(self.lock()))
+			{
+				if (!str.empty())
+					str += ", ";
+				str += (*j)->Name();
+			}
 		}
-		else if ((*j)->MEMBER_Exists(self.lock()))
-		{
-			if (!str.empty())
-				str += ", ";
-			str += (*j)->Name();
-		}
+		if (!str.empty())
+			SEND(service, user, N_("Committees     : %1%"), str);
 	}
-	if (!str.empty())
-		SEND(service, user, N_("Committees     : %1%"), str);
 
 	if (opersop)
 	{

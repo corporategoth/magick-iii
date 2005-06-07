@@ -78,6 +78,7 @@ class StoredChannel : private boost::noncopyable, public boost::totally_ordered1
 	// use if_StoredChannel_Storage
 	void DropInternal();
 	static boost::shared_ptr<StoredChannel> load(const std::string &name);
+	static void expire();
 
 	StoredChannel(const std::string &name);
 public:
@@ -514,6 +515,8 @@ class if_StoredChannel_Storage
 
 	static inline boost::shared_ptr<StoredChannel> load(const std::string &name)
 		{ return StoredChannel::load(name); }
+	static inline void expire()
+		{ StoredChannel::expire(); }
 	inline void DropInternal()
 		{ base.DropInternal(); }
 };

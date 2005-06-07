@@ -136,6 +136,7 @@ static int init_trace(int prv, const boost::function0<bool> &check,
 	mantra::mtrace::instance().RegisterType(MAGICK_TRACE_OPERSERV, TraceHandler("trace_OPERSERV.log"));
 	mantra::mtrace::instance().RegisterType(MAGICK_TRACE_OTHER, TraceHandler("trace_OTHER.log"));
 	mantra::mtrace::instance().RegisterType(MAGICK_TRACE_DCC, TraceHandler("trace_DCC.log"));
+	mantra::mtrace::instance().RegisterType(MAGICK_TRACE_EVENT, TraceHandler("trace_EVENT.log"));
 	
 	MT_ASSIGN(MAGICK_TRACE_MAIN);
 	return prv;

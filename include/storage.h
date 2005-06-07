@@ -73,7 +73,7 @@ class Storage
 	std::vector<std::pair<mantra::Stage *, void (*)(mantra::Stage *)> > stages_;
 	std::pair<mantra::Storage *, void (*)(mantra::Storage *)> backend_;
 	bool have_cascade;
-	unsigned int event_;
+	unsigned int event_, expire_event_;
 	void *handle_, *crypt_handle_, *compress_handle_;
 	mantra::Hasher hasher;
 
@@ -133,6 +133,9 @@ public:
 			 boost::logic::tribool deep = boost::logic::indeterminate) const;
 	boost::shared_ptr<Committee> Get_Committee(const std::string &name,
 			 boost::logic::tribool deep = boost::logic::indeterminate) const;
+
+	// Check on ALL kinds of expirations ...
+	void ExpireCheck();
 
 	bool Forbid_Add(const std::string &in, const boost::shared_ptr<StoredNick> &nick);
 	bool Forbid_Del(const std::string &in);

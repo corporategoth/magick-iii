@@ -65,7 +65,8 @@ namespace po = boost::program_options;
 Storage::Storage()
 	: finalstage_(std::pair<mantra::FinalStage *, void (*)(mantra::FinalStage *)>(NULL, NULL)),
 	  backend_(std::pair<mantra::Storage *, void (*)(mantra::Storage *)>(NULL, NULL)),
-	  have_cascade(false), event_(0), handle_(NULL), crypt_handle_(NULL), compress_handle_(NULL),
+	  have_cascade(false), event_(0), expire_event_(0),
+	  handle_(NULL), crypt_handle_(NULL), compress_handle_(NULL),
 	  hasher(mantra::Hasher::NONE), SYNC_NRWINIT(LiveUsers_, reader_priority),
 	  SYNC_NRWINIT(LiveChannels_, reader_priority),
 	  SYNC_NRWINIT(StoredUsers_, reader_priority),
@@ -1868,7 +1869,16 @@ void Storage::Load()
 	boost::timer t;
 	boost::mutex::scoped_lock scoped_lock(lock_);
 	if (event_)
+	{
 		ROOT->event->Cancel(event_);
+		event_ = 0;
+	}
+	if (expire_event_)
+	{
+		ROOT->event->Cancel(expire_event_);
+		expire_event_ = 0;
+	}
+
 	backend_.first->Refresh();
 	sync();
 
@@ -1964,6 +1974,8 @@ void Storage::Load()
 	LOG(Info, _("Database loaded in %1% seconds."), t.elapsed());
 	event_ = ROOT->event->Schedule(boost::bind(&Storage::Save, this),
 								   ROOT->ConfigValue<mantra::duration>("save-time"));
+	expire_event_ = ROOT->event->Schedule(boost::bind(&Storage::ExpireCheck, this),
+								   ROOT->ConfigValue<mantra::duration>("general.expire-check"));
 
 	MT_EE
 }
@@ -1971,6 +1983,7 @@ void Storage::Load()
 void Storage::Save()
 {
 	MT_EB
+	unsigned long codetype = MT_ASSIGN(MAGICK_TRACE_EVENT);
 	MT_FUNC("Storage::Save");
 
 	boost::timer t;
@@ -1988,6 +2001,7 @@ void Storage::Save()
 		event_ = ROOT->event->Schedule(boost::bind(&Storage::Save, this),
 									   ROOT->ConfigValue<mantra::duration>("save-time"));
 
+	MT_ASSIGN(codetype);
 	MT_EE
 }
 
@@ -2903,6 +2917,25 @@ bool Storage::Forbid_Check(const std::string &in) const
 	}
 
 	MT_RET(false);
+	MT_EE
+}
+
+// --------------------------------------------------------------------------
+
+void Storage::ExpireCheck()
+{
+	MT_EB
+	unsigned long codetype = MT_ASSIGN(MAGICK_TRACE_EVENT);
+	MT_FUNC("Storage::ExpireCheck");
+
+	boost::mutex::scoped_lock scoped_lock(lock_);
+
+	if_StoredNick_Storage::expire();
+	if_StoredChannel_Storage::expire();
+
+	expire_event_ = ROOT->event->Schedule(boost::bind(&Storage::ExpireCheck, this),
+								   ROOT->ConfigValue<mantra::duration>("general.expire-check"));
+	MT_ASSIGN(codetype);
 	MT_EE
 }
 
