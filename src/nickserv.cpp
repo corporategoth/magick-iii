@@ -36,15 +36,16 @@ RCSID(magick__nickserv_cpp, "@(#)$Id$");
 #include "liveuser.h"
 #include "storednick.h"
 #include "storeduser.h"
+#include "committee.h"
 
 #include <mantra/core/trace.h>
 
-static bool ns_Register(const boost::shared_ptr<LiveUser> &service,
+static bool biREGISTER(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Register" << service << user << params);
+	MT_FUNC("biREGISTER" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -80,9 +81,9 @@ static bool ns_Register(const boost::shared_ptr<LiveUser> &service,
 
 	if (params.size() > 2)
 	{
-		boost::regex rx("^[^[:space:][:cntrl:]@]+@"
-						"([[:alnum:]][-[:alnum:]]*\\.)*"
-						"[[:alnum:]][-[:alnum:]]*$");
+		static boost::regex rx("^[^[:space:][:cntrl:]@]+@"
+							   "([[:alnum:]][-[:alnum:]]*\\.)*"
+							   "[[:alnum:]][-[:alnum:]]*$");
 		if (!boost::regex_match(params[2], rx))
 		{
 			NSEND(service, user, N_("Invalid e-mail address specified."));
@@ -138,12 +139,12 @@ static bool ns_Register(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Drop(const boost::shared_ptr<LiveUser> &service,
+static bool biDROP(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Drop" << service << user << params);
+	MT_FUNC("biDROP" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -199,12 +200,12 @@ static bool ns_Drop(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Link(const boost::shared_ptr<LiveUser> &service,
+static bool biLINK(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Link" << service << user << params);
+	MT_FUNC("biLINK" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -256,12 +257,12 @@ static bool ns_Link(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Links(const boost::shared_ptr<LiveUser> &service,
+static bool biLINKS(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Ignore_List" << service << user << params);
+	MT_FUNC("biIGNORE_LIST" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -311,12 +312,12 @@ static bool ns_Links(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Identify(const boost::shared_ptr<LiveUser> &service,
+static bool biIDENTIFY(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Identify" << service << user << params);
+	MT_FUNC("biIDENTIFY" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -356,12 +357,12 @@ static bool ns_Identify(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Info(const boost::shared_ptr<LiveUser> &service,
+static bool biINFO(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Info" << service << user << params);
+	MT_FUNC("biINFO" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -388,12 +389,12 @@ static bool ns_Info(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Ghost(const boost::shared_ptr<LiveUser> &service,
+static bool biGHOST(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Ghost" << service << user << params);
+	MT_FUNC("biGHOST" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -446,12 +447,12 @@ static bool ns_Ghost(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Recover(const boost::shared_ptr<LiveUser> &service,
+static bool biRECOVER(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Recover" << service << user << params);
+	MT_FUNC("biRECOVER" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -465,12 +466,12 @@ static bool ns_Recover(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Send(const boost::shared_ptr<LiveUser> &service,
+static bool biSEND(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Send" << service << user << params);
+	MT_FUNC("biSEND" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -484,12 +485,12 @@ static bool ns_Send(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Suspend(const boost::shared_ptr<LiveUser> &service,
+static bool biSUSPEND(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Suspend" << service << user << params);
+	MT_FUNC("biSUSPEND" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -536,12 +537,12 @@ static bool ns_Suspend(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unsuspend(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSUSPEND(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unsuspend" << service << user << params);
+	MT_FUNC("biUNSUSPEND" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -576,12 +577,12 @@ static bool ns_Unsuspend(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Forbid_Add(const boost::shared_ptr<LiveUser> &service,
+static bool biFORBID_ADD(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Forbid_Add" << service << user << params);
+	MT_FUNC("biFORBID_ADD" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -619,12 +620,12 @@ static bool ns_Forbid_Add(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Forbid_Del(const boost::shared_ptr<LiveUser> &service,
+static bool biFORBID_DEL(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Forbid_Del" << service << user << params);
+	MT_FUNC("biFORBID_DEL" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -650,12 +651,12 @@ static bool ns_Forbid_Del(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Forbid_List(const boost::shared_ptr<LiveUser> &service,
+static bool biFORBID_LIST(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Forbid_List" << service << user << params);
+	MT_FUNC("biFORBID_LIST" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -679,12 +680,12 @@ static bool ns_Forbid_List(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Setpass(const boost::shared_ptr<LiveUser> &service,
+static bool biSETPASS(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Setpass" << service << user << params);
+	MT_FUNC("biSETPASS" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -698,15 +699,17 @@ static bool ns_Setpass(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	static mantra::iequal_to<std::string> cmp;
-	if (cmp(user->Name(), params[1]))
-	{
-		NSEND(service, user, N_("Use the standard SET PASSWORD on yourself."));
-		MT_RET(false);
-	}
-
 	if (params[2].size() < 5 || cmp(params[1], params[2]))
 	{
 		NSEND(service, user, N_("Password is not complex enough."));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
 		MT_RET(false);
 	}
 
@@ -718,6 +721,28 @@ static bool ns_Setpass(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
+	if (nick->User() == target->User())
+	{
+		NSEND(service, user,
+			 N_("Use standard SET PASSWORD on your own nicknames."));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(
+			ROOT->ConfigValue<std::string>("commserv.sop.name"));
+	if (comm && comm->MEMBER_Exists(target->User()))
+	{
+		comm = ROOT->data.Get_Committee(
+			ROOT->ConfigValue<std::string>("commserv.sadmin.name"));
+		if (comm && !comm->MEMBER_Exists(nick->User()))
+		{
+			SEND(service, user, N_("Only a member of the %1% committee may set the password of a member of the %2% committee."),
+				 ROOT->ConfigValue<std::string>("commserv.sadmin.name") %
+				 ROOT->ConfigValue<std::string>("commserv.sop.name"));
+			MT_RET(false);
+		}
+	}
+
 	target->User()->Password(params[2]);
     SEND(service, user, N_("Password for nickname %1% has been set to \002%2%\017."),
 		 target->Name() % params[2].substr(0, 32));
@@ -726,12 +751,12 @@ static bool ns_Setpass(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Access_Current(const boost::shared_ptr<LiveUser> &service,
+static bool biACCESS_CURRENT(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Access_Current" << service << user << params);
+	MT_FUNC("biACCESS_CURRENT" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -785,12 +810,12 @@ static bool ns_Access_Current(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Access_Add(const boost::shared_ptr<LiveUser> &service,
+static bool biACCESS_ADD(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Access_Add" << service << user << params);
+	MT_FUNC("biACCESS_ADD" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -842,12 +867,12 @@ static bool ns_Access_Add(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Access_Del(const boost::shared_ptr<LiveUser> &service,
+static bool biACCESS_DEL(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Access_Del" << service << user << params);
+	MT_FUNC("biACCESS_DEL" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -928,12 +953,12 @@ static bool ns_Access_Del(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Access_List(const boost::shared_ptr<LiveUser> &service,
+static bool biACCESS_LIST(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Access_List" << service << user << params);
+	MT_FUNC("biACCESS_LIST" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -986,12 +1011,12 @@ static bool ns_Access_List(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Ignore_Add(const boost::shared_ptr<LiveUser> &service,
+static bool biIGNORE_ADD(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Ignore_Add" << service << user << params);
+	MT_FUNC("biIGNORE_ADD" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1041,12 +1066,12 @@ static bool ns_Ignore_Add(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Ignore_Del(const boost::shared_ptr<LiveUser> &service,
+static bool biIGNORE_DEL(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Ignore_Del" << service << user << params);
+	MT_FUNC("biIGNORE_DEL" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1130,12 +1155,12 @@ static bool ns_Ignore_Del(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Ignore_List(const boost::shared_ptr<LiveUser> &service,
+static bool biIGNORE_LIST(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Ignore_List" << service << user << params);
+	MT_FUNC("biIGNORE_LIST" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1196,12 +1221,12 @@ static bool ns_Ignore_List(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Set_Password(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_PASSWORD(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Set_Password" << service << user << params);
+	MT_FUNC("biSET_PASSWORD" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1244,12 +1269,12 @@ static bool ns_Set_Password(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Set_Email(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_EMAIL(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Set_Email" << service << user << params);
+	MT_FUNC("biSET_EMAIL" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1287,12 +1312,12 @@ static bool ns_Set_Email(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Set_Website(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_WEBSITE(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Set_Website" << service << user << params);
+	MT_FUNC("biSET_WEBSITE" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1338,12 +1363,12 @@ static bool ns_Set_Website(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Set_Icq(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_ICQ(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Set_Icq" << service << user << params);
+	MT_FUNC("biSET_ICQ" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1378,12 +1403,12 @@ static bool ns_Set_Icq(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Set_Aim(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_AIM(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Set_Aim" << service << user << params);
+	MT_FUNC("biSET_AIM" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1419,12 +1444,12 @@ static bool ns_Set_Aim(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Set_Msn(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_MSN(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Set_Msn" << service << user << params);
+	MT_FUNC("biSET_MSN" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1462,12 +1487,12 @@ static bool ns_Set_Msn(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Set_Jabber(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_JABBER(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Set_Jabber" << service << user << params);
+	MT_FUNC("biSET_JABBER" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1505,12 +1530,12 @@ static bool ns_Set_Jabber(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Set_Yahoo(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_YAHOO(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Set_Yahoo" << service << user << params);
+	MT_FUNC("biSET_YAHOO" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1546,12 +1571,12 @@ static bool ns_Set_Yahoo(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Set_Description(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_DESCRIPTION(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Set_Description" << service << user << params);
+	MT_FUNC("biSET_DESCRIPTION" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1583,12 +1608,12 @@ static bool ns_Set_Description(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Set_Language(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_LANGUAGE(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Set_Language" << service << user << params);
+	MT_FUNC("biSET_LANGUAGE" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1629,12 +1654,12 @@ static bool ns_Set_Language(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Set_Protect(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_PROTECT(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Set_Protect" << service << user << params);
+	MT_FUNC("biSET_PROTECT" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1673,12 +1698,12 @@ static bool ns_Set_Protect(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Set_Secure(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_SECURE(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Set_Secure" << service << user << params);
+	MT_FUNC("biSET_SECURE" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1717,12 +1742,12 @@ static bool ns_Set_Secure(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Set_Nomemo(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_NOMEMO(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Set_Nomemo" << service << user << params);
+	MT_FUNC("biSET_NOMEMO" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1761,12 +1786,12 @@ static bool ns_Set_Nomemo(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Set_Private(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_PRIVATE(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Set_Private" << service << user << params);
+	MT_FUNC("biSET_PRIVATE" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1805,12 +1830,12 @@ static bool ns_Set_Private(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Set_Privmsg(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_PRIVMSG(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Set_Privmsg" << service << user << params);
+	MT_FUNC("biSET_PRIVMSG" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1849,12 +1874,12 @@ static bool ns_Set_Privmsg(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Set_Picture(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_PICTURE(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Set_Picture" << service << user << params);
+	MT_FUNC("biSET_PICTURE" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1868,12 +1893,12 @@ static bool ns_Set_Picture(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unset_Email(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_EMAIL(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unset_Email" << service << user << params);
+	MT_FUNC("biUNSET_EMAIL" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1894,12 +1919,12 @@ static bool ns_Unset_Email(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unset_Website(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_WEBSITE(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unset_Website" << service << user << params);
+	MT_FUNC("biUNSET_WEBSITE" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1920,12 +1945,12 @@ static bool ns_Unset_Website(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unset_Icq(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_ICQ(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unset_Icq" << service << user << params);
+	MT_FUNC("biUNSET_ICQ" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1946,12 +1971,12 @@ static bool ns_Unset_Icq(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unset_Aim(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_AIM(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unset_Aim" << service << user << params);
+	MT_FUNC("biUNSET_AIM" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1972,12 +1997,12 @@ static bool ns_Unset_Aim(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unset_Msn(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_MSN(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unset_Msn" << service << user << params);
+	MT_FUNC("biUNSET_MSN" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -1998,12 +2023,12 @@ static bool ns_Unset_Msn(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unset_Jabber(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_JABBER(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unset_Jabber" << service << user << params);
+	MT_FUNC("biUNSET_JABBER" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2024,12 +2049,12 @@ static bool ns_Unset_Jabber(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unset_Yahoo(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_YAHOO(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unset_Yahoo" << service << user << params);
+	MT_FUNC("biUNSET_YAHOO" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2050,12 +2075,12 @@ static bool ns_Unset_Yahoo(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unset_Description(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_DESCRIPTION(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unset_Description" << service << user << params);
+	MT_FUNC("biUNSET_DESCRIPTION" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2076,12 +2101,12 @@ static bool ns_Unset_Description(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unset_Language(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_LANGUAGE(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unset_Language" << service << user << params);
+	MT_FUNC("biUNSET_LANGUAGE" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2104,12 +2129,12 @@ static bool ns_Unset_Language(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unset_Protect(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_PROTECT(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unset_Protect" << service << user << params);
+	MT_FUNC("biUNSET_PROTECT" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2132,12 +2157,12 @@ static bool ns_Unset_Protect(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unset_Secure(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_SECURE(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unset_Secure" << service << user << params);
+	MT_FUNC("biUNSET_SECURE" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2160,12 +2185,12 @@ static bool ns_Unset_Secure(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unset_Nomemo(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_NOMEMO(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unset_Nomemo" << service << user << params);
+	MT_FUNC("biUNSET_NOMEMO" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2188,12 +2213,12 @@ static bool ns_Unset_Nomemo(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unset_Private(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_PRIVATE(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unset_Private" << service << user << params);
+	MT_FUNC("biUNSET_PRIVATE" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2216,12 +2241,12 @@ static bool ns_Unset_Private(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unset_Privmsg(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_PRIVMSG(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unset_Privmsg" << service << user << params);
+	MT_FUNC("biUNSET_PRIVMSG" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2244,12 +2269,12 @@ static bool ns_Unset_Privmsg(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unset_Picture(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_PICTURE(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unset_Picture" << service << user << params);
+	MT_FUNC("biUNSET_PICTURE" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2270,12 +2295,12 @@ static bool ns_Unset_Picture(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Set_Comment(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_COMMENT(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Set_Comment" << service << user << params);
+	MT_FUNC("biSET_COMMENT" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2307,12 +2332,12 @@ static bool ns_Set_Comment(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Set_Noexpire(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_NOEXPIRE(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Set_Noexpire" << service << user << params);
+	MT_FUNC("biSET_NOEXPIRE" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2352,12 +2377,12 @@ static bool ns_Set_Noexpire(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unset_Comment(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_COMMENT(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unset_Comment" << service << user << params);
+	MT_FUNC("biUNSET_COMMENT" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2386,12 +2411,12 @@ static bool ns_Unset_Comment(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unset_Noexpire(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_NOEXPIRE(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unset_Noexpire" << service << user << params);
+	MT_FUNC("biUNSET_NOEXPIRE" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2422,12 +2447,12 @@ static bool ns_Unset_Noexpire(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Lock_Language(const boost::shared_ptr<LiveUser> &service,
+static bool biLOCK_LANGUAGE(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Lock_Language" << service << user << params);
+	MT_FUNC("biLOCK_LANGUAGE" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2470,12 +2495,12 @@ static bool ns_Lock_Language(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Lock_Protect(const boost::shared_ptr<LiveUser> &service,
+static bool biLOCK_PROTECT(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Lock_Protect" << service << user << params);
+	MT_FUNC("biLOCK_PROTECT" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2517,12 +2542,12 @@ static bool ns_Lock_Protect(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Lock_Secure(const boost::shared_ptr<LiveUser> &service,
+static bool biLOCK_SECURE(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Lock_Secure" << service << user << params);
+	MT_FUNC("biLOCK_SECURE" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2564,12 +2589,12 @@ static bool ns_Lock_Secure(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Lock_Nomemo(const boost::shared_ptr<LiveUser> &service,
+static bool biLOCK_NOMEMO(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Lock_Nomemo" << service << user << params);
+	MT_FUNC("biLOCK_NOMEMO" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2611,12 +2636,12 @@ static bool ns_Lock_Nomemo(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Lock_Private(const boost::shared_ptr<LiveUser> &service,
+static bool biLOCK_PRIVATE(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Lock_Private" << service << user << params);
+	MT_FUNC("biLOCK_PRIVATE" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2658,12 +2683,12 @@ static bool ns_Lock_Private(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Lock_Privmsg(const boost::shared_ptr<LiveUser> &service,
+static bool biLOCK_PRIVMSG(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Lock_Privmsg" << service << user << params);
+	MT_FUNC("biLOCK_PRIVMSG" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2705,12 +2730,12 @@ static bool ns_Lock_Privmsg(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unlock_Language(const boost::shared_ptr<LiveUser> &service,
+static bool biUNLOCK_LANGUAGE(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unlock_Language" << service << user << params);
+	MT_FUNC("biUNLOCK_LANGUAGE" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2741,12 +2766,12 @@ static bool ns_Unlock_Language(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unlock_Protect(const boost::shared_ptr<LiveUser> &service,
+static bool biUNLOCK_PROTECT(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unlock_Protect" << service << user << params);
+	MT_FUNC("biUNLOCK_PROTECT" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2778,12 +2803,12 @@ static bool ns_Unlock_Protect(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unlock_Secure(const boost::shared_ptr<LiveUser> &service,
+static bool biUNLOCK_SECURE(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unlock_Secure" << service << user << params);
+	MT_FUNC("biUNLOCK_SECURE" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2814,12 +2839,12 @@ static bool ns_Unlock_Secure(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unlock_Nomemo(const boost::shared_ptr<LiveUser> &service,
+static bool biUNLOCK_NOMEMO(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unlock_Nomemo" << service << user << params);
+	MT_FUNC("biUNLOCK_NOMEMO" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2850,12 +2875,12 @@ static bool ns_Unlock_Nomemo(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unlock_Private(const boost::shared_ptr<LiveUser> &service,
+static bool biUNLOCK_PRIVATE(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unlock_Private" << service << user << params);
+	MT_FUNC("biUNLOCK_PRIVATE" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2886,12 +2911,12 @@ static bool ns_Unlock_Private(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_Unlock_Privmsg(const boost::shared_ptr<LiveUser> &service,
+static bool biUNLOCK_PRIVMSG(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_Unlock_Privmsg" << service << user << params);
+	MT_FUNC("biUNLOCK_PRIVMSG" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2922,12 +2947,12 @@ static bool ns_Unlock_Privmsg(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_StoredList(const boost::shared_ptr<LiveUser> &service,
+static bool biSTOREDLIST(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_StoredList" << service << user << params);
+	MT_FUNC("biSTOREDLIST" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2941,12 +2966,12 @@ static bool ns_StoredList(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool ns_LiveList(const boost::shared_ptr<LiveUser> &service,
+static bool biLIVELIST(const boost::shared_ptr<LiveUser> &service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("ns_LiveList" << service << user << params);
+	MT_FUNC("biLIVELIST" << service << user << params);
 
 	if (!service || !service->GetService())
 		MT_RET(false);
@@ -2963,7 +2988,7 @@ static bool ns_LiveList(const boost::shared_ptr<LiveUser> &service,
 void init_nickserv_functions(Service &serv)
 {
 	MT_EB
-	MT_FUNC("init_nickserv_functions");
+	MT_FUNC("init_nickserv_functions" << serv);
 
 	std::vector<std::string> comm_regd, comm_oper, comm_sop, comm_opersop;
 	comm_regd.push_back(ROOT->ConfigValue<std::string>("commserv.regd.name"));
@@ -2975,24 +3000,24 @@ void init_nickserv_functions(Service &serv)
 	serv.PushCommand("^HELP$", boost::bind(&Service::Help, &serv,
 										   _1, _2, _3));
 
-	serv.PushCommand("^REGISTER$", &ns_Register);
-	serv.PushCommand("^DROP$", &ns_Drop, comm_regd);
-	serv.PushCommand("^LINK$", &ns_Link);
-	serv.PushCommand("^LINK(S|LIST)$", &ns_Links);
-	serv.PushCommand("^ID(ENT(IFY)?)?$", &ns_Identify);
-	serv.PushCommand("^INFO$", &ns_Info);
-	serv.PushCommand("^GHOST$", &ns_Ghost);
-	serv.PushCommand("^REC(OVER)?$", &ns_Recover);
-	serv.PushCommand("^SEND$", &ns_Send);
-	serv.PushCommand("^SUSPEND$", &ns_Suspend, comm_sop);
-	serv.PushCommand("^UN?SUSPEND$", &ns_Unsuspend, comm_sop);
-	serv.PushCommand("^SETPASS(WORD)?$", &ns_Setpass, comm_sop);
+	serv.PushCommand("^REGISTER$", &biREGISTER);
+	serv.PushCommand("^DROP$", &biDROP, comm_regd);
+	serv.PushCommand("^LINK$", &biLINK);
+	serv.PushCommand("^LINK(S|LIST)$", &biLINKS);
+	serv.PushCommand("^ID(ENT(IFY)?)?$", &biIDENTIFY);
+	serv.PushCommand("^INFO$", &biINFO);
+	serv.PushCommand("^GHOST$", &biGHOST);
+	serv.PushCommand("^REC(OVER)?$", &biRECOVER);
+	serv.PushCommand("^SEND$", &biSEND);
+	serv.PushCommand("^SUSPEND$", &biSUSPEND, comm_sop);
+	serv.PushCommand("^UN?SUSPEND$", &biUNSUSPEND, comm_sop);
+	serv.PushCommand("^SETPASS(WORD)?$", &biSETPASS, comm_sop);
 
 	serv.PushCommand("^FORBID$",
 					 Service::CommandMerge(serv, 0, 1), comm_sop);
-	serv.PushCommand("^FORBID\\s+ADD$", &ns_Forbid_Add, comm_sop);
-	serv.PushCommand("^FORBID\\s+(ERASE|DEL(ETE)?)$", &ns_Forbid_Del, comm_sop);
-	serv.PushCommand("^FORBID\\s+(LIST|VIEW)$", &ns_Forbid_List, comm_sop);
+	serv.PushCommand("^FORBID\\s+ADD$", &biFORBID_ADD, comm_sop);
+	serv.PushCommand("^FORBID\\s+(ERASE|DEL(ETE)?)$", &biFORBID_DEL, comm_sop);
+	serv.PushCommand("^FORBID\\s+(LIST|VIEW)$", &biFORBID_LIST, comm_sop);
 	serv.PushCommand("^FORBID\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
 								 _1, _2, _3), comm_sop);
@@ -3000,13 +3025,13 @@ void init_nickserv_functions(Service &serv)
 	serv.PushCommand("^ACC(ESS)?$",
 					 Service::CommandMerge(serv, 0, 1), comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+CUR(R(ENT)?)?$",
-					 &ns_Access_Current, comm_regd);
+					 &biACCESS_CURRENT, comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+ADD$",
-					 &ns_Access_Add, comm_regd);
+					 &biACCESS_ADD, comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+(ERASE|DEL(ETE)?)$",
-					 &ns_Access_Del, comm_regd);
+					 &biACCESS_DEL, comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+(LIST|VIEW)$",
-					 &ns_Access_List, comm_regd);
+					 &biACCESS_LIST, comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
 								 _1, _2, _3), comm_regd);
@@ -3014,11 +3039,11 @@ void init_nickserv_functions(Service &serv)
 	serv.PushCommand("^IGNORE$",
 					 Service::CommandMerge(serv, 0, 1), comm_regd);
 	serv.PushCommand("^IGNORE\\s+ADD$",
-					 &ns_Ignore_Add, comm_regd);
+					 &biIGNORE_ADD, comm_regd);
 	serv.PushCommand("^IGNORE\\s+(ERASE|DEL(ETE)?)$",
-					 &ns_Ignore_Del, comm_regd);
+					 &biIGNORE_DEL, comm_regd);
 	serv.PushCommand("^IGNORE\\s+(LIST|VIEW)$",
-					 &ns_Ignore_List, comm_regd);
+					 &biIGNORE_LIST, comm_regd);
 	serv.PushCommand("^IGNORE\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
 								 _1, _2, _3), comm_regd);
@@ -3026,37 +3051,37 @@ void init_nickserv_functions(Service &serv)
 	serv.PushCommand("^SET$",
 					 Service::CommandMerge(serv, 0, 1), comm_regd);
 	serv.PushCommand("^SET\\s+PASS(W(OR)?D)?$",
-					 &ns_Set_Password, comm_regd);
+					 &biSET_PASSWORD, comm_regd);
 	serv.PushCommand("^SET\\s+E-?MAIL$",
-					 &ns_Set_Email, comm_regd);
+					 &biSET_EMAIL, comm_regd);
 	serv.PushCommand("^SET\\s+(URL|WWW|WEB(PAGE|SITE)?|HTTPS?)$",
-					 &ns_Set_Website, comm_regd);
+					 &biSET_WEBSITE, comm_regd);
 	serv.PushCommand("^SET\\s+(UIN|ICQ)$",
-					 &ns_Set_Icq, comm_regd);
+					 &biSET_ICQ, comm_regd);
 	serv.PushCommand("^SET\\s+(AIM)$",
-					 &ns_Set_Aim, comm_regd);
+					 &biSET_AIM, comm_regd);
 	serv.PushCommand("^SET\\s+MSN$",
-					 &ns_Set_Msn, comm_regd);
+					 &biSET_MSN, comm_regd);
 	serv.PushCommand("^SET\\s+JABBER$",
-					 &ns_Set_Jabber, comm_regd);
+					 &biSET_JABBER, comm_regd);
 	serv.PushCommand("^SET\\s+YAHOO$",
-					 &ns_Set_Yahoo, comm_regd);
+					 &biSET_YAHOO, comm_regd);
 	serv.PushCommand("^SET\\s+DESC(RIPT(ION)?)?$",
-					 &ns_Set_Description, comm_regd);
+					 &biSET_DESCRIPTION, comm_regd);
 	serv.PushCommand("^SET\\s+LANG(UAGE)?$",
-					 &ns_Set_Language, comm_regd);
+					 &biSET_LANGUAGE, comm_regd);
 	serv.PushCommand("^SET\\s+PROT(ECT)?$",
-					 &ns_Set_Protect, comm_regd);
+					 &biSET_PROTECT, comm_regd);
 	serv.PushCommand("^SET\\s+SECURE$",
-					 &ns_Set_Secure, comm_regd);
-	serv.PushCommand("^SET\\s+NOMEMO$",
-					 &ns_Set_Nomemo, comm_regd);
+					 &biSET_SECURE, comm_regd);
+	serv.PushCommand("^SET\\s+NOMEMOS?$",
+					 &biSET_NOMEMO, comm_regd);
 	serv.PushCommand("^SET\\s+PRIV(ATE)?$",
-					 &ns_Set_Private, comm_regd);
+					 &biSET_PRIVATE, comm_regd);
 	serv.PushCommand("^SET\\s+((PRIV)?MSG)$",
-					 &ns_Set_Privmsg, comm_regd);
+					 &biSET_PRIVMSG, comm_regd);
 	serv.PushCommand("^SET\\s+PIC(TURE)?$",
-					 &ns_Set_Picture, comm_regd);
+					 &biSET_PICTURE, comm_regd);
 	serv.PushCommand("^SET\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
 								 _1, _2, _3), comm_regd);
@@ -3064,62 +3089,62 @@ void init_nickserv_functions(Service &serv)
 	serv.PushCommand("^(UN|RE)SET$",
 					 Service::CommandMerge(serv, 0, 1), comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+E-?MAIL$",
-					 &ns_Unset_Email, comm_regd);
+					 &biUNSET_EMAIL, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+(URL|WWW|WEB(PAGE|SITE)?|HTTPS?)$",
-					 &ns_Unset_Website, comm_regd);
+					 &biUNSET_WEBSITE, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+(UIN|ICQ)$",
-					 &ns_Unset_Icq, comm_regd);
+					 &biUNSET_ICQ, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+(AIM)$",
-					 &ns_Unset_Aim, comm_regd);
+					 &biUNSET_AIM, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+MSN$",
-					 &ns_Unset_Msn, comm_regd);
+					 &biUNSET_MSN, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+JABBER$",
-					 &ns_Unset_Jabber, comm_regd);
+					 &biUNSET_JABBER, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+YAHOO$",
-					 &ns_Unset_Yahoo, comm_regd);
+					 &biUNSET_YAHOO, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+DESC(RIPT(ION)?)?$",
-					 &ns_Unset_Description, comm_regd);
+					 &biUNSET_DESCRIPTION, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+LANG(UAGE)?$",
-					 &ns_Unset_Language, comm_regd);
+					 &biUNSET_LANGUAGE, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+PROT(ECT)?$",
-					 &ns_Unset_Protect, comm_regd);
+					 &biUNSET_PROTECT, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+SECURE$",
-					 &ns_Unset_Secure, comm_regd);
-	serv.PushCommand("^(UN|RE)SET\\s+NOMEMO$",
-					 &ns_Unset_Nomemo, comm_regd);
+					 &biUNSET_SECURE, comm_regd);
+	serv.PushCommand("^(UN|RE)SET\\s+NOMEMOS?$",
+					 &biUNSET_NOMEMO, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+PRIV(ATE)?$",
-					 &ns_Unset_Private, comm_regd);
+					 &biUNSET_PRIVATE, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+((PRIV)?MSG)$",
-					 &ns_Unset_Privmsg, comm_regd);
+					 &biUNSET_PRIVMSG, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+PIC(TURE)?$",
-					 &ns_Unset_Picture, comm_regd);
+					 &biUNSET_PICTURE, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
 								 _1, _2, _3), comm_regd);
 
 	serv.PushCommand("^SET\\s+COMMENT$",
-					 &ns_Set_Comment, comm_opersop);
+					 &biSET_COMMENT, comm_opersop);
 	serv.PushCommand("^SET\\s+NO?EX(PIRE)?$",
-					 &ns_Set_Noexpire, comm_sop);
+					 &biSET_NOEXPIRE, comm_sop);
 	serv.PushCommand("^(UN|RE)SET\\s+COMMENT$",
-					 &ns_Unset_Comment, comm_opersop);
+					 &biUNSET_COMMENT, comm_opersop);
 	serv.PushCommand("^(UN|RE)SET\\s+NO?EX(PIRE)?$",
-					 &ns_Unset_Noexpire, comm_sop);
+					 &biUNSET_NOEXPIRE, comm_sop);
 
 	serv.PushCommand("^LOCK$",
 					 Service::CommandMerge(serv, 0, 1), comm_sop);
 	serv.PushCommand("^LOCK\\s+LANG(UAGE)?$",
-					 &ns_Lock_Language, comm_sop);
+					 &biLOCK_LANGUAGE, comm_sop);
 	serv.PushCommand("^LOCK\\s+PROT(ECT)?$",
-					 &ns_Lock_Protect, comm_sop);
+					 &biLOCK_PROTECT, comm_sop);
 	serv.PushCommand("^LOCK\\s+SECURE$",
-					 &ns_Lock_Secure, comm_sop);
-	serv.PushCommand("^LOCK\\s+NOMEMO$",
-					 &ns_Lock_Nomemo, comm_sop);
+					 &biLOCK_SECURE, comm_sop);
+	serv.PushCommand("^LOCK\\s+NOMEMOS?$",
+					 &biLOCK_NOMEMO, comm_sop);
 	serv.PushCommand("^LOCK\\s+PRIV(ATE)?$",
-					 &ns_Lock_Private, comm_sop);
+					 &biLOCK_PRIVATE, comm_sop);
 	serv.PushCommand("^LOCK\\s+((PRIV)?MSG)$",
-					 &ns_Lock_Privmsg, comm_sop);
+					 &biLOCK_PRIVMSG, comm_sop);
 	serv.PushCommand("^LOCK\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
 								 _1, _2, _3), comm_sop);
@@ -3127,24 +3152,24 @@ void init_nickserv_functions(Service &serv)
 	serv.PushCommand("^UN?LOCK$",
 					 Service::CommandMerge(serv, 0, 1), comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+LANG(UAGE)?$",
-					 &ns_Unlock_Language, comm_sop);
+					 &biUNLOCK_LANGUAGE, comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+PROT(ECT)?$",
-					 &ns_Unlock_Protect, comm_sop);
+					 &biUNLOCK_PROTECT, comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+SECURE$",
-					 &ns_Unlock_Secure, comm_sop);
-	serv.PushCommand("^UN?LOCK\\s+NOMEMO$",
-					 &ns_Unlock_Nomemo, comm_sop);
+					 &biUNLOCK_SECURE, comm_sop);
+	serv.PushCommand("^UN?LOCK\\s+NOMEMOS?$",
+					 &biUNLOCK_NOMEMO, comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+PRIV(ATE)?$",
-					 &ns_Unlock_Private, comm_sop);
+					 &biUNLOCK_PRIVATE, comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+((PRIV)?MSG)$",
-					 &ns_Unlock_Privmsg, comm_sop);
+					 &biUNLOCK_PRIVMSG, comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
 								 _1, _2, _3), comm_sop);
 
 	// These commands don't operate on any nickname.
-	serv.PushCommand("^(STORED)?LIST$", &ns_StoredList);
-	serv.PushCommand("^LIVE(LIST)?$", &ns_LiveList, comm_oper);
+	serv.PushCommand("^(STORED)?LIST$", &biSTOREDLIST);
+	serv.PushCommand("^LIVE(LIST)?$", &biLIVELIST, comm_oper);
 
 	MT_EE
 }

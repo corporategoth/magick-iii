@@ -72,6 +72,7 @@ boost::shared_ptr<Committee> Committee::create(const std::string &name)
 	storage.InsertRow(rec);
 
 	boost::shared_ptr<Committee> rv = load(name);
+	ROOT->data.Add(rv);
 
 	MT_RET(rv);
 	MT_EE
@@ -98,6 +99,7 @@ boost::shared_ptr<Committee> Committee::create(const std::string &name,
 	storage.InsertRow(rec);
 
 	boost::shared_ptr<Committee> rv = load(name);
+	ROOT->data.Add(rv);
 
 	MT_RET(rv);
 	MT_EE
@@ -127,6 +129,7 @@ boost::shared_ptr<Committee> Committee::create(const std::string &name,
 	storage.InsertRow(rec);
 
 	boost::shared_ptr<Committee> rv = load(name);
+	ROOT->data.Add(rv);
 
 	MT_RET(rv);
 	MT_EE
@@ -248,15 +251,8 @@ void Committee::Head(const boost::shared_ptr<StoredUser> &head)
 	MT_EB
 	MT_FUNC("Committee::Head" << head);
 
-	if (*this == ROOT->ConfigValue<std::string>("commserv.all.name") ||
-		*this == ROOT->ConfigValue<std::string>("commserv.regd.name") ||
-		*this == ROOT->ConfigValue<std::string>("commserv.oper.name") ||
-		*this == ROOT->ConfigValue<std::string>("commserv.sop.name") ||
-		*this == ROOT->ConfigValue<std::string>("commserv.admin.name") ||
-		*this == ROOT->ConfigValue<std::string>("commserv.sadmin.name"))
-	{
+	if (IsSpecial())
 		return;
-	}
 
 	mantra::Storage::RecordMap rec;
 	rec["head_committee"] = mantra::NullValue();
@@ -271,15 +267,8 @@ void Committee::Head(const boost::shared_ptr<Committee> &head)
 	MT_EB
 	MT_FUNC("Committee::Head" << head);
 
-	if (*this == ROOT->ConfigValue<std::string>("commserv.all.name") ||
-		*this == ROOT->ConfigValue<std::string>("commserv.regd.name") ||
-		*this == ROOT->ConfigValue<std::string>("commserv.oper.name") ||
-		*this == ROOT->ConfigValue<std::string>("commserv.sop.name") ||
-		*this == ROOT->ConfigValue<std::string>("commserv.admin.name") ||
-		*this == ROOT->ConfigValue<std::string>("commserv.sadmin.name"))
-	{
+	if (IsSpecial())
 		return;
-	}
 
 	mantra::Storage::RecordMap rec;
 	rec["head_committee"] = head->Name();
@@ -336,6 +325,31 @@ std::string Committee::Description() const
 
 	std::string ret;
 	mantra::StorageValue rv = storage.GetField(name_, "description");
+	if (rv.type() == typeid(mantra::NullValue))
+		MT_RET(ret);
+	ret = boost::get<std::string>(rv);
+
+	MT_RET(ret);
+	MT_EE
+}
+
+void Committee::Comment(const std::string &in)
+{
+	MT_EB
+	MT_FUNC("Committee::Comment" << in);
+
+	storage.PutField(name_, "comment", in);
+
+	MT_EE
+}
+
+std::string Committee::Comment() const
+{
+	MT_EB
+	MT_FUNC("Committee::Comment");
+
+	std::string ret;
+	mantra::StorageValue rv = storage.GetField(name_, "comment");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -628,15 +642,126 @@ bool Committee::LOCK_Secure() const
 	MT_EE
 }
 
+bool Committee::IsSpecial() const
+{
+	MT_EB
+	MT_FUNC("Committee::IsSpecial");
+
+	if (*this == ROOT->ConfigValue<std::string>("commserv.all.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.regd.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.oper.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.sop.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.admin.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.sadmin.name"))
+		MT_RET(true);
+	MT_RET(false);
+
+	MT_EE
+}
+
+bool Committee::IsPrivileged() const
+{
+	MT_EB
+	MT_FUNC("Committee::IsSpecial");
+
+	if (*this == ROOT->ConfigValue<std::string>("commserv.oper.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.sop.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.admin.name") ||
+		*this == ROOT->ConfigValue<std::string>("commserv.sadmin.name"))
+		MT_RET(true);
+	MT_RET(false);
+
+	MT_EE
+}
+
 bool Committee::IsMember(const boost::shared_ptr<LiveUser> &user) const
 {
 	MT_EB
 	MT_FUNC("Committee::IsMember" << user);
 
+	if (!user)
+		MT_RET(false);
+
+	SYNC_RLOCK(online_members_);
+	bool rv = (online_members_.find(user) != online_members_.end());
+
+	MT_RET(rv);
+	MT_EE
+}
+
+bool Committee::IsHead(const boost::shared_ptr<LiveUser> &user) const
+{
+	MT_EB
+	MT_FUNC("Committee::IsHead" << user);
+
+	if (IsMember(user))
+	{
+		boost::shared_ptr<StoredNick> nick = user->Stored();
+		if (!nick)
+			MT_RET(false);
+
+		bool rv = (HeadUser() == nick->User());
+		if (!rv)
+		{
+			boost::shared_ptr<Committee> comm = HeadCommittee();
+			if (comm)
+				rv = comm->IsMember(user);
+		}
+		MT_RET(rv);
+	}
+
+	MT_RET(false);
+	MT_EE
+}
+
+bool Committee::IsMember(const boost::shared_ptr<StoredUser> &user) const
+{
+	MT_EB
+	MT_FUNC("Committee::IsMember" << user);
+
+	if (!user)
+		MT_RET(false);
+
+	// Live committees, user CAN'T be in them.
+	if (name_ == ROOT->ConfigValue<std::string>("commserv.all.name") ||
+		name_ == ROOT->ConfigValue<std::string>("commserv.regd.name"))
+		MT_RET(false);
+
 	bool rv = false;
-    boost::shared_ptr<StoredNick> nick = user->Stored();
-    if (nick)
-        rv = MEMBER_Exists(nick->User());
+	if (HeadUser() == user || MEMBER_Exists(user))
+	{
+		rv = true;
+	}
+	else
+	{
+		boost::shared_ptr<Committee> comm = HeadCommittee();
+		if (comm)
+			rv = comm->IsMember(user);
+	}
+
+	MT_RET(rv);
+	MT_EE
+}
+
+bool Committee::IsHead(const boost::shared_ptr<StoredUser> &user) const
+{
+	MT_EB
+	MT_FUNC("Committee::IsHead" << user);
+
+	if (!user)
+		MT_RET(false);
+
+	bool rv = false;
+	if (HeadUser() == user)
+	{
+		rv = true;
+	}
+	else
+	{
+		boost::shared_ptr<Committee> comm = HeadCommittee();
+		if (comm)
+			rv = comm->IsMember(user);
+	}
 
 	MT_RET(rv);
 	MT_EE
@@ -860,4 +985,156 @@ void Committee::MESSAGE_Get(std::set<Committee::Message> &fill) const
 	MT_EE
 }
 
+static void check_option(std::string &str, const mantra::Storage::RecordMap &data,
+						 const std::string &key, const std::string &description)
+{
+	MT_EB
+	MT_FUNC("check_option");
+
+	if (ROOT->ConfigValue<bool>(("commserv.lock." + key).c_str()))
+	{
+		if (ROOT->ConfigValue<bool>(("commserv.defaults." + key).c_str()))
+		{
+			if (!str.empty())
+				str += ", ";
+			str += '\002' + description + '\017';
+		}
+	}
+	else
+	{
+		mantra::Storage::RecordMap::const_iterator i = data.find(key);
+		if (i != data.end())
+		{
+			if (boost::get<bool>(i->second))
+			{
+				i = data.find("lock_" + key);
+				if (i != data.end() && boost::get<bool>(i->second))
+				{
+					if (!str.empty())
+						str += ", ";
+					str += '\002' + description + '\017';
+				}
+				else
+				{
+					if (!str.empty())
+						str += ", ";
+					str += description;
+				}
+			}
+		}
+		else if (ROOT->ConfigValue<bool>(("commserv.defaults." + key).c_str()))
+		{
+			if (!str.empty())
+				str += ", ";
+			str += description;
+		}
+	}
+
+	MT_EE
+}
+
+void Committee::SendInfo(const boost::shared_ptr<LiveUser> &service,
+						 const boost::shared_ptr<LiveUser> &user) const
+{
+	MT_EB
+	MT_FUNC("Committee::SendInfo" << service << user);
+
+	if (!service || !user || !service->GetService())
+		return;
+
+	bool opersop = (user->InCommittee(ROOT->ConfigValue<std::string>("commserv.oper.name")) ||
+					user->InCommittee(ROOT->ConfigValue<std::string>("commserv.sop.name")));
+
+	mantra::Storage::RecordMap data, last_data;
+	mantra::Storage::RecordMap::const_iterator i;
+	storage.GetRow(name_, data);
+
+	bool priv = false;
+	if (!opersop)
+	{
+		if (!IsMember(user))
+		{
+			priv = ROOT->ConfigValue<bool>("commserv.defaults.private");
+			i = data.find("private");
+			if (i != data.end() && !ROOT->ConfigValue<bool>("commserv.lock.private"))
+				priv = boost::get<bool>(i->second);
+		}
+	}
+
+	SEND(service, user, N_("Information on committee \002%1%\017:"), name_);
+
+	SEND(service, user, N_("Registered     : %1% ago"),
+		 DurationToString(mantra::duration(boost::get<boost::posix_time::ptime>(data["registered"]),
+										   mantra::GetCurrentDateTime()), mantra::Second));
+
+	i = data.find("head_user");
+	if (i != data.end())
+	{
+		boost::shared_ptr<StoredUser> stored = ROOT->data.Get_StoredUser(
+			 boost::get<boost::uint32_t>(i->second));
+		if (stored)
+		{
+			StoredUser::my_nicks_t nicks = stored->Nicks();
+			std::string str;
+			StoredUser::my_nicks_t::const_iterator j;
+			for (j = nicks.begin(); j != nicks.end(); ++j)
+			{
+				if (!*j)
+					continue;
+
+				if (!str.empty())
+					str += ", ";
+				str += (*j)->Name();
+			}
+			SEND(service, user, N_("Head User      : %1%"), str);
+		}
+	}
+
+	i = data.find("head_committee");
+	if (i != data.end())
+	{
+		boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(
+			 boost::get<std::string>(i->second));
+		if (comm)
+			SEND(service, user, N_("Head Committee : %1%"), comm->Name());
+	}
+
+	if (!priv)
+	{
+		i = data.find("email");
+		if (i != data.end())
+			SEND(service, user, N_("E-Mail Address : %1%"),
+				 boost::get<std::string>(i->second));
+	}
+
+	i = data.find("website");
+	if (i != data.end())
+		SEND(service, user, N_("Web Site       : %1%"),
+			 boost::get<std::string>(i->second));
+
+	i = data.find("description");
+	if (i != data.end())
+		SEND(service, user, N_("Description    : %1%"),
+			 boost::get<std::string>(i->second));
+
+	if (!priv)
+	{
+		std::string str;
+		check_option(str, data, "secure", N_("Secure"));
+		check_option(str, data, "openmemos", N_("Open Memos"));
+		check_option(str, data, "private", N_("Private"));
+		if (!str.empty())
+			SEND(service, user, N_("Options        : %1%"), str);
+	}
+
+	if (opersop)
+	{
+		i = data.find("comment");
+		if (i != data.end())
+			SEND(service, user, N_("OPER Comment   : %1%"),
+				 boost::get<std::string>(i->second));
+	}
+
+	MT_EE
+}
 

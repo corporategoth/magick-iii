@@ -381,16 +381,18 @@ void StoredNick::SendInfo(const boost::shared_ptr<LiveUser> &service,
 		}
 	}
 
-	SEND(service, user, N_("Registered     : %1%"),
-		 boost::get<boost::posix_time::ptime>(data["registered"]));
+	SEND(service, user, N_("Registered     : %1% ago"),
+		 DurationToString(mantra::duration(boost::get<boost::posix_time::ptime>(data["registered"]),
+										   mantra::GetCurrentDateTime()), mantra::Second));
 
 	if (!live && !priv)
 	{
 		i = data.find("last_seen");
 		j = data.find("last_mask");
 		if (i != data.end() && j != data.end())
-			SEND(service, user, N_("Last Used      : %1% from %2%"),
-				 boost::get<boost::posix_time::ptime>(i->second) %
+			SEND(service, user, N_("Last Used      : %1% ago from %2%"),
+				 DurationToString(mantra::duration(boost::get<boost::posix_time::ptime>(i->second),
+												   mantra::GetCurrentDateTime()), mantra::Second) %
 				 boost::get<std::string>(j->second));
 		i = data.find("last_quit");
 		if (i != data.end())
@@ -407,8 +409,9 @@ void StoredNick::SendInfo(const boost::shared_ptr<LiveUser> &service,
 			j = last_data.find("last_mask");
 			if (i != last_data.end() && j != last_data.end())
 			{
-				SEND(service, user, N_("Last Online    : %1% from %2%!%3%"),
-					 boost::get<boost::posix_time::ptime>(i->second) %
+				SEND(service, user, N_("Last Online    : %1% ago from %2%!%3%"),
+					 DurationToString(mantra::duration(boost::get<boost::posix_time::ptime>(i->second),
+													   mantra::GetCurrentDateTime()), mantra::Second) %
 					 last->name_ % boost::get<std::string>(j->second));
 				i = last_data.find("last_quit");
 				if (i != last_data.end())

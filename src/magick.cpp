@@ -104,7 +104,7 @@ void Magick::run(const boost::function0<bool> &check)
 	init_nickserv_functions(nickserv);
 //    init_chanserv_functions(chanserv);
 //    init_memoserv_functions(memoserv);
-//    init_commserv_functions(commserv);
+    init_commserv_functions(commserv);
 //    init_operserv_functions(operserv);
 //    init_other_functions(other);
 

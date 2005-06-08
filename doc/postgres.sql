@@ -120,7 +120,8 @@ CREATE TABLE committees (
 		secure boolean,
 		lock_private boolean NOT NULL DEFAULT false,
 		lock_openmemos boolean NOT NULL DEFAULT false,
-		lock_secure boolean NOT NULL DEFAULT false
+		lock_secure boolean NOT NULL DEFAULT false,
+		comment text
 	);
 CREATE UNIQUE INDEX committees_idx ON committees(lower(name));
 CREATE INDEX committees_head_user_idx ON committees(head_user);

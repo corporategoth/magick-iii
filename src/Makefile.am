@@ -12,5 +12,5 @@ magick_SOURCES	= main.cpp magick.cpp config_init.cpp config_parse.cpp \
 				  protocol.cpp storage.cpp server.cpp message.cpp service.cpp \
 				  dependency.cpp liveuser.cpp livechannel.cpp storeduser.cpp \
 				  storednick.cpp storedchannel.cpp committee.cpp \
-				  nickserv.cpp
+				  nickserv.cpp commserv.cpp
 

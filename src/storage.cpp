@@ -1740,6 +1740,7 @@ void Storage::init()
 
 	cp.Assign<std::string>(true);
 	backend_.first->DefineColumn("committees", "description", cp);
+	backend_.first->DefineColumn("committees", "comment", cp);
 	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 320);
 	backend_.first->DefineColumn("committees", "email", cp);
 	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 2048);
@@ -2775,9 +2776,9 @@ void Storage::DelInternal(const boost::shared_ptr<Committee> &entry)
 	MT_EB
 	MT_FUNC("Storage::DelInternal" << entry);
 
-	mantra::ComparisonSet cs = mantra::Comparison<mantra::C_EqualToNC>::make("entry_committee", entry->Name());
 	if (!have_cascade)
 	{
+		mantra::ComparisonSet cs = mantra::Comparison<mantra::C_EqualToNC>::make("entry_committee", entry->Name());
 		backend_.first->RemoveRow("channels_access", cs);
 		backend_.first->RemoveRow("channels_akick", cs);
 	}
@@ -2788,7 +2789,10 @@ void Storage::DelInternal(const boost::shared_ptr<Committee> &entry)
 	DelInternalRecurse(entries);
 
 	if (have_cascade)
+	{
+		mantra::ComparisonSet cs = mantra::Comparison<mantra::C_EqualToNC>::make("name", entry->Name());
 		backend_.first->RemoveRow("committees", cs);
+	}
 
 	MT_EE
 }

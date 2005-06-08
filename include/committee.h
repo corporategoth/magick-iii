@@ -121,6 +121,8 @@ public:
 	std::string Email() const;
 	void Website(const std::string &in);
 	std::string Website() const;
+	void Comment(const std::string &in);
+	std::string Comment() const;
 
 	bool Private(const boost::logic::tribool &in);
 	bool Private() const;
@@ -214,9 +216,25 @@ public:
 	Message MESSAGE_Get(boost::uint32_t num) const;
 	void MESSAGE_Get(std::set<Message> &fill) const;
 
+	// Is this a committee we can't delete.
+	bool IsSpecial() const;
+
+	// Is this a committee conveying special privileges.
+	bool IsPrivileged() const;
+
+	// Recursive functions!
+
+	// These check 'current' status (ie. identified & secure).
 	bool IsMember(const boost::shared_ptr<LiveUser> &user) const;
+	bool IsHead(const boost::shared_ptr<LiveUser> &user) const;
+	// These check 'potential' status (ie. IF identified ...).
+	bool IsMember(const boost::shared_ptr<StoredUser> &user) const;
+	bool IsHead(const boost::shared_ptr<StoredUser> &user) const;
 
 	void Drop();
+
+	void SendInfo(const boost::shared_ptr<LiveUser> &service,
+				  const boost::shared_ptr<LiveUser> &user) const;
 };
 
 // Special interface used by LiveUser.
