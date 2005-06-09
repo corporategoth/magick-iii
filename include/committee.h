@@ -174,7 +174,7 @@ public:
 					  const boost::shared_ptr<StoredNick> &updater);
 	void MEMBER_Del(const boost::shared_ptr<StoredUser> &entry);
 	Member MEMBER_Get(const boost::shared_ptr<StoredUser> &entry) const;
-	void MEMBER_Fill(std::set<Member> &fill) const;
+	void MEMBER_Get(std::set<Member> &fill) const;
 
 	class Message : public boost::totally_ordered1<Memo>
 	{

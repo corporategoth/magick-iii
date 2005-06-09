@@ -196,6 +196,11 @@ static bool biMEMO(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	// TODO: To be implemented.
+	SEND(service, user,
+		 N_("The %1% command has not yet been implemented."),
+		 boost::algorithm::to_upper_copy(params[0]));
+	
 	MT_RET(true);
 	MT_EE
 }
@@ -209,6 +214,57 @@ static bool biMEMBER_ADD(const boost::shared_ptr<LiveUser> &service,
 
 	if (!service || !service->GetService())
 		MT_RET(false);
+
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> target = ROOT->data.Get_StoredNick(params[2]);
+	if (!target)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered."), params[2]);
+		MT_RET(false);
+	}
+
+	if (!comm->IsHead(user))
+	{
+		SEND(service, user,
+			 N_("You are not a head of committee %1%."), comm->Name());
+		MT_RET(false);
+	}
+
+	if (comm->IsMember(target->User()))
+	{
+		SEND(service, user,
+			 N_("%1% is already a member of committee %2% (or its head)."),
+			 target->Name() % comm->Name());
+		MT_RET(false);
+	}
+
+	comm->MEMBER_Add(target->User(), nick);
+	SEND(service, user, N_("%1% has been added to committee %2%."),
+		 target->Name() % comm->Name());
 
 	MT_RET(true);
 	MT_EE
@@ -224,6 +280,49 @@ static bool biMEMBER_DEL(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[2]);
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered."), params[2]);
+		MT_RET(false);
+	}
+		
+	if (!comm->IsHead(user))
+	{
+		SEND(service, user,
+			 N_("You are not a head of committee %1%."), comm->Name());
+		MT_RET(false);
+	}
+
+	if (!comm->MEMBER_Exists(nick->User()))
+	{
+		SEND(service, user,
+			 N_("%1% is not a member of committee %2%."),
+			 nick->Name() % comm->Name());
+		MT_RET(false);
+	}
+
+	comm->MEMBER_Del(nick->User());
+	SEND(service, user, N_("%1% has been removed from committee %2%."),
+		 nick->Name() % comm->Name());
+
 	MT_RET(true);
 	MT_EE
 }
@@ -237,6 +336,74 @@ static bool biMEMBER_LIST(const boost::shared_ptr<LiveUser> &service,
 
 	if (!service || !service->GetService())
 		MT_RET(false);
+
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!comm->IsMember(user) && comm->Private())
+	{
+		SEND(service, user, N_("Committee %1% is private."), comm->Name());
+		MT_RET(false);
+	}
+	
+	std::set<Committee::Member> ent;
+	comm->MEMBER_Get(ent);
+	if (ent.empty())
+	{
+		SEND(service, user, N_("Committee %1% has no members."), comm->Name());
+		MT_RET(true);
+	}
+
+	bool first = false;
+	std::set<Committee::Member>::iterator i;
+	for (i = ent.begin(); i != ent.end(); ++i)
+	{
+		StoredUser::my_nicks_t nicks = i->Entry()->Nicks();
+		if (nicks.empty())
+			continue;
+
+		std::string str;
+		StoredUser::my_nicks_t::const_iterator j;
+		for (j = nicks.begin(); j != nicks.end(); ++j)
+		{
+			if (!*j)
+				continue;
+
+			if (!str.empty())
+				str += ", ";
+			str += (*j)->Name();
+		}
+
+		if (!first)
+		{
+			SEND(service, user, N_("Members of committee \002%1%\017:"),
+				 comm->Name());
+			first = true;
+		}
+		SEND(service, user, N_("%1% [added by %2% %3% ago]"),
+			 str % i->Last_UpdaterName() %
+			 DurationToString(mantra::duration(i->Last_Update(),
+							  mantra::GetCurrentDateTime()), mantra::Second));
+	}
+
+	if (!first)
+	{
+		SEND(service, user, N_("Committee %1% has no members."), comm->Name());
+		MT_RET(false);
+	}
 
 	MT_RET(true);
 	MT_EE
@@ -252,6 +419,46 @@ static bool biMESSAGE_ADD(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	if (!comm->IsHead(user))
+	{
+		SEND(service, user,
+			 N_("You are not a head of committee %1%."), comm->Name());
+		MT_RET(false);
+	}
+
+	std::string message(params[2]);
+	for (size_t i=3; i < params.size(); ++i)
+		message += ' ' + params[i];
+
+	Committee::Message m = comm->MESSAGE_Add(message, nick);
+	SEND(service, user,
+		 N_("Message added to committee %1% as #%2%."),
+		 comm->Name() % m.Number());
+
 	MT_RET(true);
 	MT_EE
 }
@@ -265,6 +472,75 @@ static bool biMESSAGE_DEL(const boost::shared_ptr<LiveUser> &service,
 
 	if (!service || !service->GetService())
 		MT_RET(false);
+
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	if (!comm->IsHead(user))
+	{
+		SEND(service, user,
+			 N_("You are not a head of committee %1%."), comm->Name());
+		MT_RET(false);
+	}
+
+	std::vector<unsigned int> v;
+	if (!mantra::ParseNumbers(params[1], v))
+	{
+		NSEND(service, user,
+			  N_("Invalid number, number sequence, or number range specified."));
+		MT_RET(false);
+	}
+
+	std::vector<unsigned int> ne;
+	for (size_t i = 0; i < v.size(); ++i)
+	{
+		if (!comm->MESSAGE_Exists(v[i]))
+		{
+			ne.push_back(v[i]);
+			continue;
+		}
+
+		comm->MESSAGE_Del(v[i]);
+	}
+	if (ne.empty())
+	{
+		SEND(service, user,
+			 N_("%1% entries removed from committee %2%'s message list."),
+			 v.size() % comm->Name());
+	}
+	else if (v.size() != ne.size())
+	{
+		SEND(service, user,
+			 N_("%1% entries removed from committee %2%'s message list and %3% entries specified could not be found."),
+			 (v.size() - ne.size()) % comm->Name() % ne.size());
+	}
+	else
+	{
+		SEND(service, user,
+			 N_("No specified entries could be found on committee %1%'s message list."),
+			 comm->Name());
+	}
 
 	MT_RET(true);
 	MT_EE
@@ -280,6 +556,60 @@ static bool biMESSAGE_LIST(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!comm->IsMember(user))
+	{
+		SEND(service, user, N_("You are not a member of committee %1%."), comm->Name());
+		MT_RET(false);
+	}
+	
+	std::set<Committee::Message> ent;
+	comm->MESSAGE_Get(ent);
+	if (ent.empty())
+	{
+		SEND(service, user, N_("Committee %1% has no messages."), comm->Name());
+		MT_RET(true);
+	}
+
+	bool first = false;
+	std::set<Committee::Message>::iterator i;
+	for (i = ent.begin(); i != ent.end(); ++i)
+	{
+		if (!first)
+		{
+			SEND(service, user, N_("Messages for committee \002%1%\017:"),
+				 comm->Name());
+			first = true;
+		}
+
+		SEND(service, user, N_("%1$ 3d. %2%"), i->Number() % i->Entry());
+		SEND(service, user, N_("     Added by %1% %2% ago."),
+			 i->Last_UpdaterName() %
+			 DurationToString(mantra::duration(i->Last_Update(),
+							  mantra::GetCurrentDateTime()), mantra::Second));
+	}
+
+	if (!first)
+	{
+		SEND(service, user, N_("Committee %1% has no messages."), comm->Name());
+		MT_RET(false);
+	}
+
 	MT_RET(true);
 	MT_EE
 }
@@ -293,6 +623,58 @@ static bool biSET_HEAD(const boost::shared_ptr<LiveUser> &service,
 
 	if (!service || !service->GetService())
 		MT_RET(false);
+
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!comm->IsHead(user))
+	{
+		SEND(service, user,
+			 N_("You are not a head of committee %1%."), comm->Name());
+		MT_RET(false);
+	}
+
+	if (params[2][0] == '@')
+	{
+		boost::shared_ptr<Committee> head_comm = ROOT->data.Get_Committee(params[2].substr(1));
+		if (!head_comm)
+		{
+			SEND(service, user,
+				 N_("Committee %1% is not registered."), params[2].substr(1));
+			MT_RET(false);
+		}
+
+		comm->Head(head_comm);
+		SEND(service, user, N_("Head of committee %1% changed to committee %2%."),
+			 comm->Name() % head_comm->Name());
+	}
+	else
+	{
+		boost::shared_ptr<StoredNick> head_nick = ROOT->data.Get_StoredNick(params[2]);
+		if (!head_nick)
+		{
+			SEND(service, user,
+				 N_("Nickname %1% is not registered."), params[2]);
+			MT_RET(false);
+		}
+		
+		comm->Head(head_nick->User());
+		SEND(service, user, N_("Head of committee %1% changed to %2%."),
+			 comm->Name() % head_nick->Name());
+	}
 
 	MT_RET(true);
 	MT_EE

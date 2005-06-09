@@ -180,7 +180,7 @@ std::set<boost::shared_ptr<Committee> > Committee::FindCommittees(const boost::s
 	fields.insert("name");
 	storage.RetrieveRow(data, mantra::Comparison<mantra::C_EqualTo>::make("head_user", in->ID()), fields);
 
-	mantra::Storage::DataSet::const_iterator i = data.begin();
+	mantra::Storage::DataSet::const_iterator i;
 	for (i = data.begin(); i != data.end(); ++i)
 	{
 		mantra::Storage::RecordMap::const_iterator j = i->find("name");
@@ -848,12 +848,10 @@ Committee::Member Committee::MEMBER_Get(const boost::shared_ptr<StoredUser> &ent
 	MT_EE
 }
 
-void Committee::MEMBER_Fill(std::set<Committee::Member> &fill) const
+void Committee::MEMBER_Get(std::set<Committee::Member> &fill) const
 {
 	MT_EB
-	MT_FUNC("Committee::MEMBER_Fill" << fill);
-
-	std::set<Member> rv;
+	MT_FUNC("Committee::MEMBER_Get" << fill);
 
 	mantra::Storage::DataSet data;
 	mantra::Storage::FieldSet fields;
@@ -863,7 +861,7 @@ void Committee::MEMBER_Fill(std::set<Committee::Member> &fill) const
 				mantra::Comparison<mantra::C_EqualToNC>::make("name", name_),
 				fields);
 
-	mantra::Storage::DataSet::const_iterator i = data.begin();
+	mantra::Storage::DataSet::const_iterator i;
 	for (i = data.begin(); i != data.end(); ++i)
 	{
 		mantra::Storage::RecordMap::const_iterator j = i->find("entry");
@@ -875,7 +873,7 @@ void Committee::MEMBER_Fill(std::set<Committee::Member> &fill) const
 		if (!user)
 			continue;
 
-		rv.insert(Member(self.lock(), user));
+		fill.insert(Member(self.lock(), user));
 	}
 
 	MT_EE
@@ -933,7 +931,7 @@ void Committee::MESSAGE_Del(boost::uint32_t num)
 	MT_EB
 	MT_FUNC("Committee::MESSAGE_Del" << num);
 
-	Member::storage.RemoveRow(
+	Message::storage.RemoveRow(
 				mantra::Comparison<mantra::C_EqualToNC>::make("name", name_) &&
 				mantra::Comparison<mantra::C_EqualTo>::make("number", num));
 
@@ -962,24 +960,22 @@ void Committee::MESSAGE_Get(std::set<Committee::Message> &fill) const
 	MT_EB
 	MT_FUNC("Committee::MESSAGE_Get" << fill);
 
-	std::set<Message> rv;
-
 	mantra::Storage::DataSet data;
 	mantra::Storage::FieldSet fields;
 	fields.insert("number");
 
-	Member::storage.RetrieveRow(data,
+	Message::storage.RetrieveRow(data,
 				mantra::Comparison<mantra::C_EqualToNC>::make("name", name_),
 				fields);
 
-	mantra::Storage::DataSet::const_iterator i = data.begin();
+	mantra::Storage::DataSet::const_iterator i;
 	for (i = data.begin(); i != data.end(); ++i)
 	{
 		mantra::Storage::RecordMap::const_iterator j = i->find("number");
 		if (j == i->end() || j->second.type() == typeid(mantra::NullValue))
 			continue;
 
-		rv.insert(Message(self.lock(), boost::get<boost::uint32_t>(j->second)));
+		fill.insert(Message(self.lock(), boost::get<boost::uint32_t>(j->second)));
 	}
 
 	MT_EE
@@ -1135,6 +1131,211 @@ void Committee::SendInfo(const boost::shared_ptr<LiveUser> &service,
 				 boost::get<std::string>(i->second));
 	}
 
+	MT_EE
+}
+
+std::string Committee::Member::Last_UpdaterName() const
+{
+	MT_EB
+	MT_FUNC("Committee::Member::Last_UpdaterName");
+
+	mantra::Storage::DataSet data;
+	mantra::Storage::FieldSet fields;
+	fields.insert("last_updater");
+
+	storage.RetrieveRow(data,
+			mantra::Comparison<mantra::C_EqualToNC>::make("name", owner_->Name()) &&
+			mantra::Comparison<mantra::C_EqualToNC>::make("entry", entry_->ID()), fields);
+
+	std::string rv;
+	if (data.empty() || data.size() > 1)
+		MT_RET(rv);
+
+	mantra::Storage::RecordMap::iterator i = data[0].find("last_updater");
+	if (i == data[0].end())
+		MT_RET(rv);
+
+	if (i->second.type() == typeid(mantra::NullValue))
+		MT_RET(rv);
+	rv = boost::get<std::string>(i->second);
+
+	MT_RET(rv);
+	MT_EE
+}
+
+boost::shared_ptr<StoredUser> Committee::Member::Last_Updater() const
+{
+	MT_EB
+	MT_FUNC("Committee::Member::Last_Updater");
+
+	mantra::Storage::DataSet data;
+	mantra::Storage::FieldSet fields;
+	fields.insert("last_updater_id");
+
+	storage.RetrieveRow(data,
+			mantra::Comparison<mantra::C_EqualToNC>::make("name", owner_->Name()) &&
+			mantra::Comparison<mantra::C_EqualToNC>::make("entry", entry_->ID()), fields);
+
+	boost::shared_ptr<StoredUser> rv;
+	if (data.empty() || data.size() > 1)
+		MT_RET(rv);
+
+	mantra::Storage::RecordMap::iterator i = data[0].find("last_updater_id");
+	if (i == data[0].end())
+		MT_RET(rv);
+
+	if (i->second.type() == typeid(mantra::NullValue))
+		MT_RET(rv);
+
+	rv = ROOT->data.Get_StoredUser(boost::get<boost::uint32_t>(i->second));
+
+	MT_RET(rv);
+	MT_EE
+}
+
+boost::posix_time::ptime Committee::Member::Last_Update() const
+{
+	MT_EB
+	MT_FUNC("Committee::Member::Last_Update");
+
+	mantra::Storage::DataSet data;
+	mantra::Storage::FieldSet fields;
+	fields.insert("last_update");
+
+	storage.RetrieveRow(data,
+			mantra::Comparison<mantra::C_EqualToNC>::make("name", owner_->Name()) &&
+			mantra::Comparison<mantra::C_EqualToNC>::make("entry", entry_->ID()), fields);
+
+	boost::posix_time::ptime rv;
+	if (data.empty() || data.size() > 1)
+		MT_RET(rv);
+
+	mantra::Storage::RecordMap::iterator i = data[0].find("last_update");
+	if (i == data[0].end())
+		MT_RET(rv);
+
+	if (i->second.type() == typeid(mantra::NullValue))
+		MT_RET(rv);
+	rv = boost::get<boost::posix_time::ptime>(i->second);
+
+	MT_RET(rv);
+	MT_EE
+}
+
+std::string Committee::Message::Entry() const
+{
+	MT_EB
+	MT_FUNC("Committee::Message::Entry");
+
+	mantra::Storage::DataSet data;
+	mantra::Storage::FieldSet fields;
+	fields.insert("entry");
+
+	storage.RetrieveRow(data,
+			mantra::Comparison<mantra::C_EqualToNC>::make("name", owner_->Name()) &&
+			mantra::Comparison<mantra::C_EqualTo>::make("number", number_), fields);
+
+	std::string rv;
+	if (data.empty() || data.size() > 1)
+		MT_RET(rv);
+
+	mantra::Storage::RecordMap::iterator i = data[0].find("entry");
+	if (i == data[0].end())
+		MT_RET(rv);
+
+	if (i->second.type() == typeid(mantra::NullValue))
+		MT_RET(rv);
+	rv = boost::get<std::string>(i->second);
+
+	MT_RET(rv);
+	MT_EE
+}
+
+std::string Committee::Message::Last_UpdaterName() const
+{
+	MT_EB
+	MT_FUNC("Committee::Message::Last_UpdaterName");
+
+	mantra::Storage::DataSet data;
+	mantra::Storage::FieldSet fields;
+	fields.insert("last_updater");
+
+	storage.RetrieveRow(data,
+			mantra::Comparison<mantra::C_EqualToNC>::make("name", owner_->Name()) &&
+			mantra::Comparison<mantra::C_EqualTo>::make("number", number_), fields);
+
+	std::string rv;
+	if (data.empty() || data.size() > 1)
+		MT_RET(rv);
+
+	mantra::Storage::RecordMap::iterator i = data[0].find("last_updater");
+	if (i == data[0].end())
+		MT_RET(rv);
+
+	if (i->second.type() == typeid(mantra::NullValue))
+		MT_RET(rv);
+	rv = boost::get<std::string>(i->second);
+
+	MT_RET(rv);
+	MT_EE
+}
+
+boost::shared_ptr<StoredUser> Committee::Message::Last_Updater() const
+{
+	MT_EB
+	MT_FUNC("Committee::Message::Last_Updater");
+
+	mantra::Storage::DataSet data;
+	mantra::Storage::FieldSet fields;
+	fields.insert("last_updater_id");
+
+	storage.RetrieveRow(data,
+			mantra::Comparison<mantra::C_EqualToNC>::make("name", owner_->Name()) &&
+			mantra::Comparison<mantra::C_EqualTo>::make("number", number_), fields);
+
+	boost::shared_ptr<StoredUser> rv;
+	if (data.empty() || data.size() > 1)
+		MT_RET(rv);
+
+	mantra::Storage::RecordMap::iterator i = data[0].find("last_updater_id");
+	if (i == data[0].end())
+		MT_RET(rv);
+
+	if (i->second.type() == typeid(mantra::NullValue))
+		MT_RET(rv);
+
+	rv = ROOT->data.Get_StoredUser(boost::get<boost::uint32_t>(i->second));
+
+	MT_RET(rv);
+	MT_EE
+}
+
+boost::posix_time::ptime Committee::Message::Last_Update() const
+{
+	MT_EB
+	MT_FUNC("Committee::Message::Last_Update");
+
+	mantra::Storage::DataSet data;
+	mantra::Storage::FieldSet fields;
+	fields.insert("last_update");
+
+	storage.RetrieveRow(data,
+			mantra::Comparison<mantra::C_EqualToNC>::make("name", owner_->Name()) &&
+			mantra::Comparison<mantra::C_EqualTo>::make("number", number_), fields);
+
+	boost::posix_time::ptime rv;
+	if (data.empty() || data.size() > 1)
+		MT_RET(rv);
+
+	mantra::Storage::RecordMap::iterator i = data[0].find("last_update");
+	if (i == data[0].end())
+		MT_RET(rv);
+
+	if (i->second.type() == typeid(mantra::NullValue))
+		MT_RET(rv);
+	rv = boost::get<boost::posix_time::ptime>(i->second);
+
+	MT_RET(rv);
 	MT_EE
 }
 
