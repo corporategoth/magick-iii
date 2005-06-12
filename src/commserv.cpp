@@ -113,7 +113,7 @@ static bool biREGISTER(const boost::shared_ptr<LiveUser> &service,
 	{
 		std::string desc(params[3]);
 		for (size_t i = 4; i < params.size(); ++i)
-			desc += " " + params[i];
+			desc += ' ' + params[i];
 		newcomm->Description(desc);
 	}
 
@@ -443,7 +443,8 @@ static bool biMESSAGE_ADD(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	if (!comm->IsHead(user))
+	if (*comm == ROOT->ConfigValue<std::string>("commserv.sadmin.name")
+		? !comm->IsMember(user) : !comm->IsHead(user))
 	{
 		SEND(service, user,
 			 N_("You are not a head of committee %1%."), comm->Name());
@@ -497,7 +498,8 @@ static bool biMESSAGE_DEL(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	if (!comm->IsHead(user))
+	if (*comm == ROOT->ConfigValue<std::string>("commserv.sadmin.name")
+		? !comm->IsMember(user) : !comm->IsHead(user))
 	{
 		SEND(service, user,
 			 N_("You are not a head of committee %1%."), comm->Name());
@@ -640,7 +642,16 @@ static bool biSET_HEAD(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	if (!comm->IsHead(user))
+	if (comm->IsSpecial())
+	{
+		SEND(service, user,
+			 N_("Committee head may not be changed on system-defined committee %1%."),
+			 comm->Name());
+		MT_RET(false);
+	}
+
+	if (!comm->IsHead(user) &&
+		!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.owner")))
 	{
 		SEND(service, user,
 			 N_("You are not a head of committee %1%."), comm->Name());
@@ -690,6 +701,42 @@ static bool biSET_EMAIL(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!comm->IsHead(user))
+	{
+		SEND(service, user,
+			 N_("You are not a head of committee %1%."), comm->Name());
+		MT_RET(false);
+	}
+
+	static boost::regex rx("^[^[:space:][:cntrl:]@]+@"
+						   "([[:alnum:]][-[:alnum:]]*\\.)*"
+						   "[[:alnum:]][-[:alnum:]]*$");
+	if (!boost::regex_match(params[2], rx))
+	{
+		NSEND(service, user, N_("Invalid e-mail address specified."));
+		MT_RET(false);
+	}
+
+	comm->Email(params[2]);
+	SEND(service, user, N_("The e-mail address of committee %1% has been set to \002%2%\017."),
+		 comm->Name() % params[2]);
+
 	MT_RET(true);
 	MT_EE
 }
@@ -703,6 +750,50 @@ static bool biSET_WEBSITE(const boost::shared_ptr<LiveUser> &service,
 
 	if (!service || !service->GetService())
 		MT_RET(false);
+
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!comm->IsHead(user))
+	{
+		SEND(service, user,
+			 N_("You are not a head of committee %1%."), comm->Name());
+		MT_RET(false);
+	}
+
+	static boost::regex rx("^(https?://)?"
+						   "(("
+								"((25[0-5]|2[0-4][0-9]|[01]?[0-9]{1,2})\\.){3}"
+								"(25[0-5]|2[0-4][0-9]|[01]?[0-9]{1,2})"
+						   ")|("
+								"([[:alnum:]][-[:alnum:]]*\\.)+"
+								"[[:alnum:]][-[:alnum:]]*"
+						   "))(/[[:print:]]*)?$");
+	if (!boost::regex_match(params[2], rx))
+	{
+		NSEND(service, user, N_("Invalid website address specified."));
+		MT_RET(false);
+	}
+	std::string url(params[2]);
+	if (params[2].find("http") != 0)
+		url.insert(0, "http://", 7);
+
+	comm->Website(url);
+	SEND(service, user, N_("The website address of committee %1% has been set to \002%2%\017."),
+		 comm->Name() % url);
 
 	MT_RET(true);
 	MT_EE
@@ -718,6 +809,36 @@ static bool biSET_DESCRIPTION(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!comm->IsHead(user))
+	{
+		SEND(service, user,
+			 N_("You are not a head of committee %1%."), comm->Name());
+		MT_RET(false);
+	}
+
+	std::string desc(params[2]);
+	for (size_t i = 3; i < params.size(); ++i)
+		desc += ' ' + params[i];
+	comm->Description(desc);
+	SEND(service, user, N_("The description of committee %1% has been set to \002%2%\017."),
+		 comm->Name() % desc);
+
 	MT_RET(true);
 	MT_EE
 }
@@ -731,6 +852,45 @@ static bool biSET_SECURE(const boost::shared_ptr<LiveUser> &service,
 
 	if (!service || !service->GetService())
 		MT_RET(false);
+
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!comm->IsHead(user))
+	{
+		SEND(service, user,
+			 N_("You are not a head of committee %1%."), comm->Name());
+		MT_RET(false);
+	}
+
+	boost::logic::tribool v = mantra::get_bool(params[1]);
+	if (boost::logic::indeterminate(v))
+	{
+		NSEND(service, user, N_("You may only specify ON or OFF."));
+		MT_RET(false);
+	}
+
+	if (comm->Secure(v))
+		SEND(service, user, (v
+			  ? N_("Secure for committee %1% has been \002enabled\017.")
+			  : N_("Secure for committee %1% has been \002disabled\017.")),
+			 comm->Name());
+	else
+		SEND(service, user, N_("The secure setting for committee %1% is locked and cannot be changed."),
+			 comm->Name());
 
 	MT_RET(true);
 	MT_EE
@@ -746,6 +906,45 @@ static bool biSET_OPENMEMO(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!comm->IsHead(user))
+	{
+		SEND(service, user,
+			 N_("You are not a head of committee %1%."), comm->Name());
+		MT_RET(false);
+	}
+
+	boost::logic::tribool v = mantra::get_bool(params[1]);
+	if (boost::logic::indeterminate(v))
+	{
+		NSEND(service, user, N_("You may only specify ON or OFF."));
+		MT_RET(false);
+	}
+
+	if (comm->OpenMemos(v))
+		SEND(service, user, (v
+			  ? N_("Open memos for committee %1% has been \002enabled\017.")
+			  : N_("Open memos for committee %1% has been \002disabled\017.")),
+			 comm->Name());
+	else
+		SEND(service, user, N_("The open memos setting for committee %1% is locked and cannot be changed."),
+			 comm->Name());
+
 	MT_RET(true);
 	MT_EE
 }
@@ -759,6 +958,45 @@ static bool biSET_PRIVATE(const boost::shared_ptr<LiveUser> &service,
 
 	if (!service || !service->GetService())
 		MT_RET(false);
+
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!comm->IsHead(user))
+	{
+		SEND(service, user,
+			 N_("You are not a head of committee %1%."), comm->Name());
+		MT_RET(false);
+	}
+
+	boost::logic::tribool v = mantra::get_bool(params[1]);
+	if (boost::logic::indeterminate(v))
+	{
+		NSEND(service, user, N_("You may only specify ON or OFF."));
+		MT_RET(false);
+	}
+
+	if (comm->Secure(v))
+		SEND(service, user, (v
+			  ? N_("Private for committee %1% has been \002enabled\017.")
+			  : N_("Private for committee %1% has been \002disabled\017.")),
+			 comm->Name());
+	else
+		SEND(service, user, N_("The private setting for committee %1% is locked and cannot be changed."),
+			 comm->Name());
 
 	MT_RET(true);
 	MT_EE
@@ -774,6 +1012,33 @@ static bool biUNSET_EMAIL(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!comm->IsHead(user))
+	{
+		SEND(service, user,
+			 N_("You are not a head of committee %1%."), comm->Name());
+		MT_RET(false);
+	}
+
+	comm->Email(std::string());
+	SEND(service, user, N_("The e-mail address for committee %1% has been unset."),
+		 comm->Name());
+
 	MT_RET(true);
 	MT_EE
 }
@@ -787,6 +1052,33 @@ static bool biUNSET_WEBSITE(const boost::shared_ptr<LiveUser> &service,
 
 	if (!service || !service->GetService())
 		MT_RET(false);
+
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!comm->IsHead(user))
+	{
+		SEND(service, user,
+			 N_("You are not a head of committee %1%."), comm->Name());
+		MT_RET(false);
+	}
+
+	comm->Website(std::string());
+	SEND(service, user, N_("The website address for committee %1% has been unset."),
+		 comm->Name());
 
 	MT_RET(true);
 	MT_EE
@@ -802,6 +1094,33 @@ static bool biUNSET_DESCRIPTION(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!comm->IsHead(user))
+	{
+		SEND(service, user,
+			 N_("You are not a head of committee %1%."), comm->Name());
+		MT_RET(false);
+	}
+
+	comm->Description(std::string());
+	SEND(service, user, N_("The description for committee %1% has been unset."),
+		 comm->Name());
+
 	MT_RET(true);
 	MT_EE
 }
@@ -815,6 +1134,36 @@ static bool biUNSET_SECURE(const boost::shared_ptr<LiveUser> &service,
 
 	if (!service || !service->GetService())
 		MT_RET(false);
+
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!comm->IsHead(user))
+	{
+		SEND(service, user,
+			 N_("You are not a head of committee %1%."), comm->Name());
+		MT_RET(false);
+	}
+
+	if (comm->Secure(boost::logic::indeterminate))
+		SEND(service, user, N_("Secure for committee %1% has been reset to the default."),
+			 comm->Name());
+	else
+		SEND(service, user, N_("The secure setting for committee %1% is locked and cannot be changed."),
+			 comm->Name());
 
 	MT_RET(true);
 	MT_EE
@@ -830,6 +1179,36 @@ static bool biUNSET_OPENMEMO(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!comm->IsHead(user))
+	{
+		SEND(service, user,
+			 N_("You are not a head of committee %1%."), comm->Name());
+		MT_RET(false);
+	}
+
+	if (comm->OpenMemos(boost::logic::indeterminate))
+		SEND(service, user, N_("Open memos for committee %1% has been reset to the default."),
+			 comm->Name());
+	else
+		SEND(service, user, N_("The open memos setting for committee %1% is locked and cannot be changed."),
+			 comm->Name());
+
 	MT_RET(true);
 	MT_EE
 }
@@ -843,6 +1222,36 @@ static bool biUNSET_PRIVATE(const boost::shared_ptr<LiveUser> &service,
 
 	if (!service || !service->GetService())
 		MT_RET(false);
+
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!comm->IsHead(user))
+	{
+		SEND(service, user,
+			 N_("You are not a head of committee %1%."), comm->Name());
+		MT_RET(false);
+	}
+
+	if (comm->Private(boost::logic::indeterminate))
+		SEND(service, user, N_("Private for committee %1% has been reset to the default."),
+			 comm->Name());
+	else
+		SEND(service, user, N_("The private setting for committee %1% is locked and cannot be changed."),
+			 comm->Name());
 
 	MT_RET(true);
 	MT_EE
@@ -858,6 +1267,29 @@ static bool biSET_COMMENT(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	std::string comment(params[2]);
+	for (size_t i = 3; i < params.size(); ++i)
+		comment += ' ' + params[i];
+	comm->Comment(comment);
+	SEND(service, user, N_("Comment for committee %1% has been set to \002%2%\017."),
+		 comm->Name() % comment);
+
 	MT_RET(true);
 	MT_EE
 }
@@ -871,6 +1303,26 @@ static bool biUNSET_COMMENT(const boost::shared_ptr<LiveUser> &service,
 
 	if (!service || !service->GetService())
 		MT_RET(false);
+
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	comm->Comment(std::string());
+	SEND(service, user, N_("Comment for committee %1% has been unset."),
+		 comm->Name());
 
 	MT_RET(true);
 	MT_EE
@@ -886,6 +1338,39 @@ static bool biLOCK_SECURE(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::logic::tribool v = mantra::get_bool(params[2]);
+	if (boost::logic::indeterminate(v))
+	{
+		NSEND(service, user, N_("You may only specify ON or OFF."));
+		MT_RET(false);
+	}
+
+	if (!comm->LOCK_Secure(false))
+		NSEND(service, user, N_("The secure setting is globally locked and cannot be locked."));
+
+	comm->Secure(v);
+	comm->LOCK_Secure(true);
+	SEND(service, user, (v
+		  ? N_("Secure for %1% has been \002enabled\017 and locked.")
+		  : N_("Secure for %1% has been \002disabled\017 and locked.")),
+		  comm->Name());
+
 	MT_RET(true);
 	MT_EE
 }
@@ -899,6 +1384,39 @@ static bool biLOCK_OPENMEMO(const boost::shared_ptr<LiveUser> &service,
 
 	if (!service || !service->GetService())
 		MT_RET(false);
+
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::logic::tribool v = mantra::get_bool(params[2]);
+	if (boost::logic::indeterminate(v))
+	{
+		NSEND(service, user, N_("You may only specify ON or OFF."));
+		MT_RET(false);
+	}
+
+	if (!comm->LOCK_OpenMemos(false))
+		NSEND(service, user, N_("The open memos setting is globally locked and cannot be locked."));
+
+	comm->OpenMemos(v);
+	comm->LOCK_OpenMemos(true);
+	SEND(service, user, (v
+		  ? N_("Open memos for %1% has been \002enabled\017 and locked.")
+		  : N_("Open memos for %1% has been \002disabled\017 and locked.")),
+		  comm->Name());
 
 	MT_RET(true);
 	MT_EE
@@ -914,6 +1432,39 @@ static bool biLOCK_PRIVATE(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::logic::tribool v = mantra::get_bool(params[2]);
+	if (boost::logic::indeterminate(v))
+	{
+		NSEND(service, user, N_("You may only specify ON or OFF."));
+		MT_RET(false);
+	}
+
+	if (!comm->LOCK_Private(false))
+		NSEND(service, user, N_("The private setting is globally locked and cannot be locked."));
+
+	comm->Private(v);
+	comm->LOCK_Private(true);
+	SEND(service, user, (v
+		  ? N_("Private for %1% has been \002enabled\017 and locked.")
+		  : N_("Private for %1% has been \002disabled\017 and locked.")),
+		  comm->Name());
+
 	MT_RET(true);
 	MT_EE
 }
@@ -927,6 +1478,28 @@ static bool biUNLOCK_SECURE(const boost::shared_ptr<LiveUser> &service,
 
 	if (!service || !service->GetService())
 		MT_RET(false);
+
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (comm->LOCK_Secure(false))
+		SEND(service, user, N_("Secure for committee %1% has been unlocked."),
+			 comm->Name());
+	else
+		NSEND(service, user, N_("The secure setting is globally locked and cannot be changed."));
 
 	MT_RET(true);
 	MT_EE
@@ -942,6 +1515,28 @@ static bool biUNLOCK_OPENMEMO(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (comm->LOCK_OpenMemos(false))
+		SEND(service, user, N_("Open memos for committee %1% has been unlocked."),
+			 comm->Name());
+	else
+		NSEND(service, user, N_("The open memos setting is globally locked and cannot be changed."));
+
 	MT_RET(true);
 	MT_EE
 }
@@ -956,6 +1551,28 @@ static bool biUNLOCK_PRIVATE(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
+	if (!comm)
+	{
+		SEND(service, user,
+			 N_("Committee %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (comm->LOCK_Private(false))
+		SEND(service, user, N_("Private for committee %1% has been unlocked."),
+			 comm->Name());
+	else
+		NSEND(service, user, N_("The private setting is globally locked and cannot be changed."));
+
 	MT_RET(true);
 	MT_EE
 }
@@ -969,6 +1586,11 @@ static bool biLIST(const boost::shared_ptr<LiveUser> &service,
 
 	if (!service || !service->GetService())
 		MT_RET(false);
+
+	// TODO: To be implemented.
+	SEND(service, user,
+		 N_("The %1% command has not yet been implemented."),
+		 boost::algorithm::to_upper_copy(params[0]));
 
 	MT_RET(true);
 	MT_EE

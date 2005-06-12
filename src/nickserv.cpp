@@ -106,7 +106,7 @@ static bool biREGISTER(const boost::shared_ptr<LiveUser> &service,
 		{
 			std::string desc(params[3]);
 			for (size_t i = 4; i < params.size(); ++i)
-				desc += " " + params[i];
+				desc += ' ' + params[i];
 			nick->User()->Description(desc);
 		}
 	}
@@ -1599,7 +1599,7 @@ static bool biSET_DESCRIPTION(const boost::shared_ptr<LiveUser> &service,
 
 	std::string desc(params[1]);
 	for (size_t i = 2; i < params.size(); ++i)
-		desc += " " + params[i];
+		desc += ' ' + params[i];
 	nick->User()->Description(desc);
 	SEND(service, user, N_("Your description has been set to \002%1%\017."),
 		 desc);
@@ -1912,8 +1912,7 @@ static bool biUNSET_EMAIL(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	nick->User()->Email(std::string());
-	SEND(service, user, N_("Your e-mail address has been unset."),
-		 params[1]);
+	NSEND(service, user, N_("Your e-mail address has been unset."));
 
 	MT_RET(true);
 	MT_EE
@@ -1938,8 +1937,7 @@ static bool biUNSET_WEBSITE(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	nick->User()->Website(std::string());
-	SEND(service, user, N_("Your website address has been unset."),
-		 params[1]);
+	NSEND(service, user, N_("Your website address has been unset."));
 
 	MT_RET(true);
 	MT_EE
@@ -1964,8 +1962,7 @@ static bool biUNSET_ICQ(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	nick->User()->ICQ(0);
-	SEND(service, user, N_("Your ICQ UIN has been unset."),
-		 params[1]);
+	NSEND(service, user, N_("Your ICQ UIN has been unset."));
 
 	MT_RET(true);
 	MT_EE
@@ -1990,8 +1987,7 @@ static bool biUNSET_AIM(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	nick->User()->AIM(std::string());
-	SEND(service, user, N_("Your AIM screen name has been unset."),
-		 params[1]);
+	NSEND(service, user, N_("Your AIM screen name has been unset."));
 
 	MT_RET(true);
 	MT_EE
@@ -2016,8 +2012,7 @@ static bool biUNSET_MSN(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	nick->User()->MSN(std::string());
-	SEND(service, user, N_("Your MSN account has been unset."),
-		 params[1]);
+	NSEND(service, user, N_("Your MSN account has been unset."));
 
 	MT_RET(true);
 	MT_EE
@@ -2042,8 +2037,7 @@ static bool biUNSET_JABBER(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	nick->User()->Jabber(std::string());
-	SEND(service, user, N_("Your Jabber ID has been unset."),
-		 params[1]);
+	NSEND(service, user, N_("Your Jabber ID has been unset."));
 
 	MT_RET(true);
 	MT_EE
@@ -2068,8 +2062,7 @@ static bool biUNSET_YAHOO(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	nick->User()->Yahoo(std::string());
-	SEND(service, user, N_("Your Yahoo! ID has been unset."),
-		 params[1]);
+	NSEND(service, user, N_("Your Yahoo! ID has been unset."));
 
 	MT_RET(true);
 	MT_EE
@@ -2094,8 +2087,7 @@ static bool biUNSET_DESCRIPTION(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	nick->User()->Description(std::string());
-	SEND(service, user, N_("Your description has been unset."),
-		 params[1]);
+	NSEND(service, user, N_("Your description has been unset."));
 
 	MT_RET(true);
 	MT_EE
@@ -2120,8 +2112,7 @@ static bool biUNSET_LANGUAGE(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	if (nick->User()->Language(std::string()))
-		SEND(service, user, N_("Your language has been unset."),
-			 params[1]);
+		NSEND(service, user, N_("Your language has been unset."));
 	else
 		NSEND(service, user, N_("Your language setting is locked and cannot be changed."));
 
@@ -2148,8 +2139,7 @@ static bool biUNSET_PROTECT(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	if (nick->User()->Protect(boost::logic::indeterminate))
-		SEND(service, user, N_("Protect has been reset to the default."),
-			 params[1]);
+		NSEND(service, user, N_("Protect has been reset to the default."));
 	else
 		NSEND(service, user, N_("Your protect setting is locked and cannot be changed."));
 
@@ -2176,8 +2166,7 @@ static bool biUNSET_SECURE(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	if (nick->User()->Secure(boost::logic::indeterminate))
-		SEND(service, user, N_("Secure has been reset to the default."),
-			 params[1]);
+		NSEND(service, user, N_("Secure has been reset to the default."));
 	else
 		NSEND(service, user, N_("Your secure setting is locked and cannot be changed."));
 
@@ -2204,8 +2193,7 @@ static bool biUNSET_NOMEMO(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	if (nick->User()->NoMemo(boost::logic::indeterminate))
-		SEND(service, user, N_("No Memo has been reset to the default."),
-			 params[1]);
+		NSEND(service, user, N_("No Memo has been reset to the default."));
 	else
 		NSEND(service, user, N_("Your no memo setting is locked and cannot be changed."));
 
@@ -2232,8 +2220,7 @@ static bool biUNSET_PRIVATE(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	if (nick->User()->Private(boost::logic::indeterminate))
-		SEND(service, user, N_("Private has been reset to the default."),
-			 params[1]);
+		NSEND(service, user, N_("Private has been reset to the default."));
 	else
 		NSEND(service, user, N_("Your private setting is locked and cannot be changed."));
 
@@ -2260,8 +2247,7 @@ static bool biUNSET_PRIVMSG(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	if (nick->User()->PRIVMSG(boost::logic::indeterminate))
-		SEND(service, user, N_("Private Messaging has been reset to the default."),
-			 params[1]);
+		NSEND(service, user, N_("Private Messaging has been reset to the default."));
 	else
 		NSEND(service, user, N_("Your private messaging setting is locked and cannot be changed."));
 
@@ -2323,7 +2309,7 @@ static bool biSET_COMMENT(const boost::shared_ptr<LiveUser> &service,
 
 	std::string comment(params[2]);
 	for (size_t i = 3; i < params.size(); ++i)
-		comment += " " + params[i];
+		comment += ' ' + params[i];
 	nick->User()->Comment(comment);
 	SEND(service, user, N_("Comment for user %1% has been set to \002%2%\017."),
 		 nick->Name() % comment);
@@ -2404,7 +2390,7 @@ static bool biUNSET_COMMENT(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	nick->User()->Comment(std::string());
-	SEND(service, user, N_("The e-mail address for %1% has been unset."),
+	SEND(service, user, N_("The comment address for %1% has been unset."),
 		 user->Name());
 
 	MT_RET(true);
