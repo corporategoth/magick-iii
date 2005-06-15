@@ -138,7 +138,7 @@ CREATE TABLE committees_member (
 		last_updater varchar(32) NOT NULL,
 		last_updater_id integer REFERENCES users(id),
 		last_update timestamp NOT NULL DEFAULT current_timestamp,
-		PRIMARY KEY (id, number)
+		PRIMARY KEY (id, number), UNIQUE(id, entry)
 	);
 CREATE INDEX committees_member_id_idx ON committees_member(id);
 CREATE INDEX committees_member_entry_idx ON committees_member(entry);

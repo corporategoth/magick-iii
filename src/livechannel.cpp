@@ -538,7 +538,7 @@ void LiveChannel::Modes(const boost::shared_ptr<LiveUser> &user,
 						SYNC_RWLOCK(users_);
 						j = std::lower_bound(users_.begin(), users_.end(),
 											 params[m]);
-						if (!(j != users_.end() && *(j->first) == params[m]))
+						if (j == users_.end() || *(j->first) != params[m])
 						{
 							// LOG an error!
 							break;

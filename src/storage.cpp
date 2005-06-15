@@ -2193,7 +2193,7 @@ boost::shared_ptr<StoredUser> Storage::Get_StoredUser(boost::uint32_t id,
 	StoredUsers_t::const_iterator i = std::lower_bound(StoredUsers_.begin(),
 													   StoredUsers_.end(), id);
 	boost::shared_ptr<StoredUser> ret;
-	if (i == StoredUsers_.end())
+	if (i == StoredUsers_.end() || **i != id)
 	{
 		if (boost::logic::indeterminate(deep))
 			deep = ROOT->ConfigValue<bool>("storage.deep-lookup");
@@ -2219,7 +2219,7 @@ boost::shared_ptr<StoredNick> Storage::Get_StoredNick(const std::string &name,
 	StoredNicks_t::const_iterator i = std::lower_bound(StoredNicks_.begin(),
 													   StoredNicks_.end(), name);
 	boost::shared_ptr<StoredNick> ret;
-	if (i == StoredNicks_.end())
+	if (i == StoredNicks_.end() || **i != name)
 	{
 		if (boost::logic::indeterminate(deep))
 			deep = ROOT->ConfigValue<bool>("storage.deep-lookup");
@@ -2392,7 +2392,8 @@ void Storage::DelInternal(const boost::shared_ptr<StoredUser> &entry)
 		StoredUsers_t::iterator l = std::lower_bound(StoredUsers_.begin(),
 													 StoredUsers_.end(),
 													 boost::get<boost::uint32_t>(j->second));
-		if (l == StoredUsers_.end())
+		if (l == StoredUsers_.end() ||
+			**l != boost::get<boost::uint32_t>(j->second))
 			continue; // Its gone, remove channel (later).
 
 		rec["founder"] = j->second;
@@ -2537,7 +2538,8 @@ void Storage::DelInternal(const boost::shared_ptr<StoredUser> &entry)
 		StoredNicks_t::iterator l = std::lower_bound(StoredNicks_.begin(),
 													 StoredNicks_.end(),
 													 boost::get<std::string>(j->second));
-		if (l == StoredNicks_.end())
+		if (l == StoredNicks_.end() ||
+			**l != boost::get<std::string>(j->second))
 			continue;
 
 		// Do non-database part of drop.
@@ -2578,7 +2580,7 @@ void Storage::Del(const boost::shared_ptr<StoredUser> &entry)
 	StoredUsers_t::iterator i = std::lower_bound(StoredUsers_.begin(),
 												 StoredUsers_.end(),
 												 entry);
-	if (i == StoredUsers_.end())
+	if (i == StoredUsers_.end() || *i != entry)
 		return;
 
 	StoredUsers_.erase(i);

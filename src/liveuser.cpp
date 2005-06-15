@@ -1106,7 +1106,7 @@ bool LiveUser::InChannel(const std::string &channel) const
 	SYNC_LOCK(channel_joined_);
 	LiveUser::channel_joined_t::const_iterator i =
 		std::lower_bound(channel_joined_.begin(), channel_joined_.end(), channel);
-	bool rv = (i != channel_joined_.end());
+	bool rv = (i != channel_joined_.end() && **i == channel);
 
 	MT_RET(rv);
 	MT_EE
@@ -1130,18 +1130,10 @@ bool LiveUser::InCommittee(const std::string &committee) const
 	MT_FUNC("LiveUser::InCommittee" << committee);
 
 	SYNC_LOCK(committees_);
-#if 0
 	LiveUser::committees_t::const_iterator i =
 		std::lower_bound(committees_.begin(), committees_.end(), committee);
-	bool rv = (i != committees_.end());
+	bool rv = (i != committees_.end() && **i == committee);
 	MT_RET(rv);
-#else
-	LiveUser::committees_t::const_iterator i;
-	for (i = committees_.begin(); i != committees_.end(); ++i)
-		if (**i == committee)
-			MT_RET(true);
-	MT_RET(false);
-#endif
 
 	MT_EE
 }

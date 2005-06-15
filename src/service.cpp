@@ -91,7 +91,7 @@ void Service::Set(const std::vector<std::string> &nicks, const std::string &real
 			{
 				SYNC_RLOCK(users_);
 				j = std::lower_bound(users_.begin(), users_.end(), *i);
-				if (j == users_.end())
+				if (j == users_.end() || **j != *i)
 					continue;
 			}
 			QUIT(*j, quitmsg);
@@ -292,7 +292,7 @@ void Service::KILL(const boost::shared_ptr<LiveUser> &target,
 	users_t::const_iterator j = std::lower_bound(users_.begin(),
 												 users_.end(),
 												 primary_);
-	if (j == users_.end())
+	if (j == users_.end() || **j != primary_)
 		return;
 
 	KILL(*j, target, message);
@@ -329,7 +329,7 @@ void Service::PRIVMSG(const boost::shared_ptr<LiveUser> &target,
 	users_t::const_iterator j = std::lower_bound(users_.begin(),
 												 users_.end(),
 												 primary_);
-	if (j == users_.end())
+	if (j == users_.end() || **j != primary_)
 	{
 		SYNC_LOCK(pending_privmsg);
 		pending_privmsg.push_back(std::make_pair(target, message));
@@ -369,7 +369,7 @@ void Service::NOTICE(const boost::shared_ptr<LiveUser> &target,
 												 users_.end(),
 												 primary_);
 
-	if (j == users_.end())
+	if (j == users_.end() || **j != primary_)
 	{
 		SYNC_LOCK(pending_notice);
 		pending_notice.push_back(std::make_pair(target, message));
@@ -408,7 +408,7 @@ void Service::ANNOUNCE(const boost::format &message) const
 	users_t::const_iterator j = std::lower_bound(users_.begin(),
 												 users_.end(),
 												 primary_);
-	if (j == users_.end())
+	if (j == users_.end() || **j != primary_)
 		return;
 
 	ANNOUNCE(*j, message);
@@ -445,7 +445,7 @@ void Service::SVSNICK(const boost::shared_ptr<LiveUser> &target,
 	users_t::const_iterator j = std::lower_bound(users_.begin(),
 												 users_.end(),
 												 primary_);
-	if (j == users_.end())
+	if (j == users_.end() || **j != primary_)
 		return;
 
 	SVSNICK(*j, target, newnick);
