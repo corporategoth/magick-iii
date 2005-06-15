@@ -35,6 +35,12 @@ RCSID(magick__storage_h, "@(#) $Id$");
 
 #include "config.h"
 
+#include "storageinterface.h"
+
+// *sigh* have to include these to make multi_index happy.
+#include "storedchannel.h"
+#include "committee.h"
+
 #include <string>
 #include <map>
 #include <ostream>
@@ -48,6 +54,9 @@ RCSID(magick__storage_h, "@(#) $Id$");
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/read_write_mutex.hpp>
 #include <boost/mpl/identity.hpp>
+#include <boost/multi_index_container.hpp>
+#include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/mem_fun.hpp>
 
 class LiveUser;
 class StoredUser;
@@ -63,10 +72,40 @@ class Storage
 
 	typedef std::map<std::string, boost::shared_ptr<LiveUser>, mantra::iless<std::string> > LiveUsers_t;
 	typedef std::map<std::string, boost::shared_ptr<LiveChannel>, mantra::iless<std::string> > LiveChannels_t;
-	typedef std::map<boost::uint32_t, boost::shared_ptr<StoredUser> > StoredUsers_t;
-	typedef std::map<std::string, boost::shared_ptr<StoredNick>, mantra::iless<std::string> > StoredNicks_t;
-	typedef std::map<std::string, boost::shared_ptr<StoredChannel>, mantra::iless<std::string> > StoredChannels_t;
-	typedef std::map<std::string, boost::shared_ptr<Committee>, mantra::iless<std::string> > Committees_t;
+
+	typedef std::set<boost::shared_ptr<StoredUser> > StoredUsers_t;
+	typedef std::set<boost::shared_ptr<StoredNick> > StoredNicks_t;
+
+	struct id {};
+	struct name {};
+
+	typedef boost::multi_index::multi_index_container<
+				boost::shared_ptr<StoredChannel>,
+				boost::multi_index::indexed_by<
+					boost::multi_index::ordered_unique<boost::multi_index::identity<StoredChannel> >,
+					boost::multi_index::ordered_unique<boost::multi_index::tag<id>,
+													   BOOST_MULTI_INDEX_CONST_MEM_FUN(StoredChannel, boost::uint32_t, ID)>,
+					boost::multi_index::ordered_unique<boost::multi_index::tag<name>,
+													   BOOST_MULTI_INDEX_CONST_MEM_FUN(StoredChannel, const std::string &, Name),
+													   mantra::iless<std::string> >
+				> > StoredChannels_t;
+	typedef StoredChannels_t::index<id>::type StoredChannels_by_id_t;
+	typedef StoredChannels_t::index<name>::type StoredChannels_by_name_t;
+//	typedef std::set<boost::shared_ptr<StoredChannel> > StoredChannels_t;
+//
+	typedef boost::multi_index::multi_index_container<
+				boost::shared_ptr<Committee>,
+				boost::multi_index::indexed_by<
+					boost::multi_index::ordered_unique<boost::multi_index::identity<Committee> >,
+					boost::multi_index::ordered_unique<boost::multi_index::tag<id>,
+													   BOOST_MULTI_INDEX_CONST_MEM_FUN(Committee, boost::uint32_t, ID)>,
+					boost::multi_index::ordered_unique<boost::multi_index::tag<name>,
+													   BOOST_MULTI_INDEX_CONST_MEM_FUN(Committee, const std::string &, Name),
+													   mantra::iless<std::string> >
+				> > Committees_t;
+	typedef Committees_t::index<id>::type Committees_by_id_t;
+	typedef Committees_t::index<name>::type Committees_by_name_t;
+//	typedef std::set<boost::shared_ptr<Committee> > Committees_t;
 
 	boost::mutex lock_;
 	std::pair<mantra::FinalStage *, void (*)(mantra::FinalStage *)> finalstage_;
@@ -82,8 +121,14 @@ class Storage
 
 	StoredUsers_t RWSYNC(StoredUsers_);
 	StoredNicks_t RWSYNC(StoredNicks_);
+
 	StoredChannels_t RWSYNC(StoredChannels_);
+	StoredChannels_by_id_t &StoredChannels_by_id_;
+	StoredChannels_by_name_t &StoredChannels_by_name_;
+
 	Committees_t RWSYNC(Committees_);
+	Committees_by_id_t &Committees_by_id_;
+	Committees_by_name_t &Committees_by_name_;
 
 	void init();
 	void reset();
@@ -129,68 +174,23 @@ public:
 			 boost::logic::tribool deep = boost::logic::indeterminate) const;
 	boost::shared_ptr<StoredNick> Get_StoredNick(const std::string &name,
 			 boost::logic::tribool deep = boost::logic::indeterminate) const;
-	boost::shared_ptr<StoredChannel> Get_StoredChannel(const std::string &name,
+	boost::shared_ptr<StoredChannel> Get_StoredChannel(boost::uint32_t id,
 			 boost::logic::tribool deep = boost::logic::indeterminate) const;
-	boost::shared_ptr<Committee> Get_Committee(const std::string &name,
+	boost::shared_ptr<StoredChannel> Get_StoredChannel(const std::string &name, // Convenience
+			 boost::logic::tribool deep = boost::logic::indeterminate) const;
+	boost::shared_ptr<Committee> Get_Committee(boost::uint32_t id,
+			 boost::logic::tribool deep = boost::logic::indeterminate) const;
+	boost::shared_ptr<Committee> Get_Committee(const std::string &name, // Convenience
 			 boost::logic::tribool deep = boost::logic::indeterminate) const;
 
 	// Check on ALL kinds of expirations ...
 	void ExpireCheck();
 
-	bool Forbid_Add(const std::string &in, const boost::shared_ptr<StoredNick> &nick);
-	bool Forbid_Del(const std::string &in);
+	boost::uint32_t Forbid_Add(const std::string &in, const boost::shared_ptr<StoredNick> &nick);
+	bool Forbid_Del(boost::uint32_t in);
 	std::vector<std::string> Forbid_List_Nick() const;
 	std::vector<std::string> Forbid_List_Channel() const;
 	bool Forbid_Check(const std::string &in) const;
-};
-
-// Perfect way to do single-table access :)
-class StorageInterface : private boost::noncopyable
-{
-	std::string table_;
-	std::string key_;
-	std::string update_;
-
-protected:
-	virtual bool GetRow(const mantra::ComparisonSet &search, mantra::Storage::RecordMap &data);
-	virtual mantra::StorageValue GetField(const mantra::ComparisonSet &search, const std::string &column);
-	virtual bool PutField(const mantra::ComparisonSet &search, const std::string &column, const mantra::StorageValue &value);
-
-public:
-	StorageInterface(const std::string &table,
-					 const std::string &key = std::string(),
-					 const std::string &update = std::string())
-		: table_(table), key_(key), update_(update) {}
-	virtual ~StorageInterface() {}
-
-	virtual unsigned int RowExists(const mantra::ComparisonSet &search = mantra::ComparisonSet()) const throw(mantra::storage_exception);
-	virtual bool InsertRow(const mantra::Storage::RecordMap &data) throw(mantra::storage_exception);
-	virtual unsigned int ChangeRow(const mantra::Storage::RecordMap &data, 
-				const mantra::ComparisonSet &search = mantra::ComparisonSet()) throw(mantra::storage_exception);
-	virtual void RetrieveRow(mantra::Storage::DataSet &data,
-				const mantra::ComparisonSet &search = mantra::ComparisonSet(),
-				const mantra::Storage::FieldSet &fields = mantra::Storage::FieldSet()) throw(mantra::storage_exception);
-	virtual unsigned int RemoveRow(const mantra::ComparisonSet &search = mantra::ComparisonSet()) throw(mantra::storage_exception);
-	virtual mantra::StorageValue Minimum(const std::string &column,
-				const mantra::ComparisonSet &search = mantra::ComparisonSet()) throw(mantra::storage_exception);
-	virtual mantra::StorageValue Maximum(const std::string &column,
-				const mantra::ComparisonSet &search = mantra::ComparisonSet()) throw(mantra::storage_exception);
-
-	// Aliases that use the above.
-	inline bool GetRow(const std::string &key, mantra::Storage::RecordMap &data)
-		{ return GetRow(mantra::Comparison<mantra::C_EqualToNC>::make(key_, key), data); }
-	inline bool GetRow(const boost::uint32_t &key, mantra::Storage::RecordMap &data)
-		{ return GetRow(mantra::Comparison<mantra::C_EqualTo>::make(key_, key), data); }
-
-	// Single field gets/puts, using the pre-defined key.
-	inline mantra::StorageValue GetField(const std::string &key, const std::string &column)
-		{ return GetField(mantra::Comparison<mantra::C_EqualToNC>::make(key_, key), column); }
-	inline mantra::StorageValue GetField(const boost::uint32_t &key, const std::string &column)
-		{ return GetField(mantra::Comparison<mantra::C_EqualTo>::make(key_, key), column); }
-	inline bool PutField(const std::string &key, const std::string &column, const mantra::StorageValue &value)
-		{ return PutField(mantra::Comparison<mantra::C_EqualToNC>::make(key_, key), column, value); }
-	inline bool PutField(const boost::uint32_t &key, const std::string &column, const mantra::StorageValue &value)
-		{ return PutField(mantra::Comparison<mantra::C_EqualTo>::make(key_, key), column, value); }
 };
 
 template<typename T>

@@ -72,7 +72,11 @@ Storage::Storage()
 	  SYNC_NRWINIT(StoredUsers_, reader_priority),
 	  SYNC_NRWINIT(StoredNicks_, reader_priority),
 	  SYNC_NRWINIT(StoredChannels_, reader_priority),
-	  SYNC_NRWINIT(Committees_, reader_priority)
+		  StoredChannels_by_id_(StoredChannels_.get<id>()),
+		  StoredChannels_by_name_(StoredChannels_.get<name>()),
+	  SYNC_NRWINIT(Committees_, reader_priority),
+		  Committees_by_id_(Committees_.get<id>()),
+		  Committees_by_name_(Committees_.get<name>())
 {
 }
 
@@ -206,13 +210,13 @@ void Storage::sync()
 			}
 			boost::uint32_t id = boost::get<boost::uint32_t>(k->second);
 
-			while (i->first < id)
+			while (**i < id)
 			{
 				// Old entry, delete it.
-				DelInternal(i->second);
+				DelInternal(*i);
 				StoredUsers_.erase(i++);
 			}
-			if (i->first != id)
+			if (**i != id)
 			{
 				// New entry, add it.
 				newentries.push(if_StoredUser_Storage::load(id));
@@ -225,7 +229,7 @@ void Storage::sync()
 		// Old entries, remove them.
 		while (i != StoredUsers_.end())
 		{
-			DelInternal(i->second);
+			DelInternal(*i);
 			StoredUsers_.erase(i++);
 		}
 
@@ -248,13 +252,11 @@ void Storage::sync()
 		// Add the entries from above ...
 		while (!newentries.empty())
 		{
-			StoredUsers_[newentries.front()->ID()] = newentries.front();
+			StoredUsers_.insert(newentries.front());
 			newentries.pop();
 		}
 	}
 
-	mantra::iless<std::string> cmp_less;
-	mantra::inot_equal_to<std::string> cmp_not_equal_to;
 	{
 		data.clear();
 		fields.clear();
@@ -279,13 +281,13 @@ void Storage::sync()
 			}
 			std::string name = boost::get<std::string>(k->second);
 
-			while (cmp_less(i->first, name))
+			while (**i < name)
 			{
 				// Old entry, delete it.
-				DelInternal(i->second);
+				DelInternal(*i);
 				StoredNicks_.erase(i++);
 			}
-			if (cmp_not_equal_to(i->first, name))
+			if (**i != name)
 			{
 				k = j->find("id");
 				if (k == j->end() || k->second.type() != typeid(boost::uint32_t))
@@ -310,7 +312,7 @@ void Storage::sync()
 		// Old entries, remove them.
 		while (i != StoredNicks_.end())
 		{
-			DelInternal(i->second);
+			DelInternal(*i);
 			StoredNicks_.erase(i++);
 		}
 
@@ -345,7 +347,7 @@ void Storage::sync()
 		// Add the entries from above ...
 		while (!newentries.empty())
 		{
-			StoredNicks_[newentries.front()->Name()] = newentries.front();
+			StoredNicks_.insert(newentries.front());
 			newentries.pop();
 		}
 	}
@@ -353,17 +355,28 @@ void Storage::sync()
 	{
 		data.clear();
 		fields.clear();
+		fields.insert("id");
 		fields.insert("name");
 
 		SYNC_WLOCK(StoredChannels_);
 		std::queue<boost::shared_ptr<StoredChannel> > newentries;
 		backend_.first->RetrieveRow("channels", data, mantra::ComparisonSet(), fields);
 		std::sort(data.begin(), data.end(), idless);
-		StoredChannels_t::iterator i = StoredChannels_.begin();
+		StoredChannels_by_id_t::iterator i = StoredChannels_by_id_.begin(),
+				end = StoredChannels_by_id_.end();
 		mantra::Storage::DataSet::const_iterator j = data.begin();
 		mantra::Storage::RecordMap::const_iterator k;
-		while (i != StoredChannels_.end() && j != data.end())
+		while (i != end && j != data.end())
 		{
+			k = j->find("id");
+			if (k == j->end() || k->second.type() != typeid(boost::uint32_t))
+			{
+				// This should never happen!
+				++j;
+				continue;
+			}
+			boost::uint32_t id = boost::get<boost::uint32_t>(k->second);
+
 			k = j->find("name");
 			if (k == j->end() || k->second.type() != typeid(std::string))
 			{
@@ -373,16 +386,19 @@ void Storage::sync()
 			}
 			std::string name = boost::get<std::string>(k->second);
 
-			while (cmp_less(i->first, name))
+			while (**i < id && i != end)
 			{
 				// Old entry, delete it.
-				DelInternal(i->second);
-				StoredChannels_.erase(i++);
+				DelInternal(*i);
+				StoredChannels_by_id_.erase(i++);
 			}
-			if (cmp_not_equal_to(i->first, name))
+			if (i == end)
+				break;
+
+			if (**i == id)
 			{
 				// New entry, add it.
-				newentries.push(if_StoredChannel_Storage::load(name));
+				newentries.push(if_StoredChannel_Storage::load(id, name));
 			}
 			else
 				++i;
@@ -390,15 +406,24 @@ void Storage::sync()
 
 		}
 		// Old entries, remove them.
-		while (i != StoredChannels_.end())
+		while (i != end)
 		{
-			DelInternal(i->second);
-			StoredChannels_.erase(i++);
+			DelInternal(*i);
+			StoredChannels_by_id_.erase(i++);
 		}
 
 		// New entries, add them.
 		while (j != data.end())
 		{
+			k = j->find("id");
+			if (k == j->end() || k->second.type() != typeid(boost::uint32_t))
+			{
+				// This should never happen!
+				++j;
+				continue;
+			}
+			boost::uint32_t id = boost::get<boost::uint32_t>(k->second);
+
 			k = j->find("name");
 			if (k == j->end() || k->second.type() != typeid(std::string))
 			{
@@ -408,14 +433,14 @@ void Storage::sync()
 			}
 			std::string name = boost::get<std::string>(k->second);
 
-			newentries.push(if_StoredChannel_Storage::load(name));
+			newentries.push(if_StoredChannel_Storage::load(id, name));
 			++j;
 		}
 
 		// Add the entries from above ...
 		while (!newentries.empty())
 		{
-			StoredChannels_[newentries.front()->Name()] = newentries.front();
+			StoredChannels_.insert(newentries.front());
 			newentries.pop();
 		}
 	}
@@ -423,17 +448,28 @@ void Storage::sync()
 	{
 		data.clear();
 		fields.clear();
+		fields.insert("id");
 		fields.insert("name");
 
 		SYNC_WLOCK(Committees_);
 		std::queue<boost::shared_ptr<Committee> > newentries;
 		backend_.first->RetrieveRow("committees", data, mantra::ComparisonSet(), fields);
 		std::sort(data.begin(), data.end(), idless);
-		Committees_t::iterator i = Committees_.begin();
+		Committees_by_id_t::iterator i = Committees_by_id_.begin(),
+				end = Committees_by_id_.end();
 		mantra::Storage::DataSet::const_iterator j = data.begin();
 		mantra::Storage::RecordMap::const_iterator k;
-		while (i != Committees_.end() && j != data.end())
+		while (i != end && j != data.end())
 		{
+			k = j->find("id");
+			if (k == j->end() || k->second.type() != typeid(boost::uint32_t))
+			{
+				// This should never happen!
+				++j;
+				continue;
+			}
+			boost::uint32_t id = boost::get<boost::uint32_t>(k->second);
+
 			k = j->find("name");
 			if (k == j->end() || k->second.type() != typeid(std::string))
 			{
@@ -443,16 +479,19 @@ void Storage::sync()
 			}
 			std::string name = boost::get<std::string>(k->second);
 
-			while (cmp_less(i->first, name))
+			while (**i < id && i != end)
 			{
 				// Old entry, delete it.
-				DelInternal(i->second);
-				Committees_.erase(i++);
+				DelInternal(*i);
+				Committees_by_id_.erase(i++);
 			}
-			if (cmp_not_equal_to(i->first, name))
+			if (i == end)
+				break;
+
+			if (**i == id)
 			{
 				// New entry, add it.
-				newentries.push(if_Committee_Storage::load(name));
+				newentries.push(if_Committee_Storage::load(id, name));
 			}
 			else
 				++i;
@@ -460,15 +499,24 @@ void Storage::sync()
 
 		}
 		// Old entries, remove them.
-		while (i != Committees_.end())
+		while (i != end)
 		{
-			DelInternal(i->second);
-			Committees_.erase(i++);
+			DelInternal(*i);
+			Committees_by_id_.erase(i++);
 		}
 
 		// New entries, add them.
 		while (j != data.end())
 		{
+			k = j->find("id");
+			if (k == j->end() || k->second.type() != typeid(boost::uint32_t))
+			{
+				// This should never happen!
+				++j;
+				continue;
+			}
+			boost::uint32_t id = boost::get<boost::uint32_t>(k->second);
+
 			k = j->find("name");
 			if (k == j->end() || k->second.type() != typeid(std::string))
 			{
@@ -478,14 +526,14 @@ void Storage::sync()
 			}
 			std::string name = boost::get<std::string>(k->second);
 
-			newentries.push(if_Committee_Storage::load(name));
+			newentries.push(if_Committee_Storage::load(id, name));
 			++j;
 		}
 
 		// Add the entries from above ...
 		while (!newentries.empty())
 		{
-			Committees_[newentries.front()->Name()] = newentries.front();
+			Committees_.insert(newentries.front());
 			newentries.pop();
 		}
 	}
@@ -1549,6 +1597,8 @@ void Storage::init()
 	backend_.first->DefineColumn("nicks", "last_seen", cp);
 
 	// TABLE: channels
+	cp.Assign<boost::uint32_t>(false);
+	backend_.first->DefineColumn("channels", "id", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 64);
 	backend_.first->DefineColumn("channels", "name", cp);
 	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
@@ -1621,10 +1671,9 @@ void Storage::init()
 	backend_.first->DefineColumn("channels", "suspend_time", cp);
 
 	// TABLE: channels_level
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 64);
-	backend_.first->DefineColumn("channels_level", "name", cp);
 	cp.Assign<boost::uint32_t>(false);
 	backend_.first->DefineColumn("channels_level", "id", cp);
+	backend_.first->DefineColumn("channels_level", "level", cp);
 	cp.Assign<boost::int32_t>(false);
 	backend_.first->DefineColumn("channels_level", "value", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
@@ -1635,15 +1684,14 @@ void Storage::init()
 	backend_.first->DefineColumn("channels_level", "last_update", cp);
 
 	// TABLE: channel_access
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 64);
-	backend_.first->DefineColumn("channels_access", "name", cp);
+	cp.Assign<boost::uint32_t>(false);
+	backend_.first->DefineColumn("channels_access", "id", cp);
 	cp.Assign<boost::uint32_t>(false);
 	backend_.first->DefineColumn("channels_access", "number", cp);
 	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 350);
 	backend_.first->DefineColumn("channels_access", "entry_mask", cp);
 	cp.Assign<boost::uint32_t>(true);
 	backend_.first->DefineColumn("channels_access", "entry_user", cp);
-	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 32);
 	backend_.first->DefineColumn("channels_access", "entry_committee", cp);
 	cp.Assign<boost::int32_t>(false);
 	backend_.first->DefineColumn("channels_access", "level", cp);
@@ -1655,15 +1703,13 @@ void Storage::init()
 	backend_.first->DefineColumn("channels_access", "last_update", cp);
 
 	// TABLE: channel_akick
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 64);
-	backend_.first->DefineColumn("channels_akick", "name", cp);
 	cp.Assign<boost::uint32_t>(false);
+	backend_.first->DefineColumn("channels_akick", "id", cp);
 	backend_.first->DefineColumn("channels_akick", "number", cp);
 	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 350);
 	backend_.first->DefineColumn("channels_akick", "entry_mask", cp);
 	cp.Assign<boost::uint32_t>(true);
 	backend_.first->DefineColumn("channels_akick", "entry_user", cp);
-	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 32);
 	backend_.first->DefineColumn("channels_akick", "entry_committee", cp);
 	cp.Assign<std::string>(false);
 	backend_.first->DefineColumn("channels_akick", "reason", cp);
@@ -1675,9 +1721,8 @@ void Storage::init()
 	backend_.first->DefineColumn("channels_akick", "last_update", cp);
 
 	// TABLE: channels_greet
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 64);
-	backend_.first->DefineColumn("channels_greet", "name", cp);
-	cp.Assign<boost::int32_t>(true);
+	cp.Assign<boost::uint32_t>(false);
+	backend_.first->DefineColumn("channels_greet", "id", cp);
 	backend_.first->DefineColumn("channels_greet", "entry", cp);
 	cp.Assign<std::string>(false);
 	backend_.first->DefineColumn("channels_greet", "greeting", cp);
@@ -1691,9 +1736,8 @@ void Storage::init()
 	backend_.first->DefineColumn("channels_greet", "last_update", cp);
 
 	// TABLE: channels_message
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 64);
-	backend_.first->DefineColumn("channels_message", "name", cp);
 	cp.Assign<boost::uint32_t>(false);
+	backend_.first->DefineColumn("channels_message", "id", cp);
 	backend_.first->DefineColumn("channels_message", "number", cp);
 	cp.Assign<std::string>(false);
 	backend_.first->DefineColumn("channels_message", "message", cp);
@@ -1705,9 +1749,8 @@ void Storage::init()
 	backend_.first->DefineColumn("channels_message", "last_update", cp);
 
 	// TABLE: channels_news
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 64);
-	backend_.first->DefineColumn("channels_news", "name", cp);
 	cp.Assign<boost::uint32_t>(false);
+	backend_.first->DefineColumn("channels_news", "id", cp);
 	backend_.first->DefineColumn("channels_news", "number", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
 	backend_.first->DefineColumn("channels_news", "sender", cp);
@@ -1719,19 +1762,19 @@ void Storage::init()
 	backend_.first->DefineColumn("channels_news", "message", cp);
 
 	// TABLE: channels_news_read
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 64);
-	backend_.first->DefineColumn("channels_news_read", "name", cp);
 	cp.Assign<boost::uint32_t>(false);
+	backend_.first->DefineColumn("channels_news_read", "id", cp);
 	backend_.first->DefineColumn("channels_news_read", "number", cp);
 	backend_.first->DefineColumn("channels_news_read", "entry", cp);
 
 	// TABLE: committees
+	cp.Assign<boost::uint32_t>(false);
+	backend_.first->DefineColumn("committees", "id", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
 	backend_.first->DefineColumn("committees", "name", cp);
 
 	cp.Assign<boost::uint32_t>(true);
 	backend_.first->DefineColumn("committees", "head_user", cp);
-	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 32);
 	backend_.first->DefineColumn("committees", "head_committee", cp);
 
 	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
@@ -1755,9 +1798,9 @@ void Storage::init()
 	backend_.first->DefineColumn("committees", "lock_secure", cp);
 
 	// TABLE: committees_member
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
-	backend_.first->DefineColumn("committees_member", "name", cp);
 	cp.Assign<boost::uint32_t>(false);
+	backend_.first->DefineColumn("committees_member", "id", cp);
+	backend_.first->DefineColumn("committees_member", "number", cp);
 	backend_.first->DefineColumn("committees_member", "entry", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
 	backend_.first->DefineColumn("committees_member", "last_updater", cp);
@@ -1767,9 +1810,8 @@ void Storage::init()
 	backend_.first->DefineColumn("committees_member", "last_update", cp);
 
 	// TABLE: committees_message
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
-	backend_.first->DefineColumn("committees_message", "name", cp);
 	cp.Assign<boost::uint32_t>(false);
+	backend_.first->DefineColumn("committees_message", "id", cp);
 	backend_.first->DefineColumn("committees_message", "number", cp);
 	cp.Assign<std::string>(false);
 	backend_.first->DefineColumn("committees_message", "message", cp);
@@ -1781,6 +1823,8 @@ void Storage::init()
 	backend_.first->DefineColumn("committees_message", "last_update", cp);
 
 	// TABLE: forbidden
+	cp.Assign<boost::uint32_t>(false);
+	backend_.first->DefineColumn("forbidden", "number", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 64);
 	backend_.first->DefineColumn("forbidden", "name", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
@@ -1846,6 +1890,8 @@ void Storage::init()
 	backend_.first->DefineColumn("ignores", "last_update", cp);
 
 	// TABLE: killchans
+	cp.Assign<boost::uint32_t>(false);
+	backend_.first->DefineColumn("clones", "number", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 64);
 	backend_.first->DefineColumn("killchans", "name", cp);
 	cp.Assign<std::string>(false);
@@ -1885,22 +1931,19 @@ void Storage::Load()
 
 	{
 		boost::shared_ptr<Committee> sadmin, admin, comm;
-		SYNC_WLOCK(Committees_);
-		Committees_t::iterator i = Committees_.find(ROOT->ConfigValue<std::string>("commserv.sadmin.name"));
-		if (i == Committees_.end())
-		{
+//		SYNC_WLOCK(Committees_);
+		Committees_by_name_t::iterator i = Committees_by_name_.find(ROOT->ConfigValue<std::string>("commserv.sadmin.name"));
+		if (i == Committees_by_name_.end())
 			sadmin = Committee::create(ROOT->ConfigValue<std::string>("commserv.sadmin.name"));
-			Committees_[sadmin->Name()] = sadmin;
-		}
 		else
-			sadmin = i->second;
+			sadmin = *i;
 
 		// Re-do the committee membership ...
-		backend_.first->RemoveRow("committees_member", mantra::Comparison<mantra::C_EqualToNC>::make("name", sadmin->Name()));
+		backend_.first->RemoveRow("committees_member", mantra::Comparison<mantra::C_EqualTo>::make("id", sadmin->ID()));
 		if (ROOT->ConfigExists("operserv.services-admin"))
 		{
 			mantra::Storage::RecordMap rec;
-			rec["name"] = sadmin->Name();
+			rec["id"] = sadmin->ID();
 			rec["last_updater"] = ROOT->operserv.Primary();
 
 			std::vector<std::string> members = ROOT->ConfigValue<std::vector<std::string> >("operserv.services-admin");
@@ -1910,35 +1953,33 @@ void Storage::Load()
 				if (!nick)
 					continue;
 
+				rec["number"] = (boost::uint32_t) i+1;
 				rec["entry"] = nick->User()->ID();
 				backend_.first->InsertRow("committees_member", rec);
 			}
 		}
 
-		i = Committees_.find(ROOT->ConfigValue<std::string>("commserv.admin.name"));
-		if (i == Committees_.end())
+		i = Committees_by_name_.find(ROOT->ConfigValue<std::string>("commserv.admin.name"));
+		if (i == Committees_by_name_.end())
 		{
 			admin = Committee::create(ROOT->ConfigValue<std::string>("commserv.admin.name"),
 									  sadmin);
-			Committees_[admin->Name()] = admin;
 		}
 		else
-			admin = i->second;
+			admin = *i;
 
-		i = Committees_.find(ROOT->ConfigValue<std::string>("commserv.sop.name"));
-		if (i == Committees_.end())
+		i = Committees_by_name_.find(ROOT->ConfigValue<std::string>("commserv.sop.name"));
+		if (i == Committees_by_name_.end())
 		{
 			comm = Committee::create(ROOT->ConfigValue<std::string>("commserv.sop.name"),
 									 sadmin);
-			Committees_[comm->Name()] = comm;
 		}
 
-		i = Committees_.find(ROOT->ConfigValue<std::string>("commserv.oper.name"));
-		if (i == Committees_.end())
+		i = Committees_by_name_.find(ROOT->ConfigValue<std::string>("commserv.oper.name"));
+		if (i == Committees_by_name_.end())
 		{
 			comm = Committee::create(ROOT->ConfigValue<std::string>("commserv.oper.name"),
 									 admin);
-			Committees_[comm->Name()] = comm;
 		}
 
 		mantra::Storage::RecordMap rec;
@@ -1949,27 +1990,25 @@ void Storage::Load()
 		rec["lock_openmemos"] = true;
 		rec["lock_secure"] = true;
 
-		i = Committees_.find(ROOT->ConfigValue<std::string>("commserv.regd.name"));
-		if (i == Committees_.end())
+		i = Committees_by_name_.find(ROOT->ConfigValue<std::string>("commserv.regd.name"));
+		if (i == Committees_by_name_.end())
 		{
 			comm = Committee::create(ROOT->ConfigValue<std::string>("commserv.regd.name"));
-			Committees_[comm->Name()] = comm;
 		}
 		else
-			comm = i->second;
-		backend_.first->ChangeRow("committees", rec, mantra::Comparison<mantra::C_EqualToNC>::make("name", comm->Name()));
-		backend_.first->RemoveRow("committees_member", mantra::Comparison<mantra::C_EqualToNC>::make("name", comm->Name()));
+			comm = *i;
+		backend_.first->ChangeRow("committees", rec, mantra::Comparison<mantra::C_EqualTo>::make("id", comm->ID()));
+		backend_.first->RemoveRow("committees_member", mantra::Comparison<mantra::C_EqualTo>::make("id", comm->ID()));
 
-		i = Committees_.find(ROOT->ConfigValue<std::string>("commserv.all.name"));
-		if (i == Committees_.end())
+		i = Committees_by_name_.find(ROOT->ConfigValue<std::string>("commserv.all.name"));
+		if (i == Committees_by_name_.end())
 		{
 			comm = Committee::create(ROOT->ConfigValue<std::string>("commserv.all.name"));
-			Committees_[comm->Name()] = comm;
 		}
 		else
-			comm = i->second;
-		backend_.first->ChangeRow("committees", rec, mantra::Comparison<mantra::C_EqualToNC>::make("name", comm->Name()));
-		backend_.first->RemoveRow("committees_member", mantra::Comparison<mantra::C_EqualToNC>::make("name", comm->Name()));
+			comm = *i;
+		backend_.first->ChangeRow("committees", rec, mantra::Comparison<mantra::C_EqualTo>::make("id", comm->ID()));
+		backend_.first->RemoveRow("committees_member", mantra::Comparison<mantra::C_EqualTo>::make("id", comm->ID()));
 	}
 
 	LOG(Info, _("Database loaded in %1% seconds."), t.elapsed());
@@ -2017,161 +2056,6 @@ std::string Storage::CryptPassword(const std::string &in) const
 	MT_EE
 }
 
-unsigned int StorageInterface::RowExists(const mantra::ComparisonSet &search) const throw(mantra::storage_exception)
-{
-	MT_EB
-	MT_FUNC("StorageInterface::RowExists" << search);
-
-	unsigned int rv = ROOT->data.backend_.first->RowExists(table_, search);
-
-	MT_RET(rv);
-	MT_EE
-}
-
-bool StorageInterface::InsertRow(const mantra::Storage::RecordMap &data) throw(mantra::storage_exception)
-{
-	MT_EB
-	MT_FUNC("StorageInterface::InsertRow" << data);
-
-	unsigned int rv;
-	if (update_.empty())
-	{
-		rv = ROOT->data.backend_.first->InsertRow(table_, data);
-	}
-	else
-	{
-		mantra::Storage::RecordMap entry = data;
-		entry[update_] = mantra::GetCurrentDateTime();
-		rv = ROOT->data.backend_.first->InsertRow(table_, entry);
-	}
-
-	MT_RET(rv);
-	MT_EE
-}
-
-unsigned int StorageInterface::ChangeRow(const mantra::Storage::RecordMap &data, 
-				const mantra::ComparisonSet &search) throw(mantra::storage_exception)
-{
-	MT_EB
-	MT_FUNC("StorageInterface::ChangeRow" << data << search);
-
-	unsigned int rv;
-	if (update_.empty())
-	{
-		rv = ROOT->data.backend_.first->ChangeRow(table_, data, search);
-	}
-	else
-	{
-		mantra::Storage::RecordMap entry = data;
-		entry[update_] = mantra::GetCurrentDateTime();
-		rv = ROOT->data.backend_.first->ChangeRow(table_, entry, search);
-	}
-
-	MT_RET(rv);
-	MT_EE
-}
-
-void StorageInterface::RetrieveRow(mantra::Storage::DataSet &data,
-				const mantra::ComparisonSet &search,
-				const mantra::Storage::FieldSet &fields) throw(mantra::storage_exception)
-{
-	MT_EB
-	MT_FUNC("StorageInterface::RetrieveRow" << data << search << fields);
-
-	ROOT->data.backend_.first->RetrieveRow(table_, data, search, fields);
-
-	MT_EE
-}
-
-unsigned int StorageInterface::RemoveRow(const mantra::ComparisonSet &search) throw(mantra::storage_exception)
-{
-	MT_EB
-	MT_FUNC("StorageInterface::RemoveRow");
-
-	unsigned int rv = ROOT->data.backend_.first->RemoveRow(table_, search);
-
-	MT_RET(rv);
-	MT_EE
-}
-
-mantra::StorageValue StorageInterface::Minimum(const std::string &column,
-				const mantra::ComparisonSet &search) throw(mantra::storage_exception)
-{
-	MT_EB
-	MT_FUNC("StorageInterface::Minimum" << column << search);
-
-	mantra::StorageValue rv = ROOT->data.backend_.first->Minimum(table_, column, search);
-
-	MT_RET(rv);
-	MT_EE
-}
-
-mantra::StorageValue StorageInterface::Maximum(const std::string &column,
-				const mantra::ComparisonSet &search) throw(mantra::storage_exception)
-{
-	MT_EB
-	MT_FUNC("StorageInterface::Maximum" << column << search);
-
-	mantra::StorageValue rv = ROOT->data.backend_.first->Maximum(table_, column, search);
-
-	MT_RET(rv);
-	MT_EE
-}
-
-// Aliases that use the above.
-bool StorageInterface::GetRow(const mantra::ComparisonSet &search, mantra::Storage::RecordMap &data)
-{
-	MT_EB
-	MT_FUNC("StorageInterface::GetRow" << search << data);
-
-	mantra::Storage::DataSet ds;
-	RetrieveRow(ds, search);
-	if (ds.size() != 1u)
-		MT_RET(false);
-
-	data = ds[0];
-
-	MT_RET(true);
-	MT_EE
-}
-
-// Single field gets/puts, using the pre-defined key.
-mantra::StorageValue StorageInterface::GetField(const mantra::ComparisonSet &search, const std::string &column)
-{
-	MT_EB
-	MT_FUNC("StorageInterface::GetField" << search << column);
-
-	static mantra::NullValue nv;
-
-	mantra::Storage::FieldSet fields;
-	fields.insert(column);
-
-	mantra::Storage::DataSet ds;
-	RetrieveRow(ds, search, fields);
-	if (ds.size() != 1u)
-		MT_RET(nv);
-
-	mantra::Storage::RecordMap::iterator i = ds[0].find(column);
-	if (i == ds[0].end())
-		MT_RET(nv);
-
-	MT_RET(i->second);
-	MT_EE
-}
-
-bool StorageInterface::PutField(const mantra::ComparisonSet &search, const std::string &column, const mantra::StorageValue &value)
-{
-	MT_EB
-	MT_FUNC("StorageInterface::PutField" << search << column << value);
-
-	mantra::Storage::RecordMap data;
-	data[column] = value;
-	unsigned int rv = ChangeRow(data, search);
-
-	MT_RET(rv == 1u);
-	MT_EE
-}
-
 /****************************************************************************
  * The add/del/retrieve functions for all data.
  ****************************************************************************/
@@ -2204,7 +2088,7 @@ void Storage::Add(const boost::shared_ptr<StoredUser> &entry)
 	MT_FUNC("Storage::Add" << entry);
 
 	SYNC_WLOCK(StoredUsers_);
-	StoredUsers_[entry->ID()] = entry;
+	StoredUsers_.insert(entry);
 
 	MT_EE
 }
@@ -2215,7 +2099,7 @@ void Storage::Add(const boost::shared_ptr<StoredNick> &entry)
 	MT_FUNC("Storage::Add" << entry);
 
 	SYNC_WLOCK(StoredNicks_);
-	StoredNicks_[entry->Name()] = entry;
+	StoredNicks_.insert(entry);
 
 	MT_EE
 }
@@ -2226,7 +2110,7 @@ void Storage::Add(const boost::shared_ptr<StoredChannel> &entry)
 	MT_FUNC("Storage::Add" << entry);
 
 	SYNC_WLOCK(StoredChannels_);
-	StoredChannels_[entry->Name()] = entry;
+	StoredChannels_.insert(entry);
 
 	MT_EE
 }
@@ -2237,7 +2121,7 @@ void Storage::Add(const boost::shared_ptr<Committee> &entry)
 	MT_FUNC("Storage::Add" << entry);
 
 	SYNC_WLOCK(Committees_);
-	Committees_[entry->Name()] = entry;
+	Committees_.insert(entry);
 
 	MT_EE
 }
@@ -2306,7 +2190,8 @@ boost::shared_ptr<StoredUser> Storage::Get_StoredUser(boost::uint32_t id,
 	MT_FUNC("Storage::Get_StoredUser" << id << deep);
 
 	SYNC_RWLOCK(StoredUsers_);
-	StoredUsers_t::const_iterator i = StoredUsers_.find(id);
+	StoredUsers_t::const_iterator i = std::lower_bound(StoredUsers_.begin(),
+													   StoredUsers_.end(), id);
 	boost::shared_ptr<StoredUser> ret;
 	if (i == StoredUsers_.end())
 	{
@@ -2318,7 +2203,7 @@ boost::shared_ptr<StoredUser> Storage::Get_StoredUser(boost::uint32_t id,
 		}
 		MT_RET(ret);
 	}
-	ret = i->second;
+	ret = *i;
 	MT_RET(ret);
 
 	MT_EE
@@ -2331,7 +2216,8 @@ boost::shared_ptr<StoredNick> Storage::Get_StoredNick(const std::string &name,
 	MT_FUNC("Storage::Get_StoredNick" << name << deep);
 
 	SYNC_RWLOCK(StoredNicks_);
-	StoredNicks_t::const_iterator i = StoredNicks_.find(name);
+	StoredNicks_t::const_iterator i = std::lower_bound(StoredNicks_.begin(),
+													   StoredNicks_.end(), name);
 	boost::shared_ptr<StoredNick> ret;
 	if (i == StoredNicks_.end())
 	{
@@ -2343,7 +2229,32 @@ boost::shared_ptr<StoredNick> Storage::Get_StoredNick(const std::string &name,
 		}
 		MT_RET(ret);
 	}
-	ret = i->second;
+	ret = *i;
+	MT_RET(ret);
+
+	MT_EE
+}
+
+boost::shared_ptr<StoredChannel> Storage::Get_StoredChannel(boost::uint32_t id,
+										boost::logic::tribool deep) const
+{
+	MT_EB
+	MT_FUNC("Storage::Get_StoredChannel" << id << deep);
+
+	SYNC_RWLOCK(StoredChannels_);
+	StoredChannels_by_id_t::const_iterator i = StoredChannels_by_id_.find(id);
+	boost::shared_ptr<StoredChannel> ret;
+	if (i == StoredChannels_by_id_.end())
+	{
+		if (boost::logic::indeterminate(deep))
+			deep = ROOT->ConfigValue<bool>("storage.deep-lookup");
+		if (deep)
+		{
+			// look for entry ...
+		}
+		MT_RET(ret);
+	}
+	ret = *i;
 	MT_RET(ret);
 
 	MT_EE
@@ -2356,9 +2267,9 @@ boost::shared_ptr<StoredChannel> Storage::Get_StoredChannel(const std::string &n
 	MT_FUNC("Storage::Get_StoredChannel" << name << deep);
 
 	SYNC_RWLOCK(StoredChannels_);
-	StoredChannels_t::const_iterator i = StoredChannels_.find(name);
+	StoredChannels_by_name_t::const_iterator i = StoredChannels_by_name_.find(name);
 	boost::shared_ptr<StoredChannel> ret;
-	if (i == StoredChannels_.end())
+	if (i == StoredChannels_by_name_.end())
 	{
 		if (boost::logic::indeterminate(deep))
 			deep = ROOT->ConfigValue<bool>("storage.deep-lookup");
@@ -2368,7 +2279,32 @@ boost::shared_ptr<StoredChannel> Storage::Get_StoredChannel(const std::string &n
 		}
 		MT_RET(ret);
 	}
-	ret = i->second;
+	ret = *i;
+	MT_RET(ret);
+
+	MT_EE
+}
+
+boost::shared_ptr<Committee> Storage::Get_Committee(boost::uint32_t id,
+										boost::logic::tribool deep) const
+{
+	MT_EB
+	MT_FUNC("Storage::Get_Committee" << id << deep);
+
+	SYNC_RWLOCK(Committees_);
+	Committees_by_id_t::const_iterator i = Committees_by_id_.find(id);
+	boost::shared_ptr<Committee> ret;
+	if (i == Committees_by_id_.end())
+	{
+		if (boost::logic::indeterminate(deep))
+			deep = ROOT->ConfigValue<bool>("storage.deep-lookup");
+		if (deep)
+		{
+			// look for entry ...
+		}
+		MT_RET(ret);
+	}
+	ret = *i;
 	MT_RET(ret);
 
 	MT_EE
@@ -2381,9 +2317,9 @@ boost::shared_ptr<Committee> Storage::Get_Committee(const std::string &name,
 	MT_FUNC("Storage::Get_Committee" << name << deep);
 
 	SYNC_RWLOCK(Committees_);
-	Committees_t::const_iterator i = Committees_.find(name);
+	Committees_by_name_t::const_iterator i = Committees_by_name_.find(name);
 	boost::shared_ptr<Committee> ret;
-	if (i == Committees_.end())
+	if (i == Committees_by_name_.end())
 	{
 		if (boost::logic::indeterminate(deep))
 			deep = ROOT->ConfigValue<bool>("storage.deep-lookup");
@@ -2393,7 +2329,7 @@ boost::shared_ptr<Committee> Storage::Get_Committee(const std::string &name,
 		}
 		MT_RET(ret);
 	}
-	ret = i->second;
+	ret = *i;
 	MT_RET(ret);
 
 	MT_EE
@@ -2436,7 +2372,7 @@ void Storage::DelInternal(const boost::shared_ptr<StoredUser> &entry)
 	mantra::Storage::DataSet data;
 	mantra::Storage::RecordMap rec;
 	mantra::Storage::FieldSet fields;
-	fields.insert("name");
+	fields.insert("id");
 	fields.insert("successor");
 	backend_.first->RetrieveRow("channels", data,
 			mantra::Comparison<mantra::C_EqualTo>::make("founder", entry->ID()) &&
@@ -2453,46 +2389,48 @@ void Storage::DelInternal(const boost::shared_ptr<StoredUser> &entry)
 		if (j == i->end())
 			continue; // ??
 
-		StoredUsers_t::iterator l = StoredUsers_.find(boost::get<boost::uint32_t>(j->second));
+		StoredUsers_t::iterator l = std::lower_bound(StoredUsers_.begin(),
+													 StoredUsers_.end(),
+													 boost::get<boost::uint32_t>(j->second));
 		if (l == StoredUsers_.end())
 			continue; // Its gone, remove channel (later).
 
 		rec["founder"] = j->second;
-		j = i->find("name");
+		j = i->find("id");
 		if (j == i->end())
 			continue; // ??
 
-		boost::shared_ptr<StoredChannel> channel = Get_StoredChannel(boost::get<std::string>(j->second));
+		boost::shared_ptr<StoredChannel> channel = Get_StoredChannel(boost::get<boost::uint32_t>(j->second));
 		if (!channel)
 			continue; // Its gone, remove channel (later).
 
 		// Easy come, easy go.
-		if_StoredUser_Storage(l->second).Add(channel);
+		if_StoredUser_Storage(*l).Add(channel);
 
 		backend_.first->ChangeRow("channels", rec,
-					mantra::Comparison<mantra::C_EqualToNC>::make("name", j->second));
+					mantra::Comparison<mantra::C_EqualTo>::make("id", j->second));
 	}
 
 	std::vector<mantra::StorageValue> entries;
 	fields.clear();
-	fields.insert("name");
+	fields.insert("id");
 	backend_.first->RetrieveRow("channels", data,
 			mantra::Comparison<mantra::C_EqualTo>::make("founder", entry->ID()), fields);
 	entries.reserve(data.size());
 	SYNC_WLOCK(StoredChannels_);
 	for (i = data.begin(); i != data.end(); ++i)
 	{
-		j = i->find("name");
+		j = i->find("id");
 		if (j == i->end())
 			continue; // ??
 
-		StoredChannels_t::iterator l = StoredChannels_.find(boost::get<std::string>(j->second));
-		if (l == StoredChannels_.end())
+		StoredChannels_by_id_t::iterator l = StoredChannels_by_id_.find(boost::get<boost::uint32_t>(j->second));
+		if (l == StoredChannels_by_id_.end())
 			continue;
 
 		// Do non-database part of drop.
-		if_StoredChannel_Storage(l->second).DropInternal();
-		StoredChannels_.erase(l);
+		if_StoredChannel_Storage(*l).DropInternal();
+		StoredChannels_by_id_.erase(l);
 		entries.push_back(j->second);
 	}
 	SYNC_UNLOCK(StoredChannels_);
@@ -2501,7 +2439,7 @@ void Storage::DelInternal(const boost::shared_ptr<StoredUser> &entry)
 	{
 		if (!entries.empty())
 		{
-			cs = mantra::Comparison<mantra::C_OneOfNC>::make("name", entries);
+			cs = mantra::Comparison<mantra::C_OneOf>::make("id", entries);
 			backend_.first->RemoveRow("channels_level", cs);
 			backend_.first->RemoveRow("channels_access", cs);
 			backend_.first->RemoveRow("channels_akick", cs);
@@ -2532,17 +2470,17 @@ void Storage::DelInternal(const boost::shared_ptr<StoredUser> &entry)
 	SYNC_WLOCK(Committees_);
 	for (i = data.begin(); i != data.end(); ++i)
 	{
-		j = i->find("name");
+		j = i->find("id");
 		if (j == i->end())
 			continue; // ??
 
-		Committees_t::iterator l = Committees_.find(boost::get<std::string>(j->second));
-		if (l == Committees_.end())
+		Committees_by_id_t::iterator l = Committees_by_id_.find(boost::get<boost::uint32_t>(j->second));
+		if (l == Committees_by_id_.end())
 			continue;
 
 		// Do non-database part of drop.
-		if_Committee_Storage(l->second).DropInternal();
-		Committees_.erase(l);
+		if_Committee_Storage(*l).DropInternal();
+		Committees_by_id_.erase(l);
 		entries.push_back(j->second);
 	}
 	SYNC_UNLOCK(Committees_);
@@ -2596,12 +2534,14 @@ void Storage::DelInternal(const boost::shared_ptr<StoredUser> &entry)
 		if (j == i->end())
 			continue; // ??
 
-		StoredNicks_t::iterator l = StoredNicks_.find(boost::get<std::string>(j->second));
+		StoredNicks_t::iterator l = std::lower_bound(StoredNicks_.begin(),
+													 StoredNicks_.end(),
+													 boost::get<std::string>(j->second));
 		if (l == StoredNicks_.end())
 			continue;
 
 		// Do non-database part of drop.
-		if_StoredNick_Storage(l->second).DropInternal();
+		if_StoredNick_Storage(*l).DropInternal();
 		entries.push_back(j->second);
 	}
 	SYNC_UNLOCK(StoredNicks_);
@@ -2635,8 +2575,10 @@ void Storage::Del(const boost::shared_ptr<StoredUser> &entry)
 	MT_FUNC("Storage::Del" << entry);
 
 	SYNC_WLOCK(StoredUsers_);
-	StoredUsers_t::iterator i = StoredUsers_.find(entry->ID());
-	if (i == StoredUsers_.end() || i->second != entry)
+	StoredUsers_t::iterator i = std::lower_bound(StoredUsers_.begin(),
+												 StoredUsers_.end(),
+												 entry);
+	if (i == StoredUsers_.end())
 		return;
 
 	StoredUsers_.erase(i);
@@ -2665,8 +2607,8 @@ void Storage::Del(const boost::shared_ptr<StoredNick> &entry)
 	MT_FUNC("Storage::Del" << entry);
 
 	SYNC_WLOCK(StoredNicks_);
-	StoredNicks_t::iterator i = StoredNicks_.find(entry->Name());
-	if (i == StoredNicks_.end() || i->second != entry)
+	StoredNicks_t::iterator i = StoredNicks_.find(entry);
+	if (i == StoredNicks_.end())
 		return;
 
 	StoredNicks_.erase(i);
@@ -2682,7 +2624,7 @@ void Storage::DelInternal(const boost::shared_ptr<StoredChannel> &entry)
 	MT_FUNC("Storage::DelInternal" << entry);
 
 	if_StoredChannel_Storage(entry).DropInternal();
-	mantra::ComparisonSet cs = mantra::Comparison<mantra::C_EqualToNC>::make("name", entry->Name());
+	mantra::ComparisonSet cs = mantra::Comparison<mantra::C_EqualTo>::make("id", entry->ID());
 	backend_.first->RemoveRow("channels_level", cs);
 	backend_.first->RemoveRow("channels_access", cs);
 	backend_.first->RemoveRow("channels_akick", cs);
@@ -2701,8 +2643,8 @@ void Storage::Del(const boost::shared_ptr<StoredChannel> &entry)
 	MT_FUNC("Storage::Del" << entry);
 
 	SYNC_WLOCK(StoredChannels_);
-	StoredChannels_t::iterator i = StoredChannels_.find(entry->Name());
-	if (i == StoredChannels_.end() || i->second != entry)
+	StoredChannels_t::iterator i = StoredChannels_.find(*entry);
+	if (i == StoredChannels_.end())
 		return;
 
 	StoredChannels_.erase(i);
@@ -2732,9 +2674,9 @@ void Storage::DelInternalRecurse(const std::vector<mantra::StorageValue> &entrie
 	mantra::Storage::FieldSet fields;
 	std::vector<mantra::StorageValue> subentries;
 
-	fields.insert("name");
+	fields.insert("id");
 	backend_.first->RetrieveRow("committees", data,
-			mantra::Comparison<mantra::C_OneOfNC>::make("head_committee", entries), fields);
+			mantra::Comparison<mantra::C_OneOf>::make("head_committee", entries), fields);
 	subentries.reserve(data.size());
 
 	mantra::Storage::DataSet::const_iterator i;
@@ -2742,17 +2684,17 @@ void Storage::DelInternalRecurse(const std::vector<mantra::StorageValue> &entrie
 	SYNC_WLOCK(Committees_);
 	for (i = data.begin(); i != data.end(); ++i)
 	{
-		j = i->find("name");
+		j = i->find("id");
 		if (j == i->end())
 			continue; // ??
 
-		Committees_t::iterator l = Committees_.find(boost::get<std::string>(j->second));
-		if (l == Committees_.end())
+		Committees_by_id_t::iterator l = Committees_by_id_.find(boost::get<boost::uint32_t>(j->second));
+		if (l == Committees_by_id_.end())
 			continue;
 
 		// Do non-database part of drop.
-		if_Committee_Storage(l->second).DropInternal();
-		Committees_.erase(l);
+		if_Committee_Storage(*l).DropInternal();
+		Committees_by_id_.erase(l);
 		subentries.push_back(j->second);
 	}
 	SYNC_UNLOCK(Committees_);
@@ -2762,7 +2704,7 @@ void Storage::DelInternalRecurse(const std::vector<mantra::StorageValue> &entrie
 
 	if (!have_cascade)
 	{
-		mantra::ComparisonSet cs = mantra::Comparison<mantra::C_OneOfNC>::make("name", entries);
+		mantra::ComparisonSet cs = mantra::Comparison<mantra::C_OneOf>::make("id", entries);
 		backend_.first->RemoveRow("committees_member", cs);
 		backend_.first->RemoveRow("committees_message", cs);
 		backend_.first->RemoveRow("committees", cs);
@@ -2778,7 +2720,7 @@ void Storage::DelInternal(const boost::shared_ptr<Committee> &entry)
 
 	if (!have_cascade)
 	{
-		mantra::ComparisonSet cs = mantra::Comparison<mantra::C_EqualToNC>::make("entry_committee", entry->Name());
+		mantra::ComparisonSet cs = mantra::Comparison<mantra::C_EqualTo>::make("entry_committee", entry->ID());
 		backend_.first->RemoveRow("channels_access", cs);
 		backend_.first->RemoveRow("channels_akick", cs);
 	}
@@ -2790,7 +2732,7 @@ void Storage::DelInternal(const boost::shared_ptr<Committee> &entry)
 
 	if (have_cascade)
 	{
-		mantra::ComparisonSet cs = mantra::Comparison<mantra::C_EqualToNC>::make("name", entry->Name());
+		mantra::ComparisonSet cs = mantra::Comparison<mantra::C_EqualTo>::make("id", entry->ID());
 		backend_.first->RemoveRow("committees", cs);
 	}
 
@@ -2803,8 +2745,8 @@ void Storage::Del(const boost::shared_ptr<Committee> &entry)
 	MT_FUNC("Storage::Del" << entry);
 
 	SYNC_WLOCK(Committees_);
-	Committees_t::iterator i = Committees_.find(entry->Name());
-	if (i == Committees_.end() || i->second != entry)
+	Committees_t::iterator i = Committees_.find(*entry);
+	if (i == Committees_.end())
 		return;
 
 	Committees_.erase(i);
@@ -2816,28 +2758,43 @@ void Storage::Del(const boost::shared_ptr<Committee> &entry)
 
 // --------------------------------------------------------------------------
 
-bool Storage::Forbid_Add(const std::string &in, const boost::shared_ptr<StoredNick> &nick)
+boost::uint32_t Storage::Forbid_Add(const std::string &in, const boost::shared_ptr<StoredNick> &nick)
 {
 	MT_EB
 	MT_FUNC("Storage::Forbid_Add" << in << nick);
 
-	mantra::Storage::RecordMap rec;
-	rec["name"] = in;
-	rec["last_updater"] = nick->Name();
-	rec["last_updater_id"] = nick->User()->ID();
-	backend_.first->InsertRow("forbidden", rec);
+	static boost::mutex id_lock;
 
-	MT_RET(true);
+	boost::shared_ptr<StoredChannel> rv;
+	boost::uint32_t id = 0;
+	{
+		boost::mutex::scoped_lock sl(id_lock);
+		mantra::StorageValue rv = backend_.first->Maximum("forbidden", "id");
+		if (rv.type() == typeid(mantra::NullValue))
+			id = 1;
+		else
+			id = boost::get<boost::uint32_t>(rv) + 1;
+
+		mantra::Storage::RecordMap rec;
+		rec["id"] = id;
+		rec["name"] = in;
+		rec["last_updater"] = nick->Name();
+		rec["last_updater_id"] = nick->User()->ID();
+		if (!backend_.first->InsertRow("forbidden", rec))
+			MT_RET(0);
+	}
+
+	MT_RET(id);
 	MT_EE
 }
 
-bool Storage::Forbid_Del(const std::string &in)
+bool Storage::Forbid_Del(boost::uint32_t in)
 {
 	MT_EB
 	MT_FUNC("Storage::Forbid_Del" << in);
 
 	unsigned int entries = backend_.first->RemoveRow("forbidden", 
-			  mantra::Comparison<mantra::C_EqualToNC>::make("name", in));
+			  mantra::Comparison<mantra::C_EqualTo>::make("id", in));
 
 	MT_RET(entries != 0);
 	MT_EE

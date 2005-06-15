@@ -34,7 +34,6 @@ RCSID(magick__livechannel_h, "@(#) $Id$");
 ** ======================================================================= */
 
 #include "config.h"
-#include "storage.h"
 
 #include <mantra/core/sync.h>
 
@@ -44,7 +43,11 @@ RCSID(magick__livechannel_h, "@(#) $Id$");
 #include <boost/noncopyable.hpp>
 #include <boost/operators.hpp>
 
-class LiveChannel : private boost::noncopyable, public boost::totally_ordered1<LiveChannel>
+class StoredChannel;
+
+class LiveChannel : private boost::noncopyable,
+					public boost::totally_ordered1<LiveChannel>,
+					public boost::totally_ordered2<LiveChannel, std::string>
 {
 	class ClearPart;
 	friend class if_LiveChannel_StoredChannel;
@@ -247,6 +250,18 @@ class if_LiveChannel_LiveUser
 inline std::ostream &operator<<(std::ostream &os, const LiveChannel &in)
 {
 	return (os << in.Name());
+}
+
+template<typename T>
+inline bool operator<(const boost::shared_ptr<LiveChannel> &lhs, const T &rhs)
+{
+	return (*lhs < rhs);
+}
+
+inline bool operator<(const boost::shared_ptr<LiveChannel> &lhs,
+					  const boost::shared_ptr<LiveChannel> &rhs)
+{
+	return (*lhs < *rhs);
 }
 
 #endif // _MAGICK_LIVECHANNEL_H

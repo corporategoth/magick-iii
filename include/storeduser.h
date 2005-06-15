@@ -34,7 +34,7 @@ RCSID(magick__storeduser_h, "@(#) $Id$");
 ** ======================================================================= */
 
 #include "config.h"
-#include "storage.h"
+#include "storageinterface.h"
 #include "memo.h"
 
 #include <mantra/core/sync.h>
@@ -45,7 +45,9 @@ RCSID(magick__storeduser_h, "@(#) $Id$");
 #include <boost/noncopyable.hpp>
 #include <boost/operators.hpp>
 
-class StoredUser : private boost::noncopyable, public boost::totally_ordered1<StoredUser>
+class StoredUser : private boost::noncopyable,
+				   public boost::totally_ordered1<StoredUser>,
+				   public boost::totally_ordered2<StoredUser, boost::uint32_t>
 {
 	friend class if_StoredUser_LiveUser;
 	friend class if_StoredUser_StoredNick;
@@ -95,7 +97,7 @@ private:
 	StoredUser(boost::uint32_t id);
 public:
 
-	boost::uint32_t ID() const { return id_; }
+	inline boost::uint32_t ID() const { return id_; }
 
 	boost::posix_time::ptime Last_Update() const
 		{ return boost::get<boost::posix_time::ptime>(storage.GetField(id_, "last_update")); }
@@ -103,8 +105,10 @@ public:
 	online_users_t Online() const;
 	my_nicks_t Nicks() const;
 
-	inline bool operator<(const StoredUser &rhs) const { return id_ < rhs.id_; }
-	inline bool operator==(const StoredUser &rhs) const { return id_ == rhs.id_; }
+	inline bool operator<(boost::uint32_t rhs) const { return id_ < rhs; }
+	inline bool operator==(boost::uint32_t rhs) const { return id_ == rhs; }
+	inline bool operator<(const StoredUser &rhs) const { return id_ < rhs.ID(); }
+	inline bool operator==(const StoredUser &rhs) const { return id_ == rhs.ID(); }
 
 	void Password(const std::string &password);
 	bool CheckPassword(const std::string &password) const;
@@ -172,16 +176,20 @@ public:
 	boost::uint32_t ACCESS_Add(const std::string &in);
 	void ACCESS_Del(boost::uint32_t num);
 	void ACCESS_Change(boost::uint32_t num, const std::string &in);
+	void ACCESS_Reindex(boost::uint32_t num, boost::uint32_t newnum);
 	std::pair<std::string, boost::posix_time::ptime> ACCESS_Get(boost::uint32_t num) const;
 	void ACCESS_Get(std::map<boost::uint32_t, std::pair<std::string, boost::posix_time::ptime> > &fill) const;
+	void ACCESS_Get(std::vector<boost::uint32_t> &fill) const;
 
 	bool IGNORE_Matches(const boost::shared_ptr<StoredUser> &in) const;
 	bool IGNORE_Exists(boost::uint32_t num) const;
 	boost::uint32_t IGNORE_Add(const boost::shared_ptr<StoredUser> &in);
 	void IGNORE_Del(boost::uint32_t num);
 	void IGNORE_Change(boost::uint32_t num, const boost::shared_ptr<StoredUser> &in);
+	void IGNORE_Reindex(boost::uint32_t num, boost::uint32_t newnum);
 	std::pair<boost::shared_ptr<StoredUser>, boost::posix_time::ptime> IGNORE_Get(boost::uint32_t num) const;
 	void IGNORE_Get(std::map<boost::uint32_t, std::pair<boost::shared_ptr<StoredUser>, boost::posix_time::ptime> > &fill) const;
+	void IGNORE_Get(std::vector<boost::uint32_t> &fill) const;
 
 	bool MEMO_Exists(boost::uint32_t num) const;
 	void MEMO_Del(boost::uint32_t num);
@@ -254,6 +262,18 @@ class if_StoredUser_Storage
 inline std::ostream &operator<<(std::ostream &os, const StoredUser &in)
 {
 	return (os << in.ID());
+}
+
+template<typename T>
+inline bool operator<(const boost::shared_ptr<StoredUser> &lhs, const T &rhs)
+{
+	return (*lhs < rhs);
+}
+
+inline bool operator<(const boost::shared_ptr<StoredUser> &lhs,
+					  const boost::shared_ptr<StoredUser> &rhs)
+{
+	return (*lhs < *rhs);
 }
 
 #endif // _MAGICK_STOREDUSER_H

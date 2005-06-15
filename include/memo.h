@@ -34,12 +34,15 @@ RCSID(magick__memo_h, "@(#) $Id$");
 ** ======================================================================= */
 
 #include "config.h"
-#include "storage.h"
+#include "storageinterface.h"
 
 #include <boost/thread/mutex.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/operators.hpp>
+
+class StoredUser;
+class StoredChannel;
 
 class BaseMemo : private boost::noncopyable
 {

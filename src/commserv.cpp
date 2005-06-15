@@ -296,14 +296,6 @@ static bool biMEMBER_DEL(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[2]);
-	if (!nick)
-	{
-		SEND(service, user,
-			 N_("Nickname %1% is not registered."), params[2]);
-		MT_RET(false);
-	}
-		
 	if (!comm->IsHead(user))
 	{
 		SEND(service, user,
@@ -311,17 +303,37 @@ static bool biMEMBER_DEL(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	if (!comm->MEMBER_Exists(nick->User()))
+	size_t del = 0, skipped = 0;
+	for (size_t i = 2; i < params.size(); ++i)
 	{
-		SEND(service, user,
-			 N_("%1% is not a member of committee %2%."),
-			 nick->Name() % comm->Name());
-		MT_RET(false);
-	}
+		boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[i]);
+		if (!nick)
+		{
+			++skipped;
+			continue;
+		}
+			
+		if (!comm->MEMBER_Exists(nick->User()))
+		{
+			++skipped;
+			continue;
+		}
 
-	comm->MEMBER_Del(nick->User());
-	SEND(service, user, N_("%1% has been removed from committee %2%."),
-		 nick->Name() % comm->Name());
+		comm->MEMBER_Del(nick->User());
+		++del;
+	}
+	if (del)
+	{
+		if (skipped)
+			SEND(service, user, N_("%1% members removed from committee %2%, %3% entries skipped."),
+				 del % comm->Name() % skipped);
+		else
+			SEND(service, user, N_("%1% members removed from committee %2%."),
+				 del % comm->Name());
+	}
+	else
+		SEND(service, user,
+			 N_("No specified members could be found committee %1%."), comm->Name());
 
 	MT_RET(true);
 	MT_EE
@@ -506,36 +518,37 @@ static bool biMESSAGE_DEL(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
+	std::string numbers(params[1]);
+	for (size_t i=2; i<params.size(); ++i)
+		numbers += ' ' + params[i];
+
+	size_t skipped = 0;
 	std::vector<unsigned int> v;
-	if (!mantra::ParseNumbers(params[1], v))
+	if (!mantra::ParseNumbers(numbers, v))
 	{
 		NSEND(service, user,
 			  N_("Invalid number, number sequence, or number range specified."));
 		MT_RET(false);
 	}
 
-	std::vector<unsigned int> ne;
 	for (size_t i = 0; i < v.size(); ++i)
 	{
 		if (!comm->MESSAGE_Exists(v[i]))
-		{
-			ne.push_back(v[i]);
-			continue;
-		}
-
-		comm->MESSAGE_Del(v[i]);
+			++skipped;
+		else
+			comm->MESSAGE_Del(v[i]);
 	}
-	if (ne.empty())
+	if (!skipped)
 	{
 		SEND(service, user,
 			 N_("%1% entries removed from committee %2%'s message list."),
 			 v.size() % comm->Name());
 	}
-	else if (v.size() != ne.size())
+	else if (v.size() != skipped)
 	{
 		SEND(service, user,
 			 N_("%1% entries removed from committee %2%'s message list and %3% entries specified could not be found."),
-			 (v.size() - ne.size()) % comm->Name() % ne.size());
+			 (v.size() - skipped) % comm->Name() % skipped);
 	}
 	else
 	{

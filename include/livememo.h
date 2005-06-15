@@ -34,12 +34,17 @@ RCSID(magick__livememo_h, "@(#) $Id$");
 ** ======================================================================= */
 
 #include "config.h"
-#include "storage.h"
+#include "storageinterface.h"
 
 #include <boost/thread/mutex.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/operators.hpp>
+
+class LiveUser;
+class StoredNick;
+class StoredUser;
+class StoredChannel;
 
 class LiveMemo : private boost::noncopyable,
 				 public boost::totally_ordered1<LiveMemo>

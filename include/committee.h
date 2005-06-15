@@ -35,7 +35,7 @@ RCSID(magick__committee_h, "@(#) $Id$");
 
 #include "config.h"
 
-#include "storage.h"
+#include "storageinterface.h"
 #include "memo.h"
 
 #include <boost/thread/mutex.hpp>
@@ -47,7 +47,10 @@ RCSID(magick__committee_h, "@(#) $Id$");
 class LiveUser;
 class StoredUser;
 
-class Committee : private boost::noncopyable, public boost::totally_ordered1<Committee>
+class Committee : private boost::noncopyable,
+				  public boost::totally_ordered1<Committee>,
+				  public boost::totally_ordered2<Committee, boost::uint32_t>,
+				  public boost::totally_ordered2<Committee, std::string>
 {
 	friend class if_Committee_LiveUser;
 	friend class if_Committee_Storage;
@@ -57,9 +60,11 @@ class Committee : private boost::noncopyable, public boost::totally_ordered1<Com
 	boost::weak_ptr<Committee> self;
 	static StorageInterface storage;
 
+	boost::uint32_t id_;
 	std::string name_;
 
 	NSYNC(message_number);
+	NSYNC(member_number);
 
 	online_members_t RWSYNC(online_members_);
 
@@ -68,10 +73,10 @@ class Committee : private boost::noncopyable, public boost::totally_ordered1<Com
 	void Offline(const boost::shared_ptr<LiveUser> &in);
 
 	// use if_Committee_Storage
-	static boost::shared_ptr<Committee> load(const std::string &name);
+	static boost::shared_ptr<Committee> load(boost::uint32_t id, const std::string &name);
 	void DropInternal();
 
-	Committee(const std::string &name);
+	Committee(boost::uint32_t id, const std::string &name);
 
 public:
 	static boost::shared_ptr<Committee> create(const std::string &name);
@@ -80,6 +85,7 @@ public:
 	static boost::shared_ptr<Committee> create(const std::string &name,
 			const boost::shared_ptr<StoredUser> &head);
 
+	inline boost::uint32_t ID() const { return id_; }
 	const std::string &Name() const { return name_; }
 
 	inline bool operator<(const std::string &rhs) const
@@ -100,8 +106,10 @@ public:
 #endif
 		return cmp(Name(), rhs);
 	}
-	inline bool operator<(const Committee &rhs) const { return *this < rhs.Name(); }
-	inline bool operator==(const Committee &rhs) const { return *this == rhs.Name(); }
+	inline bool operator<(boost::uint32_t rhs) const { return id_ < rhs; }
+	inline bool operator==(boost::uint32_t rhs) const { return id_ == rhs; }
+	inline bool operator<(const Committee &rhs) const { return *this < rhs.ID(); }
+	inline bool operator==(const Committee &rhs) const { return *this == rhs.ID(); }
 
 	void Head(const boost::shared_ptr<StoredUser> &in);
 	void Head(const boost::shared_ptr<Committee> &in);
@@ -111,9 +119,9 @@ public:
 	static std::set<boost::shared_ptr<Committee> > FindCommittees(const boost::shared_ptr<StoredUser> &in);
 
 	boost::posix_time::ptime Registered() const
-		{ return boost::get<boost::posix_time::ptime>(storage.GetField(name_, "registered")); }
+		{ return boost::get<boost::posix_time::ptime>(storage.GetField(id_, "registered")); }
 	boost::posix_time::ptime Last_Update() const
-		{ return boost::get<boost::posix_time::ptime>(storage.GetField(name_, "last_update")); }
+		{ return boost::get<boost::posix_time::ptime>(storage.GetField(id_, "last_update")); }
 
 	void Description(const std::string &in);
 	std::string Description() const;
@@ -144,15 +152,18 @@ public:
 		static StorageInterface storage;
 
 		boost::shared_ptr<Committee> owner_;
+		boost::uint32_t number_;
 		boost::shared_ptr<StoredUser> entry_;
 
 		Member() {}
 		Member(const boost::shared_ptr<Committee> &owner,
-			   const boost::shared_ptr<StoredUser> &entry)
-			: owner_(owner), entry_(entry) {}
+			   boost::uint32_t number);
+		Member(const boost::shared_ptr<Committee> &owner,
+			   const boost::shared_ptr<StoredUser> &entry);
 	public:
 		const boost::shared_ptr<Committee> &Owner() const { return owner_; }
-		const boost::shared_ptr<StoredUser> &Entry() const { return entry_; }
+		boost::uint32_t Number() const { return number_; }
+		boost::shared_ptr<StoredUser> Entry() const { return entry_; }
 
 		std::string Last_UpdaterName() const;
 		boost::shared_ptr<StoredUser> Last_Updater() const;
@@ -169,10 +180,13 @@ public:
 		}
 	};
 
+	bool MEMBER_Exists(boost::uint32_t num) const;
 	bool MEMBER_Exists(const boost::shared_ptr<StoredUser> &entry) const;
 	Member MEMBER_Add(const boost::shared_ptr<StoredUser> &entry,
 					  const boost::shared_ptr<StoredNick> &updater);
+	void MEMBER_Del(boost::uint32_t num);
 	void MEMBER_Del(const boost::shared_ptr<StoredUser> &entry);
+	Member MEMBER_Get(boost::uint32_t num) const;
 	Member MEMBER_Get(const boost::shared_ptr<StoredUser> &entry) const;
 	void MEMBER_Get(std::set<Member> &fill) const;
 
@@ -263,8 +277,8 @@ class if_Committee_Storage
 	if_Committee_Storage(Committee &b) : base(b) {}
 	if_Committee_Storage(const boost::shared_ptr<Committee> &b) : base(*(b.get())) {}
 
-	static inline boost::shared_ptr<Committee> load(const std::string &name)
-		{ return Committee::load(name); }
+	static inline boost::shared_ptr<Committee> load(boost::uint32_t id, const std::string &name)
+		{ return Committee::load(id, name); }
 	inline void DropInternal()
 		{ base.DropInternal(); }
 };
@@ -273,6 +287,18 @@ class if_Committee_Storage
 inline std::ostream &operator<<(std::ostream &os, const Committee &in)
 {
 	return (os << in.Name());
+}
+
+template<typename T>
+inline bool operator<(const boost::shared_ptr<Committee> &lhs, const T &rhs)
+{
+	return (*lhs < rhs);
+}
+
+inline bool operator<(const boost::shared_ptr<Committee> &lhs,
+					  const boost::shared_ptr<Committee> &rhs)
+{
+	return (*lhs < *rhs);
 }
 
 #endif // _MAGICK_COMMITTEE_H

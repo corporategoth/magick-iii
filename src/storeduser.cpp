@@ -62,22 +62,24 @@ boost::shared_ptr<StoredUser> StoredUser::create(const std::string &password)
 
 	static boost::mutex id_lock;
 
+	boost::shared_ptr<StoredUser> rv;
 	boost::uint32_t id;
 	{
 		boost::mutex::scoped_lock sl(id_lock);
-		mantra::StorageValue rv = storage.Maximum("id");
-		if (rv.type() == typeid(mantra::NullValue))
+		mantra::StorageValue v = storage.Maximum("id");
+		if (v.type() == typeid(mantra::NullValue))
 			id = 1;
 		else
-			id = boost::get<boost::uint32_t>(rv) + 1;
+			id = boost::get<boost::uint32_t>(v) + 1;
 
 		mantra::Storage::RecordMap rec;
 		rec["id"] = id;
 		rec["password"] = ROOT->data.CryptPassword(password);
-		storage.InsertRow(rec);
+		if (!storage.InsertRow(rec))
+			MT_RET(rv);
 	}
 
-	boost::shared_ptr<StoredUser> rv = load(id);
+	rv = load(id);
 	ROOT->data.Add(rv);
 
 	MT_RET(rv);
@@ -1168,6 +1170,20 @@ void StoredUser::ACCESS_Change(boost::uint32_t num, const std::string &in)
 	MT_EE
 }
 
+void StoredUser::ACCESS_Reindex(boost::uint32_t num, boost::uint32_t newnum)
+{
+	MT_EB
+	MT_FUNC("StoredUser::ACCESS_Reindex" << num << newnum);
+
+	mantra::Storage::RecordMap data;
+	data["number"] = newnum;
+	storage_access.ChangeRow(data,
+				mantra::Comparison<mantra::C_EqualTo>::make("id", id_) &&
+				mantra::Comparison<mantra::C_EqualTo>::make("number", num));
+
+	MT_EE
+}
+
 std::pair<std::string, boost::posix_time::ptime> StoredUser::ACCESS_Get(boost::uint32_t num) const
 {
 	MT_EB
@@ -1204,6 +1220,22 @@ void StoredUser::ACCESS_Get(std::map<boost::uint32_t, std::pair<std::string, boo
 		fill[boost::get<boost::uint32_t>((*i)["number"])] =
 			std::make_pair(boost::get<std::string>((*i)["mask"]),
 						   boost::get<boost::posix_time::ptime>((*i)["last_update"]));
+
+	MT_EE
+}
+
+void StoredUser::ACCESS_Get(std::vector<boost::uint32_t> &fill) const
+{
+	MT_EB
+	MT_FUNC("StoredUser::ACCESS_Get" << fill);
+
+	mantra::Storage::DataSet data;
+	mantra::Storage::FieldSet fields;
+	fields.insert("number");
+	storage_access.RetrieveRow(data, mantra::Comparison<mantra::C_EqualTo>::make("id", id_));
+	mantra::Storage::DataSet::iterator i;
+	for (i = data.begin(); i != data.end(); ++i)
+		fill.push_back(boost::get<boost::uint32_t>((*i)["number"]));
 
 	MT_EE
 }
@@ -1284,6 +1316,20 @@ void StoredUser::IGNORE_Change(boost::uint32_t num, const boost::shared_ptr<Stor
 	MT_EE
 }
 
+void StoredUser::IGNORE_Reindex(boost::uint32_t num, boost::uint32_t newnum)
+{
+	MT_EB
+	MT_FUNC("StoredUser::IGNORE_Reindex" << num << newnum);
+
+	mantra::Storage::RecordMap data;
+	data["number"] = newnum;
+	storage_access.ChangeRow(data,
+				mantra::Comparison<mantra::C_EqualTo>::make("id", id_) &&
+				mantra::Comparison<mantra::C_EqualTo>::make("number", num));
+
+	MT_EE
+}
+
 std::pair<boost::shared_ptr<StoredUser>, boost::posix_time::ptime> StoredUser::IGNORE_Get(boost::uint32_t num) const
 {
 	MT_EB
@@ -1327,6 +1373,22 @@ void StoredUser::IGNORE_Get(std::map<boost::uint32_t, std::pair<boost::shared_pt
 		fill[boost::get<boost::uint32_t>((*i)["number"])] =
 			std::make_pair(user, boost::get<boost::posix_time::ptime>((*i)["last_update"]));
 	}
+
+	MT_EE
+}
+
+void StoredUser::IGNORE_Get(std::vector<boost::uint32_t> &fill) const
+{
+	MT_EB
+	MT_FUNC("StoredUser::IGNORE_Get" << fill);
+
+	mantra::Storage::DataSet data;
+	mantra::Storage::FieldSet fields;
+	fields.insert("number");
+	storage_ignore.RetrieveRow(data, mantra::Comparison<mantra::C_EqualTo>::make("id", id_));
+	mantra::Storage::DataSet::iterator i;
+	for (i = data.begin(); i != data.end(); ++i)
+		fill.push_back(boost::get<boost::uint32_t>((*i)["number"]));
 
 	MT_EE
 }

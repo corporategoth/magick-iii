@@ -1086,18 +1086,6 @@ std::string LiveUser::DropToken(const boost::shared_ptr<StoredChannel> &chan) co
 	MT_EE
 }
 
-static bool operator<(const LiveUser::channel_joined_t::value_type &lhs,
-			   const std::string &rhs)
-{
-	return (*lhs < rhs);
-}
-
-static bool operator<(const LiveUser::committees_t::value_type &lhs,
-			   const std::string &rhs)
-{
-	return (*lhs < rhs);
-}
-
 bool LiveUser::InChannel(const boost::shared_ptr<LiveChannel> &channel) const
 {
 	MT_EB

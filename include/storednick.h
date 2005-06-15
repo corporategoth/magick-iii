@@ -34,7 +34,7 @@ RCSID(magick__storednick_h, "@(#) $Id$");
 ** ======================================================================= */
 
 #include "config.h"
-#include "storage.h"
+#include "storageinterface.h"
 
 #include <boost/thread/mutex.hpp>
 #include <boost/shared_ptr.hpp>
@@ -42,7 +42,9 @@ RCSID(magick__storednick_h, "@(#) $Id$");
 #include <boost/noncopyable.hpp>
 #include <boost/operators.hpp>
 
-class StoredNick : public boost::noncopyable, public boost::totally_ordered1<StoredNick>
+class StoredNick : public boost::noncopyable,
+				   public boost::totally_ordered1<StoredNick>,
+				   public boost::totally_ordered2<StoredNick, std::string>
 {
 	friend class if_StoredNick_LiveUser;
 	friend class if_StoredNick_StoredUser;
@@ -171,6 +173,18 @@ class if_StoredNick_Storage
 inline std::ostream &operator<<(std::ostream &os, const StoredNick &in)
 {
 	return (os << in.Name());
+}
+
+template<typename T>
+inline bool operator<(const boost::shared_ptr<StoredNick> &lhs, const T &rhs)
+{
+	return (*lhs < rhs);
+}
+
+inline bool operator<(const boost::shared_ptr<StoredNick> &lhs,
+					  const boost::shared_ptr<StoredNick> &rhs)
+{
+	return (*lhs < *rhs);
 }
 
 #endif // _MAGICK_STOREDNICK_H

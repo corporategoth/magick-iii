@@ -115,7 +115,9 @@ class StoredNick;
 	} \
 	while (0)
 
-class LiveUser : private boost::noncopyable, public boost::totally_ordered1<LiveUser>
+class LiveUser : private boost::noncopyable,
+				 public boost::totally_ordered1<LiveUser>,
+				 public boost::totally_ordered2<LiveUser, std::string>
 {
 	friend class if_LiveUser_Storage;
 	friend class if_LiveUser_StoredNick;
@@ -403,6 +405,18 @@ class if_LiveUser_LiveMemo
 inline std::ostream &operator<<(std::ostream &os, const LiveUser &in)
 {
 	return (os << in.Name());
+}
+
+template<typename T>
+inline bool operator<(const boost::shared_ptr<LiveUser> &lhs, const T &rhs)
+{
+	return (*lhs < rhs);
+}
+
+inline bool operator<(const boost::shared_ptr<LiveUser> &lhs,
+					  const boost::shared_ptr<LiveUser> &rhs)
+{
+	return (*lhs < *rhs);
 }
 
 #endif // _MAGICK_LIVEUSER_H

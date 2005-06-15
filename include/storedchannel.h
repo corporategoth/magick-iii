@@ -34,7 +34,7 @@ RCSID(magick__storedchannel_h, "@(#) $Id$");
 ** ======================================================================= */
 
 #include "config.h"
-#include "storage.h"
+#include "storageinterface.h"
 #include "memo.h"
 
 #include <boost/thread/mutex.hpp>
@@ -43,7 +43,16 @@ RCSID(magick__storedchannel_h, "@(#) $Id$");
 #include <boost/noncopyable.hpp>
 #include <boost/operators.hpp>
 
-class StoredChannel : private boost::noncopyable, public boost::totally_ordered1<StoredChannel>
+class LiveUser;
+class LiveChannel;
+class StoredUser;
+class StoredNick;
+class Committee;
+
+class StoredChannel : private boost::noncopyable,
+					  public boost::totally_ordered1<StoredChannel>,
+					  public boost::totally_ordered2<StoredChannel, boost::uint32_t>,
+					  public boost::totally_ordered2<StoredChannel, std::string>
 {
 	friend class if_StoredChannel_LiveUser;
 	friend class if_StoredChannel_LiveChannel;
@@ -54,7 +63,8 @@ class StoredChannel : private boost::noncopyable, public boost::totally_ordered1
 	boost::weak_ptr<StoredChannel> self;
 	static StorageInterface storage;
 
-	std::string name_;
+	boost::uint32_t id_;
+	std::string name_; // Too damn convenient :)
 
 	boost::mutex lock_;
 	boost::shared_ptr<LiveChannel> live_;
@@ -77,10 +87,10 @@ class StoredChannel : private boost::noncopyable, public boost::totally_ordered1
 
 	// use if_StoredChannel_Storage
 	void DropInternal();
-	static boost::shared_ptr<StoredChannel> load(const std::string &name);
+	static boost::shared_ptr<StoredChannel> load(boost::uint32_t id, const std::string &name);
 	static void expire();
 
-	StoredChannel(const std::string &name);
+	StoredChannel(const boost::uint32_t id, const std::string &name);
 public:
 	enum Revenge_t {
 			R_None,
@@ -99,7 +109,8 @@ public:
 	static boost::shared_ptr<StoredChannel> create(const std::string &name,
 		  const std::string &password, const boost::shared_ptr<StoredUser> &founder);
 
-	const std::string &Name() const { return name_; }
+	inline boost::uint32_t ID() const { return id_; }
+	inline const std::string &Name() const { return name_; }
 	const boost::shared_ptr<LiveChannel> &Live() const;
 
 	inline bool operator<(const std::string &rhs) const
@@ -120,15 +131,17 @@ public:
 #endif
 		return cmp(Name(), rhs);
 	}
-	inline bool operator<(const StoredChannel &rhs) const { return *this < rhs.Name(); }
-	inline bool operator==(const StoredChannel &rhs) const { return *this == rhs.Name(); }
+	inline bool operator<(boost::uint32_t rhs) const { return id_ < rhs; }
+	inline bool operator==(boost::uint32_t rhs) const { return id_ == rhs; }
+	inline bool operator<(const StoredChannel &rhs) const { return *this < rhs.ID(); }
+	inline bool operator==(const StoredChannel &rhs) const { return *this == rhs.ID(); }
 
 	boost::posix_time::ptime Registered() const
-		{ return boost::get<boost::posix_time::ptime>(storage.GetField(name_, "registered")); }
+		{ return boost::get<boost::posix_time::ptime>(storage.GetField(id_, "registered")); }
 	boost::posix_time::ptime Last_Update() const
-		{ return boost::get<boost::posix_time::ptime>(storage.GetField(name_, "last_update")); }
+		{ return boost::get<boost::posix_time::ptime>(storage.GetField(id_, "last_update")); }
 	boost::posix_time::ptime Last_Used() const
-		{ return boost::get<boost::posix_time::ptime>(storage.GetField(name_, "last_used")); }
+		{ return boost::get<boost::posix_time::ptime>(storage.GetField(id_, "last_used")); }
 	
 	void Password(const std::string &password);
 	bool CheckPassword(const std::string &password) const;
@@ -513,8 +526,8 @@ class if_StoredChannel_Storage
 	if_StoredChannel_Storage(StoredChannel &b) : base(b) {}
 	if_StoredChannel_Storage(const boost::shared_ptr<StoredChannel> &b) : base(*(b.get())) {}
 
-	static inline boost::shared_ptr<StoredChannel> load(const std::string &name)
-		{ return StoredChannel::load(name); }
+	static inline boost::shared_ptr<StoredChannel> load(boost::uint32_t id, const std::string &name)
+		{ return StoredChannel::load(id, name); }
 	static inline void expire()
 		{ StoredChannel::expire(); }
 	inline void DropInternal()
@@ -525,6 +538,18 @@ class if_StoredChannel_Storage
 inline std::ostream &operator<<(std::ostream &os, const StoredChannel &in)
 {
 	return (os << in.Name());
+}
+
+template<typename T>
+inline bool operator<(const boost::shared_ptr<StoredChannel> &lhs, const T &rhs)
+{
+	return (*lhs < rhs);
+}
+
+inline bool operator<(const boost::shared_ptr<StoredChannel> &lhs,
+					  const boost::shared_ptr<StoredChannel> &rhs)
+{
+	return (*lhs < *rhs);
 }
 
 #endif // _MAGICK_STOREDCHANNEL_H

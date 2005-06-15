@@ -41,7 +41,7 @@ RCSID(magick__storedchannel_cpp, "@(#)$Id$");
 
 #include <mantra/core/trace.h>
 
-StorageInterface StoredChannel::storage("channels", "name", "last_update");
+StorageInterface StoredChannel::storage("channels", "id", "last_update");
 
 boost::shared_ptr<StoredChannel> StoredChannel::create(const std::string &name,
 	  const std::string &password, const boost::shared_ptr<StoredUser> &founder)
@@ -49,25 +49,40 @@ boost::shared_ptr<StoredChannel> StoredChannel::create(const std::string &name,
 	MT_EB
 	MT_FUNC("StoredChannel::create" << name << password << founder);
 
-	mantra::Storage::RecordMap rec;
-	rec["name"] = name;
-	rec["password"] = ROOT->data.CryptPassword(password);
-	rec["founder"] = founder->ID();
-	storage.InsertRow(rec);
-	
-	boost::shared_ptr<StoredChannel> rv = load(name);
+	static boost::mutex id_lock;
+
+	boost::shared_ptr<StoredChannel> rv;
+	boost::uint32_t id;
+	{
+		boost::mutex::scoped_lock sl(id_lock);
+		mantra::StorageValue v = storage.Maximum("id");
+		if (v.type() == typeid(mantra::NullValue))
+			id = 1;
+		else
+			id = boost::get<boost::uint32_t>(v) + 1;
+
+		mantra::Storage::RecordMap rec;
+		rec["id"] = id;
+		rec["name"] = name;
+		rec["password"] = ROOT->data.CryptPassword(password);
+		rec["founder"] = founder->ID();
+		if (!storage.InsertRow(rec))
+			MT_RET(rv);
+	}
+
+	rv = load(id, name);
 	ROOT->data.Add(rv);
 
 	MT_RET(rv);
 	MT_EE
 }
 
-boost::shared_ptr<StoredChannel> StoredChannel::load(const std::string &name)
+boost::shared_ptr<StoredChannel> StoredChannel::load(boost::uint32_t id, const std::string &name)
 {
 	MT_EB
-	MT_FUNC("StoredChannel::load" << name);
+	MT_FUNC("StoredChannel::load" << id << name);
 
-	boost::shared_ptr<StoredChannel> rv(new StoredChannel(name));
+	boost::shared_ptr<StoredChannel> rv(new StoredChannel(id, name));
 	rv->self = rv;
 
 	if (rv->live_)
@@ -96,7 +111,7 @@ void StoredChannel::expire()
 
 	mantra::Storage::DataSet data;
 	mantra::Storage::FieldSet fields;
-	fields.insert("name");
+	fields.insert("id");
 
 	mantra::ComparisonSet cs = mantra::Comparison<mantra::C_LessThan>::make("last_used", exptime);
 	if (!locked)
@@ -110,12 +125,12 @@ void StoredChannel::expire()
 	mantra::Storage::DataSet::const_iterator i = data.begin();
 	for (i = data.begin(); i != data.end(); ++i)
 	{
-		mantra::Storage::RecordMap::const_iterator j = i->find("name");
+		mantra::Storage::RecordMap::const_iterator j = i->find("id");
 		if (j == i->end() || j->second.type() == typeid(mantra::NullValue))
 			continue;
 
 		boost::shared_ptr<StoredChannel> channel = ROOT->data.Get_StoredChannel(
-									boost::get<std::string>(j->second));
+									boost::get<boost::uint32_t>(j->second));
 		if (!channel)
 			continue;
 
@@ -126,11 +141,11 @@ void StoredChannel::expire()
 	MT_EE
 }
 
-StoredChannel::StoredChannel(const std::string &name)
-	: name_(name)
+StoredChannel::StoredChannel(boost::uint32_t id, const std::string &name)
+	: id_(id), name_(name)
 {
 	MT_EB
-	MT_FUNC("StoredChannel::StoredChannel" << name);
+	MT_FUNC("StoredChannel::StoredChannel" << id << name);
 
 	live_ = ROOT->data.Get_LiveChannel(name);
 
@@ -177,7 +192,7 @@ void StoredChannel::Topic(const std::string &topic, const std::string &setter,
 	fields.insert("topic_setter");
 	fields.insert("topic_set_time");
 	fields.insert("topiclock");
-	storage.RetrieveRow(data, mantra::Comparison<mantra::C_EqualToNC>::make("name", name_), fields);
+	storage.RetrieveRow(data, mantra::Comparison<mantra::C_EqualTo>::make("id", id_), fields);
 
 	if (data.size() != 1)
 		return; // ??
@@ -203,7 +218,7 @@ void StoredChannel::Topic(const std::string &topic, const std::string &setter,
 		rec["topic"] = topic;
 		rec["topic_setter"] = setter;
 		rec["topic_set_time"] = set_time;
-		storage.ChangeRow(rec, mantra::Comparison<mantra::C_EqualToNC>::make("name", name_));
+		storage.ChangeRow(rec, mantra::Comparison<mantra::C_EqualTo>::make("id", id_));
 	}
 
 	MT_EE
@@ -254,7 +269,7 @@ void StoredChannel::Password(const std::string &password)
 	MT_EB
 	MT_FUNC("StoredChannel::Password" << password);
 
-	storage.PutField(name_, "password",
+	storage.PutField(id_, "password",
 					 ROOT->data.CryptPassword(password));
 
 	MT_EE
@@ -265,7 +280,7 @@ bool StoredChannel::CheckPassword(const std::string &password) const
 	MT_EB
 	MT_FUNC("StoredChannel::CheckPassword" << password);
 
-	mantra::StorageValue rv = storage.GetField(name_, "password");
+	mantra::StorageValue rv = storage.GetField(id_, "password");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(false);
 	bool ret = (boost::get<std::string>(rv) == ROOT->data.CryptPassword(password));
@@ -282,7 +297,7 @@ void StoredChannel::Founder(const boost::shared_ptr<StoredUser> &in)
 	if (!in)
 		return;
 
-	storage.PutField(name_, "founder", in->ID());
+	storage.PutField(id_, "founder", in->ID());
 
 	MT_EE
 }
@@ -293,7 +308,7 @@ boost::shared_ptr<StoredUser> StoredChannel::Founder() const
 	MT_FUNC("StoredChannel::Founder");
 
 	boost::shared_ptr<StoredUser> ret;
-	mantra::StorageValue rv = storage.GetField(name_, "founder");
+	mantra::StorageValue rv = storage.GetField(id_, "founder");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = ROOT->data.Get_StoredUser(boost::get<boost::uint32_t>(rv));
@@ -308,9 +323,9 @@ void StoredChannel::Successor(const boost::shared_ptr<StoredUser> &in)
 	MT_FUNC("StoredChannel::Successor" << in);
 
 	if (!in)
-		storage.PutField(name_, "successor", mantra::NullValue());
+		storage.PutField(id_, "successor", mantra::NullValue());
 	else	
-		storage.PutField(name_, "successor", in->ID());
+		storage.PutField(id_, "successor", in->ID());
 
 	MT_EE
 }
@@ -321,7 +336,7 @@ boost::shared_ptr<StoredUser> StoredChannel::Successor() const
 	MT_FUNC("StoredChannel::Successor");
 
 	boost::shared_ptr<StoredUser> ret;
-	mantra::StorageValue rv = storage.GetField(name_, "successor");
+	mantra::StorageValue rv = storage.GetField(id_, "successor");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = ROOT->data.Get_StoredUser(boost::get<boost::uint32_t>(rv));
@@ -335,7 +350,7 @@ void StoredChannel::Description(const std::string &in)
 	MT_EB
 	MT_FUNC("StoredChannel::Description" << in);
 
-	storage.PutField(name_, "description", in);
+	storage.PutField(id_, "description", in);
 
 	MT_EE
 }
@@ -346,7 +361,7 @@ std::string StoredChannel::Description() const
 	MT_FUNC("StoredChannel::Description");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(name_, "description");
+	mantra::StorageValue rv = storage.GetField(id_, "description");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -361,9 +376,9 @@ void StoredChannel::Email(const std::string &in)
 	MT_FUNC("StoredChannel::Email" << in);
 
 	if (in.empty())
-		storage.PutField(name_, "email", mantra::NullValue());
+		storage.PutField(id_, "email", mantra::NullValue());
 	else
-		storage.PutField(name_, "email", in);
+		storage.PutField(id_, "email", in);
 
 	MT_EE
 }
@@ -374,7 +389,7 @@ std::string StoredChannel::Email() const
 	MT_FUNC("StoredChannel::Email");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(name_, "email");
+	mantra::StorageValue rv = storage.GetField(id_, "email");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -389,9 +404,9 @@ void StoredChannel::Website(const std::string &in)
 	MT_FUNC("StoredChannel::Website" << in);
 
 	if (in.empty())
-		storage.PutField(name_, "website", mantra::NullValue());
+		storage.PutField(id_, "website", mantra::NullValue());
 	else
-		storage.PutField(name_, "website", in);
+		storage.PutField(id_, "website", in);
 
 	MT_EE
 }
@@ -402,7 +417,7 @@ std::string StoredChannel::Website() const
 	MT_FUNC("StoredChannel::Website");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(name_, "website");
+	mantra::StorageValue rv = storage.GetField(id_, "website");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -417,9 +432,9 @@ void StoredChannel::Comment(const std::string &in)
 	MT_FUNC("StoredChannel::Comment" << in);
 
 	if (in.empty())
-		storage.PutField(name_, "comment", mantra::NullValue());
+		storage.PutField(id_, "comment", mantra::NullValue());
 	else
-		storage.PutField(name_, "comment", in);
+		storage.PutField(id_, "comment", in);
 
 	MT_EE
 }
@@ -430,7 +445,7 @@ std::string StoredChannel::Comment() const
 	MT_FUNC("StoredChannel::Comment");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(name_, "comment");
+	mantra::StorageValue rv = storage.GetField(id_, "comment");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -449,7 +464,7 @@ void StoredChannel::Topic(const boost::shared_ptr<LiveUser> &user,
 	rec["topic"] = topic;
 	rec["topic_setter"] = user->Name();
 	rec["topic_set_time"] = mantra::GetCurrentDateTime();
-	storage.ChangeRow(rec, mantra::Comparison<mantra::C_EqualToNC>::make("name", name_));
+	storage.ChangeRow(rec, mantra::Comparison<mantra::C_EqualTo>::make("id", id_));
 
 	MT_EE
 }
@@ -460,7 +475,7 @@ std::string StoredChannel::Topic() const
 	MT_FUNC("StoredChannel::Topic");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(name_, "topic");
+	mantra::StorageValue rv = storage.GetField(id_, "topic");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -475,7 +490,7 @@ std::string StoredChannel::Topic_Setter() const
 	MT_FUNC("StoredChannel::Topici_Setter");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(name_, "topic_setter");
+	mantra::StorageValue rv = storage.GetField(id_, "topic_setter");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -490,7 +505,7 @@ boost::posix_time::ptime StoredChannel::Topic_Set_Time() const
 	MT_FUNC("StoredChannel::Topic_Set_Time");
 
 	boost::posix_time::ptime ret(boost::date_time::not_a_date_time);
-	mantra::StorageValue rv = storage.GetField(name_, "topic_set_time");
+	mantra::StorageValue rv = storage.GetField(id_, "topic_set_time");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<boost::posix_time::ptime>(rv);
@@ -508,9 +523,9 @@ bool StoredChannel::KeepTopic(const boost::logic::tribool &in)
 		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
-		storage.PutField(name_, "keeptopic", mantra::NullValue::instance());
+		storage.PutField(id_, "keeptopic", mantra::NullValue::instance());
 	else
-		storage.PutField(name_, "keeptopic", (bool) in);
+		storage.PutField(id_, "keeptopic", (bool) in);
 
 	MT_RET(true);
 	MT_EE
@@ -526,7 +541,7 @@ bool StoredChannel::KeepTopic() const
 		ret = ROOT->ConfigValue<bool>("chanserv.defaults.keeptopic");
 	else
 	{
-		mantra::StorageValue rv = storage.GetField(name_, "keeptopic");
+		mantra::StorageValue rv = storage.GetField(id_, "keeptopic");
 		if (rv.type() == typeid(mantra::NullValue))
 			ret = ROOT->ConfigValue<bool>("chanserv.defaults.keeptopic");
 		else
@@ -546,9 +561,9 @@ bool StoredChannel::TopicLock(const boost::logic::tribool &in)
 		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
-		storage.PutField(name_, "topiclock", mantra::NullValue::instance());
+		storage.PutField(id_, "topiclock", mantra::NullValue::instance());
 	else
-		storage.PutField(name_, "topiclock", (bool) in);
+		storage.PutField(id_, "topiclock", (bool) in);
 
 	MT_RET(true);
 	MT_EE
@@ -564,7 +579,7 @@ bool StoredChannel::TopicLock() const
 		ret = ROOT->ConfigValue<bool>("chanserv.defaults.topiclock");
 	else
 	{
-		mantra::StorageValue rv = storage.GetField(name_, "topiclock");
+		mantra::StorageValue rv = storage.GetField(id_, "topiclock");
 		if (rv.type() == typeid(mantra::NullValue))
 			ret = ROOT->ConfigValue<bool>("chanserv.defaults.topiclock");
 		else
@@ -584,9 +599,9 @@ bool StoredChannel::Private(const boost::logic::tribool &in)
 		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
-		storage.PutField(name_, "private", mantra::NullValue::instance());
+		storage.PutField(id_, "private", mantra::NullValue::instance());
 	else
-		storage.PutField(name_, "private", (bool) in);
+		storage.PutField(id_, "private", (bool) in);
 
 	MT_RET(true);
 	MT_EE
@@ -602,7 +617,7 @@ bool StoredChannel::Private() const
 		ret = ROOT->ConfigValue<bool>("chanserv.defaults.private");
 	else
 	{
-		mantra::StorageValue rv = storage.GetField(name_, "private");
+		mantra::StorageValue rv = storage.GetField(id_, "private");
 		if (rv.type() == typeid(mantra::NullValue))
 			ret = ROOT->ConfigValue<bool>("chanserv.defaults.private");
 		else
@@ -622,9 +637,9 @@ bool StoredChannel::SecureOps(const boost::logic::tribool &in)
 		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
-		storage.PutField(name_, "secureops", mantra::NullValue::instance());
+		storage.PutField(id_, "secureops", mantra::NullValue::instance());
 	else
-		storage.PutField(name_, "secureops", (bool) in);
+		storage.PutField(id_, "secureops", (bool) in);
 
 	MT_RET(true);
 	MT_EE
@@ -640,7 +655,7 @@ bool StoredChannel::SecureOps() const
 		ret = ROOT->ConfigValue<bool>("chanserv.defaults.secureops");
 	else
 	{
-		mantra::StorageValue rv = storage.GetField(name_, "secureops");
+		mantra::StorageValue rv = storage.GetField(id_, "secureops");
 		if (rv.type() == typeid(mantra::NullValue))
 			ret = ROOT->ConfigValue<bool>("chanserv.defaults.secureops");
 		else
@@ -660,9 +675,9 @@ bool StoredChannel::Secure(const boost::logic::tribool &in)
 		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
-		storage.PutField(name_, "secure", mantra::NullValue::instance());
+		storage.PutField(id_, "secure", mantra::NullValue::instance());
 	else
-		storage.PutField(name_, "secure", (bool) in);
+		storage.PutField(id_, "secure", (bool) in);
 
 	MT_RET(true);
 	MT_EE
@@ -678,7 +693,7 @@ bool StoredChannel::Secure() const
 		ret = ROOT->ConfigValue<bool>("chanserv.defaults.secure");
 	else
 	{
-		mantra::StorageValue rv = storage.GetField(name_, "secure");
+		mantra::StorageValue rv = storage.GetField(id_, "secure");
 		if (rv.type() == typeid(mantra::NullValue))
 			ret = ROOT->ConfigValue<bool>("chanserv.defaults.secure");
 		else
@@ -698,9 +713,9 @@ bool StoredChannel::Anarchy(const boost::logic::tribool &in)
 		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
-		storage.PutField(name_, "anarchy", mantra::NullValue::instance());
+		storage.PutField(id_, "anarchy", mantra::NullValue::instance());
 	else
-		storage.PutField(name_, "anarchy", (bool) in);
+		storage.PutField(id_, "anarchy", (bool) in);
 
 	MT_RET(true);
 	MT_EE
@@ -716,7 +731,7 @@ bool StoredChannel::Anarchy() const
 		ret = ROOT->ConfigValue<bool>("chanserv.defaults.anarchy");
 	else
 	{
-		mantra::StorageValue rv = storage.GetField(name_, "anarchy");
+		mantra::StorageValue rv = storage.GetField(id_, "anarchy");
 		if (rv.type() == typeid(mantra::NullValue))
 			ret = ROOT->ConfigValue<bool>("chanserv.defaults.anarchy");
 		else
@@ -736,9 +751,9 @@ bool StoredChannel::KickOnBan(const boost::logic::tribool &in)
 		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
-		storage.PutField(name_, "kickonban", mantra::NullValue::instance());
+		storage.PutField(id_, "kickonban", mantra::NullValue::instance());
 	else
-		storage.PutField(name_, "kickonban", (bool) in);
+		storage.PutField(id_, "kickonban", (bool) in);
 
 	MT_RET(true);
 	MT_EE
@@ -754,7 +769,7 @@ bool StoredChannel::KickOnBan() const
 		ret = ROOT->ConfigValue<bool>("chanserv.defaults.kickonban");
 	else
 	{
-		mantra::StorageValue rv = storage.GetField(name_, "kickonban");
+		mantra::StorageValue rv = storage.GetField(id_, "kickonban");
 		if (rv.type() == typeid(mantra::NullValue))
 			ret = ROOT->ConfigValue<bool>("chanserv.defaults.kickonban");
 		else
@@ -774,9 +789,9 @@ bool StoredChannel::Restricted(const boost::logic::tribool &in)
 		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
-		storage.PutField(name_, "restricted", mantra::NullValue::instance());
+		storage.PutField(id_, "restricted", mantra::NullValue::instance());
 	else
-		storage.PutField(name_, "restricted", (bool) in);
+		storage.PutField(id_, "restricted", (bool) in);
 
 	MT_RET(true);
 	MT_EE
@@ -792,7 +807,7 @@ bool StoredChannel::Restricted() const
 		ret = ROOT->ConfigValue<bool>("chanserv.defaults.restricted");
 	else
 	{
-		mantra::StorageValue rv = storage.GetField(name_, "restricted");
+		mantra::StorageValue rv = storage.GetField(id_, "restricted");
 		if (rv.type() == typeid(mantra::NullValue))
 			ret = ROOT->ConfigValue<bool>("chanserv.defaults.restricted");
 		else
@@ -812,9 +827,9 @@ bool StoredChannel::CJoin(const boost::logic::tribool &in)
 		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
-		storage.PutField(name_, "cjoin", mantra::NullValue::instance());
+		storage.PutField(id_, "cjoin", mantra::NullValue::instance());
 	else
-		storage.PutField(name_, "cjoin", (bool) in);
+		storage.PutField(id_, "cjoin", (bool) in);
 
 	MT_RET(true);
 	MT_EE
@@ -830,7 +845,7 @@ bool StoredChannel::CJoin() const
 		ret = ROOT->ConfigValue<bool>("chanserv.defaults.cjoin");
 	else
 	{
-		mantra::StorageValue rv = storage.GetField(name_, "cjoin");
+		mantra::StorageValue rv = storage.GetField(id_, "cjoin");
 		if (rv.type() == typeid(mantra::NullValue))
 			ret = ROOT->ConfigValue<bool>("chanserv.defaults.cjoin");
 		else
@@ -850,9 +865,9 @@ bool StoredChannel::NoExpire(const boost::logic::tribool &in)
 		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
-		storage.PutField(name_, "noexpire", mantra::NullValue::instance());
+		storage.PutField(id_, "noexpire", mantra::NullValue::instance());
 	else
-		storage.PutField(name_, "noexpire", (bool) in);
+		storage.PutField(id_, "noexpire", (bool) in);
 
 	MT_RET(true);
 	MT_EE
@@ -868,7 +883,7 @@ bool StoredChannel::NoExpire() const
 		ret = ROOT->ConfigValue<bool>("chanserv.defaults.noexpire");
 	else
 	{
-		mantra::StorageValue rv = storage.GetField(name_, "noexpire");
+		mantra::StorageValue rv = storage.GetField(id_, "noexpire");
 		if (rv.type() == typeid(mantra::NullValue))
 			ret = ROOT->ConfigValue<bool>("chanserv.defaults.noexpire");
 		else
@@ -888,9 +903,9 @@ bool StoredChannel::BanTime(const mantra::duration &in)
 		MT_RET(false);
 
 	if (!in)
-		storage.PutField(name_, "bantime", mantra::NullValue::instance());
+		storage.PutField(id_, "bantime", mantra::NullValue::instance());
 	else
-		storage.PutField(name_, "bantime", in);
+		storage.PutField(id_, "bantime", in);
 
 	MT_RET(true);
 	MT_EE
@@ -906,7 +921,7 @@ mantra::duration StoredChannel::BanTime() const
 		ret = ROOT->ConfigValue<mantra::duration>("chanserv.defaults.bantime");
 	else
 	{
-		mantra::StorageValue rv = storage.GetField(name_, "bantime");
+		mantra::StorageValue rv = storage.GetField(id_, "bantime");
 		if (rv.type() == typeid(mantra::NullValue))
 			ret = ROOT->ConfigValue<mantra::duration>("chanserv.defaults.bantime");
 		else
@@ -926,9 +941,9 @@ bool StoredChannel::PartTime(const mantra::duration &in)
 		MT_RET(false);
 
 	if (!in)
-		storage.PutField(name_, "parttime", mantra::NullValue::instance());
+		storage.PutField(id_, "parttime", mantra::NullValue::instance());
 	else
-		storage.PutField(name_, "parttime", in);
+		storage.PutField(id_, "parttime", in);
 
 	MT_RET(true);
 	MT_EE
@@ -944,7 +959,7 @@ mantra::duration StoredChannel::PartTime() const
 		ret = ROOT->ConfigValue<mantra::duration>("chanserv.defaults.parttime");
 	else
 	{
-		mantra::StorageValue rv = storage.GetField(name_, "parttime");
+		mantra::StorageValue rv = storage.GetField(id_, "parttime");
 		if (rv.type() == typeid(mantra::NullValue))
 			ret = ROOT->ConfigValue<mantra::duration>("chanserv.defaults.parttime");
 		else
@@ -964,9 +979,9 @@ bool StoredChannel::Revenge(StoredChannel::Revenge_t in)
 		MT_RET(false);
 
 	if (in < R_None || in >= R_MAX)
-		storage.PutField(name_, "revenge", mantra::NullValue::instance());
+		storage.PutField(id_, "revenge", mantra::NullValue::instance());
 	else
-		storage.PutField(name_, "revenge", (boost::uint8_t) in);
+		storage.PutField(id_, "revenge", (boost::uint8_t) in);
 
 	MT_RET(true);
 	MT_EE
@@ -982,7 +997,7 @@ StoredChannel::Revenge_t StoredChannel::Revenge() const
 		ret = (Revenge_t) ROOT->ConfigValue<boost::uint8_t>("chanserv.defaults.revenge");
 	else
 	{
-		mantra::StorageValue rv = storage.GetField(name_, "revenge");
+		mantra::StorageValue rv = storage.GetField(id_, "revenge");
 		if (rv.type() == typeid(mantra::NullValue))
 			ret = (Revenge_t) ROOT->ConfigValue<boost::uint8_t>("chanserv.defaults.revenge");
 		else
@@ -1010,7 +1025,7 @@ std::string StoredChannel::ModeLock_On() const
 	MT_FUNC("StoredChannel::ModeLock_On");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(name_, "mlock_on");
+	mantra::StorageValue rv = storage.GetField(id_, "mlock_on");
 	if (rv.type() == typeid(mantra::NullValue))
 		ret = ROOT->ConfigValue<mantra::duration>("chanserv.defaults.mlock_on");
 	else
@@ -1026,7 +1041,7 @@ std::string StoredChannel::ModeLock_Off() const
 	MT_FUNC("StoredChannel::ModeLock_Off");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(name_, "mlock_off");
+	mantra::StorageValue rv = storage.GetField(id_, "mlock_off");
 	if (rv.type() == typeid(mantra::NullValue))
 		ret = ROOT->ConfigValue<mantra::duration>("chanserv.defaults.mlock_off");
 	else
@@ -1042,7 +1057,7 @@ std::string StoredChannel::ModeLock_Key() const
 	MT_FUNC("StoredChannel::ModeLock_Key");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(name_, "mlock_key");
+	mantra::StorageValue rv = storage.GetField(id_, "mlock_key");
 	if (rv.type() != typeid(mantra::NullValue))
 		ret = boost::get<std::string>(rv);
 
@@ -1056,7 +1071,7 @@ boost::uint32_t StoredChannel::ModeLock_Limit() const
 	MT_FUNC("StoredChannel::ModeLock_Limit");
 
 	boost::uint32_t ret = 0;
-	mantra::StorageValue rv = storage.GetField(name_, "mlock_limit");
+	mantra::StorageValue rv = storage.GetField(id_, "mlock_limit");
 	if (rv.type() != typeid(mantra::NullValue))
 		ret = boost::get<boost::uint32_t>(rv);
 
@@ -1072,7 +1087,7 @@ bool StoredChannel::LOCK_KeepTopic(const bool &in)
 	if (ROOT->ConfigValue<bool>("chanserv.lock.keeptopic"))
 		MT_RET(false);
 
-	storage.PutField(name_, "lock_keeptopic", in);
+	storage.PutField(id_, "lock_keeptopic", in);
 
 	MT_RET(true);
 	MT_EE
@@ -1086,7 +1101,7 @@ bool StoredChannel::LOCK_KeepTopic() const
 	if (ROOT->ConfigValue<bool>("chanserv.lock.keeptopic"))
 		MT_RET(true);
 
-	mantra::StorageValue rv = storage.GetField(name_, "lock_keeptopic");
+	mantra::StorageValue rv = storage.GetField(id_, "lock_keeptopic");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(false);
 	bool ret = boost::get<bool>(rv);
@@ -1103,7 +1118,7 @@ bool StoredChannel::LOCK_TopicLock(const bool &in)
 	if (ROOT->ConfigValue<bool>("chanserv.lock.topiclock"))
 		MT_RET(false);
 
-	storage.PutField(name_, "lock_topiclock", in);
+	storage.PutField(id_, "lock_topiclock", in);
 
 	MT_RET(true);
 	MT_EE
@@ -1117,7 +1132,7 @@ bool StoredChannel::LOCK_TopicLock() const
 	if (ROOT->ConfigValue<bool>("chanserv.lock.topiclock"))
 		MT_RET(true);
 
-	mantra::StorageValue rv = storage.GetField(name_, "lock_topiclock");
+	mantra::StorageValue rv = storage.GetField(id_, "lock_topiclock");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(false);
 	bool ret = boost::get<bool>(rv);
@@ -1134,7 +1149,7 @@ bool StoredChannel::LOCK_Private(const bool &in)
 	if (ROOT->ConfigValue<bool>("chanserv.lock.private"))
 		MT_RET(false);
 
-	storage.PutField(name_, "lock_private", in);
+	storage.PutField(id_, "lock_private", in);
 
 	MT_RET(true);
 	MT_EE
@@ -1148,7 +1163,7 @@ bool StoredChannel::LOCK_Private() const
 	if (ROOT->ConfigValue<bool>("chanserv.lock.private"))
 		MT_RET(true);
 
-	mantra::StorageValue rv = storage.GetField(name_, "lock_private");
+	mantra::StorageValue rv = storage.GetField(id_, "lock_private");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(false);
 	bool ret = boost::get<bool>(rv);
@@ -1165,7 +1180,7 @@ bool StoredChannel::LOCK_SecureOps(const bool &in)
 	if (ROOT->ConfigValue<bool>("chanserv.lock.secureops"))
 		MT_RET(false);
 
-	storage.PutField(name_, "lock_secureops", in);
+	storage.PutField(id_, "lock_secureops", in);
 
 	MT_RET(true);
 	MT_EE
@@ -1179,7 +1194,7 @@ bool StoredChannel::LOCK_SecureOps() const
 	if (ROOT->ConfigValue<bool>("chanserv.lock.secureops"))
 		MT_RET(true);
 
-	mantra::StorageValue rv = storage.GetField(name_, "lock_secureops");
+	mantra::StorageValue rv = storage.GetField(id_, "lock_secureops");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(false);
 	bool ret = boost::get<bool>(rv);
@@ -1196,7 +1211,7 @@ bool StoredChannel::LOCK_Secure(const bool &in)
 	if (ROOT->ConfigValue<bool>("chanserv.lock.secure"))
 		MT_RET(false);
 
-	storage.PutField(name_, "lock_secure", in);
+	storage.PutField(id_, "lock_secure", in);
 
 	MT_RET(true);
 	MT_EE
@@ -1210,7 +1225,7 @@ bool StoredChannel::LOCK_Secure() const
 	if (ROOT->ConfigValue<bool>("chanserv.lock.secure"))
 		MT_RET(true);
 
-	mantra::StorageValue rv = storage.GetField(name_, "lock_secure");
+	mantra::StorageValue rv = storage.GetField(id_, "lock_secure");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(false);
 	bool ret = boost::get<bool>(rv);
@@ -1227,7 +1242,7 @@ bool StoredChannel::LOCK_Anarchy(const bool &in)
 	if (ROOT->ConfigValue<bool>("chanserv.lock.anarchy"))
 		MT_RET(false);
 
-	storage.PutField(name_, "lock_anarchy", in);
+	storage.PutField(id_, "lock_anarchy", in);
 
 	MT_RET(true);
 	MT_EE
@@ -1241,7 +1256,7 @@ bool StoredChannel::LOCK_Anarchy() const
 	if (ROOT->ConfigValue<bool>("chanserv.lock.anarchy"))
 		MT_RET(true);
 
-	mantra::StorageValue rv = storage.GetField(name_, "lock_anarchy");
+	mantra::StorageValue rv = storage.GetField(id_, "lock_anarchy");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(false);
 	bool ret = boost::get<bool>(rv);
@@ -1258,7 +1273,7 @@ bool StoredChannel::LOCK_KickOnBan(const bool &in)
 	if (ROOT->ConfigValue<bool>("chanserv.lock.kickonban"))
 		MT_RET(false);
 
-	storage.PutField(name_, "lock_kickonban", in);
+	storage.PutField(id_, "lock_kickonban", in);
 
 	MT_RET(true);
 	MT_EE
@@ -1272,7 +1287,7 @@ bool StoredChannel::LOCK_KickOnBan() const
 	if (ROOT->ConfigValue<bool>("chanserv.lock.kickonban"))
 		MT_RET(true);
 
-	mantra::StorageValue rv = storage.GetField(name_, "lock_kickonban");
+	mantra::StorageValue rv = storage.GetField(id_, "lock_kickonban");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(false);
 	bool ret = boost::get<bool>(rv);
@@ -1289,7 +1304,7 @@ bool StoredChannel::LOCK_Restricted(const bool &in)
 	if (ROOT->ConfigValue<bool>("chanserv.lock.restricted"))
 		MT_RET(false);
 
-	storage.PutField(name_, "lock_restricted", in);
+	storage.PutField(id_, "lock_restricted", in);
 
 	MT_RET(true);
 	MT_EE
@@ -1303,7 +1318,7 @@ bool StoredChannel::LOCK_Restricted() const
 	if (ROOT->ConfigValue<bool>("chanserv.lock.restricted"))
 		MT_RET(true);
 
-	mantra::StorageValue rv = storage.GetField(name_, "lock_restricted");
+	mantra::StorageValue rv = storage.GetField(id_, "lock_restricted");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(false);
 	bool ret = boost::get<bool>(rv);
@@ -1320,7 +1335,7 @@ bool StoredChannel::LOCK_CJoin(const bool &in)
 	if (ROOT->ConfigValue<bool>("chanserv.lock.cjoin"))
 		MT_RET(false);
 
-	storage.PutField(name_, "lock_cjoin", in);
+	storage.PutField(id_, "lock_cjoin", in);
 
 	MT_RET(true);
 	MT_EE
@@ -1334,7 +1349,7 @@ bool StoredChannel::LOCK_CJoin() const
 	if (ROOT->ConfigValue<bool>("chanserv.lock.cjoin"))
 		MT_RET(true);
 
-	mantra::StorageValue rv = storage.GetField(name_, "lock_cjoin");
+	mantra::StorageValue rv = storage.GetField(id_, "lock_cjoin");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(false);
 	bool ret = boost::get<bool>(rv);
@@ -1351,7 +1366,7 @@ bool StoredChannel::LOCK_BanTime(const bool &in)
 	if (ROOT->ConfigValue<bool>("chanserv.lock.bantime"))
 		MT_RET(false);
 
-	storage.PutField(name_, "lock_bantime", in);
+	storage.PutField(id_, "lock_bantime", in);
 
 	MT_RET(true);
 	MT_EE
@@ -1365,7 +1380,7 @@ bool StoredChannel::LOCK_BanTime() const
 	if (ROOT->ConfigValue<bool>("chanserv.lock.bantime"))
 		MT_RET(true);
 
-	mantra::StorageValue rv = storage.GetField(name_, "lock_bantime");
+	mantra::StorageValue rv = storage.GetField(id_, "lock_bantime");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(false);
 	bool ret = boost::get<bool>(rv);
@@ -1382,7 +1397,7 @@ bool StoredChannel::LOCK_PartTime(const bool &in)
 	if (ROOT->ConfigValue<bool>("chanserv.lock.parttime"))
 		MT_RET(false);
 
-	storage.PutField(name_, "lock_parttime", in);
+	storage.PutField(id_, "lock_parttime", in);
 
 	MT_RET(true);
 	MT_EE
@@ -1396,7 +1411,7 @@ bool StoredChannel::LOCK_PartTime() const
 	if (ROOT->ConfigValue<bool>("chanserv.lock.parttime"))
 		MT_RET(true);
 
-	mantra::StorageValue rv = storage.GetField(name_, "lock_parttime");
+	mantra::StorageValue rv = storage.GetField(id_, "lock_parttime");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(false);
 	bool ret = boost::get<bool>(rv);
@@ -1413,7 +1428,7 @@ bool StoredChannel::LOCK_Revenge(const bool &in)
 	if (ROOT->ConfigValue<bool>("chanserv.lock.revenge"))
 		MT_RET(false);
 
-	storage.PutField(name_, "lock_revenge", in);
+	storage.PutField(id_, "lock_revenge", in);
 
 	MT_RET(true);
 	MT_EE
@@ -1427,7 +1442,7 @@ bool StoredChannel::LOCK_Revenge() const
 	if (ROOT->ConfigValue<bool>("chanserv.lock.revenge"))
 		MT_RET(true);
 
-	mantra::StorageValue rv = storage.GetField(name_, "lock_revenge");
+	mantra::StorageValue rv = storage.GetField(id_, "lock_revenge");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(false);
 	bool ret = boost::get<bool>(rv);
@@ -1479,7 +1494,7 @@ void StoredChannel::Suspend(const boost::shared_ptr<StoredNick> &nick,
 	rec["suspend_by_id"] = nick->User()->ID();
 	rec["suspend_reason"] = reason;
 	rec["suspend_time"] = mantra::GetCurrentDateTime();
-	storage.ChangeRow(rec, mantra::Comparison<mantra::C_EqualToNC>::make("namr", name_));
+	storage.ChangeRow(rec, mantra::Comparison<mantra::C_EqualTo>::make("id", id_));
 
 	MT_EE
 }
@@ -1494,7 +1509,7 @@ void StoredChannel::Unsuspend()
 	rec["suspend_by_id"] = mantra::NullValue();
 	rec["suspend_reason"] = mantra::NullValue();
 	rec["suspend_time"] = mantra::NullValue();
-	storage.ChangeRow(rec, mantra::Comparison<mantra::C_EqualToNC>::make("name", name_));
+	storage.ChangeRow(rec, mantra::Comparison<mantra::C_EqualTo>::make("id", id_));
 
 	MT_EE
 }
@@ -1505,7 +1520,7 @@ std::string StoredChannel::Suspended_By() const
 	MT_FUNC("StoredChannel::Suspended_By");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(name_, "suspend_by");
+	mantra::StorageValue rv = storage.GetField(id_, "suspend_by");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -1520,7 +1535,7 @@ boost::shared_ptr<StoredUser> StoredChannel::Suspended_ByShared() const
 	MT_FUNC("StoredChannel::Suspended_ByShared");
 
 	boost::shared_ptr<StoredUser> ret;
-	mantra::StorageValue rv = storage.GetField(name_, "suspend_by_id");
+	mantra::StorageValue rv = storage.GetField(id_, "suspend_by_id");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = ROOT->data.Get_StoredUser(boost::get<boost::uint32_t>(rv));
@@ -1535,7 +1550,7 @@ std::string StoredChannel::Suspend_Reason() const
 	MT_FUNC("StoredChannel::Suspend_Reason");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(name_, "suspend_reason");
+	mantra::StorageValue rv = storage.GetField(id_, "suspend_reason");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -1550,7 +1565,7 @@ boost::posix_time::ptime StoredChannel::Suspend_Time() const
 	MT_FUNC("StoredChannel::Suspend_Time");
 
 	boost::posix_time::ptime ret(boost::date_time::not_a_date_time);
-	mantra::StorageValue rv = storage.GetField(name_, "suspend_time");
+	mantra::StorageValue rv = storage.GetField(id_, "suspend_time");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<boost::posix_time::ptime>(rv);
