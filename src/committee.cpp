@@ -1128,15 +1128,12 @@ void Committee::SendInfo(const boost::shared_ptr<LiveUser> &service,
 	storage.GetRow(id_, data);
 
 	bool priv = false;
-	if (!opersop)
+	if (!opersop && !IsMember(user))
 	{
-		if (!IsMember(user))
-		{
-			priv = ROOT->ConfigValue<bool>("commserv.defaults.private");
-			i = data.find("private");
-			if (i != data.end() && !ROOT->ConfigValue<bool>("commserv.lock.private"))
-				priv = boost::get<bool>(i->second);
-		}
+		priv = ROOT->ConfigValue<bool>("commserv.defaults.private");
+		i = data.find("private");
+		if (i != data.end() && !ROOT->ConfigValue<bool>("commserv.lock.private"))
+			priv = boost::get<bool>(i->second);
 	}
 
 	SEND(service, user, N_("Information on committee \002%1%\017:"), name_);
@@ -1198,9 +1195,9 @@ void Committee::SendInfo(const boost::shared_ptr<LiveUser> &service,
 	if (!priv)
 	{
 		std::string str;
-		check_option(str, data, "secure", N_("Secure"));
-		check_option(str, data, "openmemos", N_("Open Memos"));
-		check_option(str, data, "private", N_("Private"));
+		check_option(str, data, "secure", U_(user, "Secure"));
+		check_option(str, data, "openmemos", U_(user, "Open Memos"));
+		check_option(str, data, "private", U_(user, "Private"));
 		if (!str.empty())
 			SEND(service, user, N_("Options        : %1%"), str);
 	}

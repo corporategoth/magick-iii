@@ -17,7 +17,9 @@ XGETTEXT_OPTIONS = --keyword="_:1"			--keyword="L_:1" \
 				   --keyword="WD_:2"		--keyword="WDL_:2" \
 				   --keyword="WN_:1"		--keyword="WP_:1,2" \
 				   --keyword="WLP_:1,2"		--keyword="WDP_:2,3" \
-				   --keyword="WDLP_:2,3"	--keyword="WNP_:1,2"
+				   --keyword="WDLP_:2,3"	--keyword="WNP_:1,2" \
+				   --keyword="U_:2"			--keyword="UP_:2,3" \
+				   --keyword="UD_:3"		--keyword="UDP_:3,4"
 
 # This is the copyright holder that gets inserted into the header of the
 # $(DOMAIN).pot file.  Set this to the copyright holder of the surrounding

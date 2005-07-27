@@ -303,25 +303,48 @@ static bool biMEMBER_DEL(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	size_t del = 0, skipped = 0;
-	for (size_t i = 2; i < params.size(); ++i)
-	{
-		boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[i]);
-		if (!nick)
-		{
-			++skipped;
-			continue;
-		}
-			
-		if (!comm->MEMBER_Exists(nick->User()))
-		{
-			++skipped;
-			continue;
-		}
+	std::string numbers(params[2]);
+	for (size_t i=3; i<params.size(); ++i)
+		numbers += ' ' + params[i];
 
-		comm->MEMBER_Del(nick->User());
-		++del;
+	size_t del = 0, skipped = 0;
+	std::vector<unsigned int> v;
+	if (!mantra::ParseNumbers(numbers, v))
+	{
+		for (size_t i = 2; i < params.size(); ++i)
+		{
+			boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[i]);
+			if (!nick)
+			{
+				++skipped;
+				continue;
+			}
+				
+			if (!comm->MEMBER_Exists(nick->User()))
+			{
+				++skipped;
+				continue;
+			}
+
+			comm->MEMBER_Del(nick->User());
+			++del;
+		}
 	}
+	else
+	{
+		for (size_t i = 0; i < v.size(); ++i)
+		{
+			if (!comm->MEMBER_Exists(v[i]))
+			{
+				++skipped;
+				continue;
+			}
+
+			comm->MEMBER_Del(v[i]);
+			++del;
+		}
+	}
+
 	if (del)
 	{
 		if (skipped)
@@ -405,8 +428,8 @@ static bool biMEMBER_LIST(const boost::shared_ptr<LiveUser> &service,
 				 comm->Name());
 			first = true;
 		}
-		SEND(service, user, N_("%1% [added by %2% %3% ago]"),
-			 str % i->Last_UpdaterName() %
+		SEND(service, user, N_("%1$ 3d. %2$s [added by %3$s, %4%s ago]"),
+			 i->Number() % str % i->Last_UpdaterName() %
 			 DurationToString(mantra::duration(i->Last_Update(),
 							  mantra::GetCurrentDateTime()), mantra::Second));
 	}
@@ -612,8 +635,8 @@ static bool biMESSAGE_LIST(const boost::shared_ptr<LiveUser> &service,
 			first = true;
 		}
 
-		SEND(service, user, N_("%1$ 3d. %2%"), i->Number() % i->Entry());
-		SEND(service, user, N_("     Added by %1% %2% ago."),
+		SEND(service, user, N_("%1$ 3d. %2$s"), i->Number() % i->Entry());
+		SEND(service, user, N_("     Added by %1%, %2% ago."),
 			 i->Last_UpdaterName() %
 			 DurationToString(mantra::duration(i->Last_Update(),
 							  mantra::GetCurrentDateTime()), mantra::Second));
@@ -1630,9 +1653,9 @@ void init_commserv_functions(Service &serv)
 
 	serv.PushCommand("^MEM(BER)?$",
 					 Service::CommandMerge(serv, 0, 2), comm_regd);
-	serv.PushCommand("^MEM(BER)?\\s+ADD$",
+	serv.PushCommand("^MEM(BER)?\\s+(ADD|NEW|CREATE)$",
 					 &biMEMBER_ADD, comm_regd);
-	serv.PushCommand("^MEM(BER)?\\s+(ERASE|DEL(ETE)?)$",
+	serv.PushCommand("^MEM(BER)?\\s+(ERASE|DEL(ETE)?|REM(OVE)?)$",
 					 &biMEMBER_DEL, comm_regd);
 	serv.PushCommand("^MEM(BER)?\\s+(LIST|VIEW)$",
 					 &biMEMBER_LIST, comm_regd);
@@ -1642,9 +1665,9 @@ void init_commserv_functions(Service &serv)
 
 	serv.PushCommand("^((LOG|SIGN)ON)?(MESSAGE|MSG)$",
 					 Service::CommandMerge(serv, 0, 2), comm_regd);
-	serv.PushCommand("^((LOG|SIGN)ON)?(MESSAGE|MSG)\\s+ADD$",
+	serv.PushCommand("^((LOG|SIGN)ON)?(MESSAGE|MSG)\\s+(ADD|NEW|CREATE)$",
 					 &biMESSAGE_ADD, comm_regd);
-	serv.PushCommand("^((LOG|SIGN)ON)?(MESSAGE|MSG)\\s+(ERASE|DEL(ETE)?)$",
+	serv.PushCommand("^((LOG|SIGN)ON)?(MESSAGE|MSG)\\s+(ERASE|DEL(ETE)?|REM(OVE)?)$",
 					 &biMESSAGE_DEL, comm_regd);
 	serv.PushCommand("^((LOG|SIGN)ON)?(MESSAGE|MSG)\\s+(LIST|VIEW)$",
 					 &biMESSAGE_LIST, comm_regd);

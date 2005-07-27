@@ -36,6 +36,8 @@ RCSID(magick__liveuser_h, "@(#) $Id$");
 #include "config.h"
 #include "livememo.h"
 
+#include "committee.h"
+
 #include <mantra/core/sync.h>
 
 #include <boost/thread/mutex.hpp>
@@ -45,12 +47,19 @@ RCSID(magick__liveuser_h, "@(#) $Id$");
 #include <boost/noncopyable.hpp>
 #include <boost/operators.hpp>
 
+#include <boost/multi_index_container.hpp>
+#include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/mem_fun.hpp>
+
 class Server;
 class Service;
 class StoredNick;
 
 // These macros are used to send a notice/message to a user in their
 // own language, and using their preferred communication mechanism.
+
+#define	U_(x,y) (x)->translate(y)
+#define	UP_(w,x,y,z) (w)->translate((x),(y),(z))
 
 // Used as:
 // SEND(service, user, format_string, format_args);
@@ -125,11 +134,23 @@ class LiveUser : private boost::noncopyable,
 	friend class if_LiveUser_StoredChannel;
 	friend class if_LiveUser_LiveMemo;
 
-public:
-	typedef std::set<boost::shared_ptr<LiveChannel> > channel_joined_t;
-	typedef std::set<boost::shared_ptr<Committee> > committees_t;
+	struct id {};
+	struct name {};
 
-private:
+	typedef boost::multi_index::multi_index_container<
+				boost::shared_ptr<Committee>,
+				boost::multi_index::indexed_by<
+					boost::multi_index::ordered_unique<boost::multi_index::identity<Committee> >,
+					boost::multi_index::ordered_unique<boost::multi_index::tag<id>,
+													   BOOST_MULTI_INDEX_CONST_MEM_FUN(Committee, boost::uint32_t, ID)>,
+					boost::multi_index::ordered_unique<boost::multi_index::tag<name>,
+													   BOOST_MULTI_INDEX_CONST_MEM_FUN(Committee, const std::string &, Name),
+													   mantra::iless<std::string> >
+				> > committees_t;
+	typedef committees_t::index<id>::type committees_by_id_t;
+	typedef committees_t::index<name>::type committees_by_name_t;
+
+	typedef std::set<boost::shared_ptr<LiveChannel> > channel_joined_t;
 	typedef std::queue<boost::posix_time::ptime> messages_t;
 	typedef std::set<boost::shared_ptr<StoredChannel> > channel_identified_t;
 	typedef std::map<boost::shared_ptr<StoredChannel>, unsigned int> channel_password_fails_t;
@@ -182,6 +203,8 @@ private:
 	channel_drop_token_t SYNC(channel_drop_token_);
 
 	committees_t SYNC(committees_);
+	committees_by_id_t &committees_by_id_;
+	committees_by_name_t &committees_by_name_;
 
 	boost::posix_time::ptime last_nick_reg_, last_channel_reg_;
 	boost::posix_time::ptime last_memo_;
@@ -325,6 +348,11 @@ public:
 	boost::posix_time::ptime Last_Nick_Reg() const;
 	boost::posix_time::ptime Last_Channel_Reg() const;
 	boost::posix_time::ptime Last_Memo() const;
+
+	std::string translate(const std::string &in) const;
+	std::string translate(const std::string &single,
+						  const std::string &plural,
+						  unsigned long n) const;
 };
 
 // Special interface used by Storage.

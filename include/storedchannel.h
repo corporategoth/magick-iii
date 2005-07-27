@@ -472,6 +472,9 @@ public:
 	void NEWS_Get(std::set<News> &fill) const;
 
 	void Drop();
+
+	void SendInfo(const boost::shared_ptr<LiveUser> &service,
+				  const boost::shared_ptr<LiveUser> &user) const;
 };
 
 // Special interface used by LiveUser.

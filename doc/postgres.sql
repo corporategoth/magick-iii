@@ -191,7 +191,7 @@ CREATE TABLE channels (
 		mlock_key varchar(32),
 		mlock_limit integer,
 		lock_keeptopic boolean NOT NULL DEFAULT false,
-		lock_tpoiclock boolean NOT NULL DEFAULT false,
+		lock_topiclock boolean NOT NULL DEFAULT false,
 		lock_private boolean NOT NULL DEFAULT false,
 		lock_secureops boolean NOT NULL DEFAULT false,
 		lock_secure boolean NOT NULL DEFAULT false,
@@ -315,12 +315,13 @@ CREATE INDEX channels_news_read_entry_idx ON channels_news_read(entry);
 
 CREATE TABLE forbidden (
 		number integer PRIMARY KEY,
-		name varchar(64),
+		mask varchar(64) NOT NULL,
+		reason text NOT NULL,
 		last_updater varchar(32) NOT NULL,
 		last_updater_id integer REFERENCES users(id) ON DELETE SET NULL,
 		last_update timestamp NOT NULL DEFAULT current_timestamp
 	);
--- CREATE UNIQUE INDEX forbidden_name_idx ON forbidden(lower(name));
+-- CREATE UNIQUE INDEX forbidden_mask_idx ON forbidden(lower(mask));
 CREATE INDEX forbidden_last_updater_id_idx ON forbidden(last_updater_id);
 
 CREATE TABLE akills (
@@ -371,12 +372,12 @@ CREATE INDEX ignores_last_updater_id_idx ON ignores(last_updater_id);
 
 CREATE TABLE killchans (
 		number integer PRIMARY KEY,
-		name varchar(64),
+		mask varchar(64),
 		reason text NOT NULL,
 		last_updater varchar(32) NOT NULL,
 		last_updater_id integer REFERENCES users(id) ON DELETE SET NULL,
 		last_update timestamp NOT NULL DEFAULT current_timestamp
 	);
--- CREATE UNIQUE INDEX killchans_name_idx ON killchans(lower(name));
+-- CREATE UNIQUE INDEX killchans_mask_idx ON killchans(lower(mask));
 CREATE INDEX killchans_last_updater_id_idx ON killchans(last_updater_id);
 

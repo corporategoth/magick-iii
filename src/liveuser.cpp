@@ -45,22 +45,24 @@ RCSID(magick__liveuser_cpp, "@(#)$Id$");
 
 #include <boost/algorithm/string.hpp>
 
-LiveUser::LiveUser(Service *service, const std::string &name,
+LiveUser::LiveUser(Service *service, const std::string &pname,
 				   const std::string &real,
 				   const boost::shared_ptr<Server> &server,
-				   const std::string &id)
-	: SYNC_RWINIT(name_, reader_priority, name), id_(id), real_(real),
+				   const std::string &pid)
+	: SYNC_RWINIT(name_, reader_priority, pname), id_(pid), real_(real),
 	  server_(server), signon_(mantra::GetCurrentDateTime()),
 	  seen_(mantra::GetCurrentDateTime()), service_(service),
 	  flood_triggers_(0), ignored_(false), ignore_timer_(0), ident_timer_(0),
 	  identified_(true), SYNC_NRWINIT(stored_, reader_priority),
 	  password_fails_(0), drop_token_(std::make_pair(std::string(), 0)),
+		  committees_by_id_(committees_.get<id>()),
+		  committees_by_name_(committees_.get<name>()),
 	  last_nick_reg_(boost::date_time::not_a_date_time),
 	  last_channel_reg_(boost::date_time::not_a_date_time),
 	  last_memo_(boost::date_time::not_a_date_time)
 {
 	MT_EB
-	MT_FUNC("LiveUser::LiveUser" << service << name << server << id);
+	MT_FUNC("LiveUser::LiveUser" << service << pname << server << pid);
 
 	if (ROOT->ConfigExists("services.user"))
 		user_ = ROOT->ConfigValue<std::string>("services.user");
@@ -75,23 +77,25 @@ LiveUser::LiveUser(Service *service, const std::string &name,
 	MT_EE
 }
 
-LiveUser::LiveUser(const std::string &name, const std::string &real,
+LiveUser::LiveUser(const std::string &pname, const std::string &real,
 				   const std::string &user, const std::string &host,
 				   const boost::shared_ptr<Server> &server,
 				   const boost::posix_time::ptime &signon,
-				   const std::string &id)
-	: SYNC_RWINIT(name_, reader_priority, name),
-	  id_(id), real_(real), user_(user), host_(host),
+				   const std::string &pid)
+	: SYNC_RWINIT(name_, reader_priority, pname),
+	  id_(pid), real_(real), user_(user), host_(host),
 	  server_(server), signon_(signon), seen_(mantra::GetCurrentDateTime()),
 	  service_(NULL), flood_triggers_(0), ignored_(false), ignore_timer_(0),
 	  ident_timer_(0), identified_(false), SYNC_NRWINIT(stored_, reader_priority),
 	  password_fails_(0), drop_token_(std::make_pair(std::string(), 0)),
+		  committees_by_id_(committees_.get<id>()),
+		  committees_by_name_(committees_.get<name>()),
 	  last_nick_reg_(boost::date_time::not_a_date_time),
 	  last_channel_reg_(boost::date_time::not_a_date_time),
 	  last_memo_(boost::date_time::not_a_date_time)
 {
 	MT_EB
-	MT_FUNC("LiveUser::LiveUser" << name << real << user << host << server << signon << id);
+	MT_FUNC("LiveUser::LiveUser" << pname << real << user << host << server << signon << pid);
 
 	MT_EE
 }
@@ -145,7 +149,7 @@ boost::shared_ptr<LiveUser> LiveUser::create(const std::string &name,
 	if_Committee_LiveUser(comm).Online(rv);
 	ROOT->data.Add(rv);
 
-	if (ROOT->data.Forbid_Check(name))
+	if (ROOT->data.Matches_Forbidden(name))
 	{
 		rv->ident_timer_ = ROOT->event->Schedule(boost::bind(&LiveUser::protect, rv.get()),
 							 ROOT->ConfigValue<mantra::duration>("nickserv.ident"));
@@ -233,7 +237,7 @@ void LiveUser::Stored(const boost::shared_ptr<StoredNick> &nick)
 			Committee::FindCommittees(nick->User());
 		std::set<boost::shared_ptr<Committee> >::const_iterator i;
 		for (i = allcomm.begin(); i != allcomm.end(); ++i)
-			if (committees_.find(*i) == committees_.end())
+			if (committees_.find(**i) == committees_.end())
 			{
 				committees_.insert(*i);
 				if_Committee_LiveUser(*i).Online(self.lock());
@@ -351,7 +355,7 @@ void LiveUser::Name(const std::string &in)
 			ROOT->event->Cancel(ident_timer_);
 			ident_timer_ = 0;
 		}
-		if (ROOT->data.Forbid_Check(in))
+		if (ROOT->data.Matches_Forbidden(in))
 		{
 			ident_timer_ = ROOT->event->Schedule(boost::bind(&LiveUser::protect, this),
 								 ROOT->ConfigValue<mantra::duration>("nickserv.ident"));
@@ -420,7 +424,7 @@ void LiveUser::Name(const std::string &in)
 						std::set<boost::shared_ptr<Committee> >::const_iterator j;
 						for (j = allcomm.begin(); j != allcomm.end(); ++j)
 						{
-							if (committees_.find(*j) == committees_.end() &&
+							if (committees_.find(**j) == committees_.end() &&
 								!(*j)->Secure())
 							{
 								committees_.insert(*j);
@@ -687,7 +691,7 @@ void LiveUser::protect()
 
 	if (ROOT->proto.ConfigValue<std::string>("svsnick").empty())
 	{
-		if (ROOT->data.Forbid_Check(Name()))
+		if (ROOT->data.Matches_Forbidden(Name()))
 			ROOT->nickserv.KILL(self.lock(), _("Nickname forbidden."));
 		else
 			ROOT->nickserv.KILL(self.lock(), _("Failed to identify."));
@@ -715,7 +719,7 @@ void LiveUser::protect()
 		}
 		if (i == suffixes.size())
 		{
-			if (ROOT->data.Forbid_Check(Name()))
+			if (ROOT->data.Matches_Forbidden(Name()))
 				ROOT->nickserv.KILL(self.lock(), _("Nickname forbidden."));
 			else
 				ROOT->nickserv.KILL(self.lock(), _("Failed to identify."));
@@ -739,7 +743,7 @@ void LiveUser::protect()
 		while (user && attempt < 16);
 		if (user)
 		{
-			if (ROOT->data.Forbid_Check(Name()))
+			if (ROOT->data.Matches_Forbidden(Name()))
 				ROOT->nickserv.KILL(self.lock(), _("Nickname forbidden."));
 			else
 				ROOT->nickserv.KILL(self.lock(), _("Failed to identify."));
@@ -847,7 +851,7 @@ bool LiveUser::Identify(const std::string &in)
 			Committee::FindCommittees(stored->User());
 		std::set<boost::shared_ptr<Committee> >::const_iterator i;
 		for (i = allcomm.begin(); i != allcomm.end(); ++i)
-			if (committees_.find(*i) == committees_.end())
+			if (committees_.find(**i) == committees_.end())
 			{
 				committees_.insert(*i);
 				if_Committee_LiveUser(*i).Online(self.lock());
@@ -1118,7 +1122,7 @@ bool LiveUser::InCommittee(const boost::shared_ptr<Committee> &committee) const
 	MT_FUNC("LiveUser::InCommittee" << committee);
 
 	SYNC_LOCK(committees_);
-	bool rv = (committees_.find(committee) != committees_.end());
+	bool rv = (committees_.find(*committee) != committees_.end());
 
 	MT_RET(rv);
 	MT_EE
@@ -1130,9 +1134,7 @@ bool LiveUser::InCommittee(const std::string &committee) const
 	MT_FUNC("LiveUser::InCommittee" << committee);
 
 	SYNC_LOCK(committees_);
-	LiveUser::committees_t::const_iterator i =
-		std::lower_bound(committees_.begin(), committees_.end(), committee);
-	bool rv = (i != committees_.end() && **i == committee);
+	bool rv = (committees_by_name_.find(committee) != committees_by_name_.end());
 	MT_RET(rv);
 
 	MT_EE
@@ -1202,5 +1204,25 @@ boost::posix_time::ptime LiveUser::Last_Memo() const
 	MT_RET(last_memo_);
 
 	MT_EE
+}
+
+std::string LiveUser::translate(const std::string &in) const
+{
+	boost::shared_ptr<StoredNick> stored = Stored();
+	if (stored)
+		return stored->translate(in);
+	else
+		return mantra::translate::get(in);
+}
+
+std::string LiveUser::translate(const std::string &single,
+								const std::string &plural,
+								unsigned long n) const
+{
+	boost::shared_ptr<StoredNick> stored = Stored();
+	if (stored)
+		return stored->translate(single, plural, n);
+	else
+		return mantra::translate::get(single, plural, n);
 }
 

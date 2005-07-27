@@ -40,6 +40,7 @@ RCSID(magick__storage_h, "@(#) $Id$");
 // *sigh* have to include these to make multi_index happy.
 #include "storedchannel.h"
 #include "committee.h"
+#include "otherdata.h"
 
 #include <string>
 #include <map>
@@ -59,11 +60,7 @@ RCSID(magick__storage_h, "@(#) $Id$");
 #include <boost/multi_index/mem_fun.hpp>
 
 class LiveUser;
-class StoredUser;
-class StoredNick;
 class LiveChannel;
-class StoredChannel;
-class Committee;
 
 class Storage
 {
@@ -91,8 +88,7 @@ class Storage
 				> > StoredChannels_t;
 	typedef StoredChannels_t::index<id>::type StoredChannels_by_id_t;
 	typedef StoredChannels_t::index<name>::type StoredChannels_by_name_t;
-//	typedef std::set<boost::shared_ptr<StoredChannel> > StoredChannels_t;
-//
+
 	typedef boost::multi_index::multi_index_container<
 				boost::shared_ptr<Committee>,
 				boost::multi_index::indexed_by<
@@ -105,7 +101,13 @@ class Storage
 				> > Committees_t;
 	typedef Committees_t::index<id>::type Committees_by_id_t;
 	typedef Committees_t::index<name>::type Committees_by_name_t;
-//	typedef std::set<boost::shared_ptr<Committee> > Committees_t;
+
+	typedef std::set<Forbidden> Forbiddens_t;
+	typedef std::set<Akill> Akills_t;
+	typedef std::set<Clone> Clones_t;
+	typedef std::set<OperDeny> OperDenies_t;
+	typedef std::set<Ignore> Ignores_t;
+	typedef std::set<KillChannel> KillChannels_t;
 
 	boost::mutex lock_;
 	std::pair<mantra::FinalStage *, void (*)(mantra::FinalStage *)> finalstage_;
@@ -129,6 +131,13 @@ class Storage
 	Committees_t RWSYNC(Committees_);
 	Committees_by_id_t &Committees_by_id_;
 	Committees_by_name_t &Committees_by_name_;
+
+	Forbiddens_t RWSYNC(Forbiddens_);
+	Akills_t RWSYNC(Akills_);
+	Clones_t RWSYNC(Clones_);
+	OperDenies_t RWSYNC(OperDenies_);
+	Ignores_t RWSYNC(Ignores_);
+	KillChannels_t RWSYNC(KillChannels_);
 
 	void init();
 	void reset();
@@ -171,26 +180,29 @@ public:
 	boost::shared_ptr<LiveUser> Get_LiveUser(const std::string &name) const;
 	boost::shared_ptr<LiveChannel> Get_LiveChannel(const std::string &name) const;
 	boost::shared_ptr<StoredUser> Get_StoredUser(boost::uint32_t id,
-			 boost::logic::tribool deep = boost::logic::indeterminate) const;
+			boost::logic::tribool deep = boost::logic::indeterminate) const;
 	boost::shared_ptr<StoredNick> Get_StoredNick(const std::string &name,
-			 boost::logic::tribool deep = boost::logic::indeterminate) const;
+			boost::logic::tribool deep = boost::logic::indeterminate) const;
 	boost::shared_ptr<StoredChannel> Get_StoredChannel(boost::uint32_t id,
-			 boost::logic::tribool deep = boost::logic::indeterminate) const;
+			boost::logic::tribool deep = boost::logic::indeterminate) const;
 	boost::shared_ptr<StoredChannel> Get_StoredChannel(const std::string &name, // Convenience
-			 boost::logic::tribool deep = boost::logic::indeterminate) const;
+			boost::logic::tribool deep = boost::logic::indeterminate) const;
 	boost::shared_ptr<Committee> Get_Committee(boost::uint32_t id,
-			 boost::logic::tribool deep = boost::logic::indeterminate) const;
+			boost::logic::tribool deep = boost::logic::indeterminate) const;
 	boost::shared_ptr<Committee> Get_Committee(const std::string &name, // Convenience
-			 boost::logic::tribool deep = boost::logic::indeterminate) const;
+			boost::logic::tribool deep = boost::logic::indeterminate) const;
+
+	void Add(const Forbidden &entry);
+	void Del(const Forbidden &entry);
+	Forbidden Get_Forbidden(boost::uint32_t in,
+			boost::logic::tribool deep = boost::logic::indeterminate);
+	void Get_Forbidden(std::vector<Forbidden> &fill,
+			boost::logic::tribool channel = boost::logic::indeterminate) const;
+	bool Matches_Forbidden(const std::string &in,
+			boost::logic::tribool channel = boost::logic::indeterminate) const;
 
 	// Check on ALL kinds of expirations ...
 	void ExpireCheck();
-
-	boost::uint32_t Forbid_Add(const std::string &in, const boost::shared_ptr<StoredNick> &nick);
-	bool Forbid_Del(boost::uint32_t in);
-	std::vector<std::string> Forbid_List_Nick() const;
-	std::vector<std::string> Forbid_List_Channel() const;
-	bool Forbid_Check(const std::string &in) const;
 };
 
 template<typename T>

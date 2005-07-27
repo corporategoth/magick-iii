@@ -440,3 +440,15 @@ void StoredNick::SendInfo(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
+std::string StoredNick::translate(const std::string &in) const
+{
+	return user_->translate(in);
+}
+
+std::string StoredNick::translate(const std::string &single,
+								  const std::string &plural,
+								  unsigned long n) const
+{
+	return user_->translate(single, plural, n);
+}
+

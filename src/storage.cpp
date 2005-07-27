@@ -76,7 +76,13 @@ Storage::Storage()
 		  StoredChannels_by_name_(StoredChannels_.get<name>()),
 	  SYNC_NRWINIT(Committees_, reader_priority),
 		  Committees_by_id_(Committees_.get<id>()),
-		  Committees_by_name_(Committees_.get<name>())
+		  Committees_by_name_(Committees_.get<name>()),
+	  SYNC_NRWINIT(Forbiddens_, reader_priority),
+	  SYNC_NRWINIT(Akills_, reader_priority),
+	  SYNC_NRWINIT(Clones_, reader_priority),
+	  SYNC_NRWINIT(OperDenies_, reader_priority),
+	  SYNC_NRWINIT(Ignores_, reader_priority),
+	  SYNC_NRWINIT(KillChannels_, reader_priority)
 {
 }
 
@@ -1666,7 +1672,7 @@ void Storage::init()
 	cp.Assign<boost::uint32_t>(true);
 	backend_.first->DefineColumn("channels", "suspend_by_id", cp);
 	cp.Assign<std::string>(true);
-	backend_.first->DefineColumn("channels", "suspended_reason", cp);
+	backend_.first->DefineColumn("channels", "suspend_reason", cp);
 	cp.Assign<boost::posix_time::ptime>(true);
 	backend_.first->DefineColumn("channels", "suspend_time", cp);
 
@@ -1826,7 +1832,9 @@ void Storage::init()
 	cp.Assign<boost::uint32_t>(false);
 	backend_.first->DefineColumn("forbidden", "number", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 64);
-	backend_.first->DefineColumn("forbidden", "name", cp);
+	backend_.first->DefineColumn("forbidden", "mask", cp);
+	cp.Assign<std::string>(false);
+	backend_.first->DefineColumn("forbidden", "reason", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
 	backend_.first->DefineColumn("forbidden", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
@@ -1841,6 +1849,7 @@ void Storage::init()
 	backend_.first->DefineColumn("akills", "length", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 320);
 	backend_.first->DefineColumn("akills", "mask", cp);
+	cp.Assign<std::string>(false);
 	backend_.first->DefineColumn("akills", "reason", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
 	backend_.first->DefineColumn("akills", "last_updater", cp);
@@ -1855,6 +1864,7 @@ void Storage::init()
 	backend_.first->DefineColumn("clones", "value", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 350);
 	backend_.first->DefineColumn("clones", "mask", cp);
+	cp.Assign<std::string>(false);
 	backend_.first->DefineColumn("clones", "reason", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
 	backend_.first->DefineColumn("clones", "last_updater", cp);
@@ -1868,6 +1878,7 @@ void Storage::init()
 	backend_.first->DefineColumn("operdenies", "number", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 350);
 	backend_.first->DefineColumn("operdenies", "mask", cp);
+	cp.Assign<std::string>(false);
 	backend_.first->DefineColumn("operdenies", "reason", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
 	backend_.first->DefineColumn("operdenies", "last_updater", cp);
@@ -1881,6 +1892,7 @@ void Storage::init()
 	backend_.first->DefineColumn("ignores", "number", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 350);
 	backend_.first->DefineColumn("ignores", "mask", cp);
+	cp.Assign<std::string>(false);
 	backend_.first->DefineColumn("ignores", "reason", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
 	backend_.first->DefineColumn("ignores", "last_updater", cp);
@@ -1891,9 +1903,9 @@ void Storage::init()
 
 	// TABLE: killchans
 	cp.Assign<boost::uint32_t>(false);
-	backend_.first->DefineColumn("clones", "number", cp);
+	backend_.first->DefineColumn("killchans", "number", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 64);
-	backend_.first->DefineColumn("killchans", "name", cp);
+	backend_.first->DefineColumn("killchans", "mask", cp);
 	cp.Assign<std::string>(false);
 	backend_.first->DefineColumn("killchans", "reason", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
@@ -2760,122 +2772,107 @@ void Storage::Del(const boost::shared_ptr<Committee> &entry)
 
 // --------------------------------------------------------------------------
 
-boost::uint32_t Storage::Forbid_Add(const std::string &in, const boost::shared_ptr<StoredNick> &nick)
+void Storage::Add(const Forbidden &entry)
 {
 	MT_EB
-	MT_FUNC("Storage::Forbid_Add" << in << nick);
+	MT_FUNC("Storage::Add" << entry);
 
-	static boost::mutex id_lock;
+	if (!entry.Number())
+		return;
 
-	boost::shared_ptr<StoredChannel> rv;
-	boost::uint32_t id = 0;
-	{
-		boost::mutex::scoped_lock sl(id_lock);
-		mantra::StorageValue rv = backend_.first->Maximum("forbidden", "id");
-		if (rv.type() == typeid(mantra::NullValue))
-			id = 1;
-		else
-			id = boost::get<boost::uint32_t>(rv) + 1;
+	SYNC_WLOCK(Forbiddens_);
+	Forbiddens_.insert(entry);
 
-		mantra::Storage::RecordMap rec;
-		rec["id"] = id;
-		rec["name"] = in;
-		rec["last_updater"] = nick->Name();
-		rec["last_updater_id"] = nick->User()->ID();
-		if (!backend_.first->InsertRow("forbidden", rec))
-			MT_RET(0);
-	}
-
-	MT_RET(id);
 	MT_EE
 }
 
-bool Storage::Forbid_Del(boost::uint32_t in)
+void Storage::Del(const Forbidden &entry)
 {
 	MT_EB
-	MT_FUNC("Storage::Forbid_Del" << in);
+	MT_FUNC("Storage::Del" << entry);
 
-	unsigned int entries = backend_.first->RemoveRow("forbidden", 
-			  mantra::Comparison<mantra::C_EqualTo>::make("id", in));
+	backend_.first->RemoveRow("forbidden", 
+		  mantra::Comparison<mantra::C_EqualTo>::make("number", entry.Number()));
+	SYNC_WLOCK(Forbiddens_);
+	Forbiddens_.erase(entry);
 
-	MT_RET(entries != 0);
 	MT_EE
 }
 
-std::vector<std::string> Storage::Forbid_List_Nick() const
+Forbidden Storage::Get_Forbidden(boost::uint32_t in, boost::logic::tribool deep)
 {
 	MT_EB
-	MT_FUNC("Storage::Forbid_List_Nick");
+	MT_FUNC("Get_Forbidden" << in << deep);
 
-	std::vector<std::string> rv;
-	mantra::Storage::DataSet data;
-	mantra::Storage::FieldSet fields;
-	fields.insert("name");
-	backend_.first->RetrieveRow("forbidden", data,
-								mantra::ComparisonSet(), fields);
-
-	mantra::Storage::DataSet::const_iterator i = data.begin();
-	for (i = data.begin(); i != data.end(); ++i)
+	SYNC_RWLOCK(Forbiddens_);
+	Forbiddens_t::const_iterator i = std::lower_bound(Forbiddens_.begin(),
+													  Forbiddens_.end(), in);
+	if (i == Forbiddens_.end() || *i != in)
 	{
-		mantra::Storage::RecordMap::const_iterator j = i->find("name");
-		if (j == i->end() || j->second.type() == typeid(mantra::NullValue))
-			continue;
+		if (boost::logic::indeterminate(deep))
+			deep = ROOT->ConfigValue<bool>("storage.deep-lookup");
+		if (deep && backend_.first->RowExists("forbidden", 
+			mantra::Comparison<mantra::C_EqualTo>::make("number", in)))
+		{
+			Forbidden rv(in);
+			SYNC_PROMOTE(Forbiddens_);
+			Forbiddens_.insert(rv);
+			MT_RET(rv);
+		}
 
-		std::string res = boost::get<std::string>(j->second);
-		if (ROOT->proto.IsChannel(res))
-			continue;
-
-		rv.push_back(res);
+		Forbidden rv(0);
+		MT_RET(rv);
 	}
+
+	Forbidden rv(in);
 
 	MT_RET(rv);
 	MT_EE
 }
 
-std::vector<std::string> Storage::Forbid_List_Channel() const
+void Storage::Get_Forbidden(std::vector<Forbidden> &fill, boost::logic::tribool channel) const
 {
 	MT_EB
-	MT_FUNC("Storage::Forbid_List_Channel");
+	MT_FUNC("Get_Forbidden" << fill << channel);
 
-	std::vector<std::string> rv;
-	mantra::Storage::DataSet data;
-	mantra::Storage::FieldSet fields;
-	fields.insert("name");
-	backend_.first->RetrieveRow("forbidden", data,
-								mantra::ComparisonSet(), fields);
-
-	mantra::Storage::DataSet::const_iterator i = data.begin();
-	for (i = data.begin(); i != data.end(); ++i)
-	{
-		mantra::Storage::RecordMap::const_iterator j = i->find("name");
-		if (j == i->end() || j->second.type() == typeid(mantra::NullValue))
-			continue;
-
-		std::string res = boost::get<std::string>(j->second);
-		if (!ROOT->proto.IsChannel(res))
-			continue;
-
-		rv.push_back(res);
-	}
-
-	MT_RET(rv);
-	MT_EE
-}
-
-bool Storage::Forbid_Check(const std::string &in) const
-{
-	MT_EB
-	MT_FUNC("Storage::Forbid_Check" << in);
-
-	std::vector<std::string> rv;
-	if (ROOT->proto.IsChannel(in))
-		rv = Forbid_List_Channel();
+	SYNC_RLOCK(Forbiddens_);
+	if (boost::logic::indeterminate(channel))
+		std::copy(Forbiddens_.begin(), Forbiddens_.end(), fill.end());
 	else
-		rv = Forbid_List_Nick();
-
-	for (size_t i=0; i < rv.size(); ++i)
 	{
-		if (mantra::glob_match(rv[i], in, true))
+		Forbiddens_t::const_iterator i;
+		for (i = Forbiddens_.begin(); i != Forbiddens_.end(); ++i)
+			if (channel)
+			{
+				if (ROOT->proto.IsChannel(i->Mask()))
+					fill.push_back(*i);
+			}
+			else
+			{
+				if (!ROOT->proto.IsChannel(i->Mask()))
+					fill.push_back(*i);
+			}
+	}
+
+	MT_EE
+}
+
+bool Storage::Matches_Forbidden(const std::string &in, boost::logic::tribool channel) const
+{
+	MT_EB
+	MT_FUNC("Matches_Forbidden" << in << channel);
+
+	SYNC_RLOCK(Forbiddens_);
+	Forbiddens_t::const_iterator i;
+	for (i = Forbiddens_.begin(); i != Forbiddens_.end(); ++i)
+	{
+		if (boost::logic::indeterminate(channel))
+			if (i->Matches(in))
+				MT_RET(true);
+		else if (channel)
+			if (ROOT->proto.IsChannel(i->Mask()) && i->Matches(in))
+				MT_RET(true);
+		else if (!ROOT->proto.IsChannel(i->Mask()) && i->Matches(in))
 			MT_RET(true);
 	}
 

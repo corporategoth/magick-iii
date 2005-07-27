@@ -74,6 +74,11 @@ private:
 	my_nicks_t SYNC(my_nicks_);
 	my_channels_t SYNC(my_channels_);
 
+	mutable std::string RWSYNC(cached_language_);
+	mutable boost::posix_time::ptime cached_language_update_;
+	mutable bool RWSYNC(cached_privmsg_);
+	mutable boost::posix_time::ptime cached_privmsg_update_;
+
 	// use if_StoredUser_DCC
 	void Picture(boost::uint32_t in, const std::string &ext);
 
@@ -96,7 +101,6 @@ private:
 
 	StoredUser(boost::uint32_t id);
 public:
-
 	inline boost::uint32_t ID() const { return id_; }
 
 	boost::posix_time::ptime Last_Update() const
@@ -141,7 +145,7 @@ public:
 	boost::posix_time::ptime Suspend_Time() const;
 
 	bool Language(const std::string &in);
-	std::string Language() const;
+	const std::string &Language() const;
 	bool Protect(const boost::logic::tribool &in);
 	bool Protect() const;
 	bool Secure(const boost::logic::tribool &in);
@@ -181,9 +185,10 @@ public:
 	void ACCESS_Get(std::map<boost::uint32_t, std::pair<std::string, boost::posix_time::ptime> > &fill) const;
 	void ACCESS_Get(std::vector<boost::uint32_t> &fill) const;
 
-	bool IGNORE_Matches(const boost::shared_ptr<StoredUser> &in) const;
+	bool IGNORE_Exists(const boost::shared_ptr<StoredUser> &in) const;
 	bool IGNORE_Exists(boost::uint32_t num) const;
 	boost::uint32_t IGNORE_Add(const boost::shared_ptr<StoredUser> &in);
+	void IGNORE_Del(const boost::shared_ptr<StoredUser> &in);
 	void IGNORE_Del(boost::uint32_t num);
 	void IGNORE_Change(boost::uint32_t num, const boost::shared_ptr<StoredUser> &in);
 	void IGNORE_Reindex(boost::uint32_t num, boost::uint32_t newnum);
@@ -195,6 +200,11 @@ public:
 	void MEMO_Del(boost::uint32_t num);
 	Memo MEMO_Get(boost::uint32_t num) const;
 	void MEMO_Get(std::set<Memo> &fill) const;
+
+	std::string translate(const std::string &in) const;
+	std::string translate(const std::string &single,
+						  const std::string &plural,
+						  unsigned long n) const;
 };
 
 // Special interface used by StoredNick.

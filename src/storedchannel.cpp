@@ -43,6 +43,20 @@ RCSID(magick__storedchannel_cpp, "@(#)$Id$");
 
 StorageInterface StoredChannel::storage("channels", "id", "last_update");
 
+static const char *revenge_desc[StoredChannel::R_MAX] =
+	{
+		"No Action",
+		"Reverse Action",
+		"Mirror Action"
+		"DeOp User",
+		"Kick User",
+		"Nick Ban (nick!*@*)",
+		"User Port Ban (*!*user@port.host)",
+		"User Host Ban (*!*user@*.host)",
+		"Port Ban (*!*@port.host)",
+		"Host Ban (*!*@*.host)"
+	};
+
 boost::shared_ptr<StoredChannel> StoredChannel::create(const std::string &name,
 	  const std::string &password, const boost::shared_ptr<StoredUser> &founder)
 {
@@ -1597,6 +1611,371 @@ void StoredChannel::Drop()
 	MT_FUNC("StoredChannel::Drop");
 
 	if_StorageDeleter<StoredChannel>(ROOT->data).Del(self.lock());
+
+	MT_EE
+}
+
+static void check_option(std::string &str, const mantra::Storage::RecordMap &data,
+						 const std::string &key, const std::string &description)
+{
+	MT_EB
+	MT_FUNC("check_option");
+
+	if (ROOT->ConfigValue<bool>(("chanserv.lock." + key).c_str()))
+	{
+		if (ROOT->ConfigValue<bool>(("chanserv.defaults." + key).c_str()))
+		{
+			if (!str.empty())
+				str += ", ";
+			str += '\002' + description + '\017';
+		}
+	}
+	else
+	{
+		mantra::Storage::RecordMap::const_iterator i = data.find(key);
+		if (i != data.end())
+		{
+			if (boost::get<bool>(i->second))
+			{
+				i = data.find("lock_" + key);
+				if (i != data.end() && boost::get<bool>(i->second))
+				{
+					if (!str.empty())
+						str += ", ";
+					str += '\002' + description + '\017';
+				}
+				else
+				{
+					if (!str.empty())
+						str += ", ";
+					str += description;
+				}
+			}
+		}
+		else if (ROOT->ConfigValue<bool>(("chanserv.defaults." + key).c_str()))
+		{
+			if (!str.empty())
+				str += ", ";
+			str += description;
+		}
+	}
+
+	MT_EE
+}
+
+void StoredChannel::SendInfo(const boost::shared_ptr<LiveUser> &service,
+							 const boost::shared_ptr<LiveUser> &user) const
+{
+	MT_EB
+	MT_FUNC("StoredChannel::SendInfo" << service << user);
+
+	if (!service || !user || !service->GetService())
+		return;
+
+	mantra::Storage::RecordMap data;
+	mantra::Storage::RecordMap::const_iterator i, j;
+	storage.GetRow(id_, data);
+
+	bool opersop = (user->InCommittee(ROOT->ConfigValue<std::string>("commserv.oper.name")) ||
+					user->InCommittee(ROOT->ConfigValue<std::string>("commserv.sop.name")));
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+
+	i = data.find("secure");
+	bool secure = (i != data.end() && !ROOT->ConfigValue<bool>("chanserv.lock.secure") ?
+				   boost::get<bool>(i->second) : ROOT->ConfigValue<bool>("chanserv.defaults.secure"));
+
+	boost::int32_t level = 0;
+	if (user->Identified(self.lock()) ||
+		(nick && nick->User()->ID() == boost::get<boost::uint32_t>(data["founder"]) &&
+		 (!secure || user->Identified())))
+	{
+		level = ROOT->ConfigValue<int>("chanserv.max-level") + 1;
+	}
+/* Temporarily disabled until Access stuff is added.
+	else if (!secure || user->Identified())
+	{
+		Access acc = ACCESS_Matched(in);
+		if (acc->Number())
+			level = acc->Level();
+	}
+*/
+
+	bool priv = false;
+	if (!opersop && level <= 0)
+	{
+		i = data.find("private");
+		priv = boost::get<bool>(i->second);
+	}
+
+	boost::shared_ptr<LiveChannel> live;
+	{
+		// SYNC_LOCK(live_);
+		live = live_;
+	}
+
+	SEND(service, user, N_("Information on channel \002%1%\017:"), name_);
+
+	i = data.find("description");
+	if (i != data.end())
+		SEND(service, user, N_("Description    : %1%"), boost::get<std::string>(i->second));
+
+	SEND(service, user, N_("Registered     : %1% ago"),
+		 DurationToString(mantra::duration(boost::get<boost::posix_time::ptime>(data["registered"]),
+										   mantra::GetCurrentDateTime()), mantra::Second));
+
+	boost::shared_ptr<StoredUser> stored = ROOT->data.Get_StoredUser(
+			boost::get<boost::uint32_t>(data["founder"]));
+	if (stored)
+	{
+		StoredUser::my_nicks_t nicks = stored->Nicks();
+		std::string str;
+		StoredUser::my_nicks_t::const_iterator k;
+		for (k = nicks.begin(); k != nicks.end(); ++k)
+		{
+			if (!*k)
+				continue;
+
+			if (!str.empty())
+				str += ", ";
+			str += (*k)->Name();
+		}
+		SEND(service, user, N_("Founder        : %1%"), str);
+	}
+
+	i = data.find("successor");
+	if (i != data.end())
+	{
+		stored = ROOT->data.Get_StoredUser(boost::get<boost::uint32_t>(i->second));
+		if (stored)
+		{
+			StoredUser::my_nicks_t nicks = stored->Nicks();
+			std::string str;
+			StoredUser::my_nicks_t::const_iterator k;
+			for (k = nicks.begin(); k != nicks.end(); ++k)
+			{
+				if (!*k)
+					continue;
+
+				if (!str.empty())
+					str += ", ";
+				str += (*k)->Name();
+			}
+			SEND(service, user, N_("Successor      : %1%"), str);
+		}
+	}
+
+	i = data.find("email");
+	if (i != data.end())
+		SEND(service, user, N_("E-Mail         : %1%"), boost::get<std::string>(i->second));
+
+	i = data.find("website");
+	if (i != data.end())
+		SEND(service, user, N_("Website        : %1%"), boost::get<std::string>(i->second));
+
+	i = data.find("suspend_by");
+	j = data.find("suspend_time");
+	if (i != data.end() && j != data.end())
+	{
+		SEND(service, user, N_("Suspended By   : %1%, %2% ago."),
+			 boost::get<std::string>(i->second) %
+			 DurationToString(mantra::duration(boost::get<boost::posix_time::ptime>(j->second),
+											   mantra::GetCurrentDateTime()), mantra::Second));
+		i = data.find("suspend_reason");
+		if (i != data.end())
+		SEND(service, user, N_("Suspended For  : %1%"),
+			 boost::get<std::string>(i->second));
+	}
+
+	if (!priv)
+	{
+		if (live)
+		{
+			LiveChannel::users_t users;
+			live->Users(users);
+
+			if (!users.empty())
+			{
+				size_t count = 0, ops = 0, halfops = 0, voices = 0;
+
+				LiveChannel::users_t::iterator k;
+				for (k = users.begin(); k != users.end(); ++k)
+				{
+					++count;
+					if (k->second.find('o') != k->second.end())
+						++ops;
+					if (k->second.find('h') != k->second.end())
+						++halfops;
+					if (k->second.find('v') != k->second.end())
+						++voices;
+				}
+
+				std::stringstream ss;
+				ss << count << ' ' << UP_(user, "user", "users", count);
+				if (ops)
+					ss << ", " << ops << ' ' << UP_(user, "op", "ops", ops);
+				if (halfops)
+					ss << ", " << halfops << ' ' << UP_(user, "halfop", "halfops", halfops);
+				if (voices)
+					ss << ", " << voices << ' ' << UP_(user, "voice", "voices", voices);
+
+				SEND(service, user, N_("In Use By      : %1%"), ss.str());
+
+				if (!live->Topic().empty())
+				{
+					SEND(service, user, N_("Topic          : %1%"), live->Topic());
+					SEND(service, user, N_("Topic Set By   : %1%, %2% ago."), live->Topic_Setter() %
+						 DurationToString(mantra::duration(boost::get<boost::posix_time::ptime>(live->Topic_Set_Time()),
+														   mantra::GetCurrentDateTime()), mantra::Second));
+				}
+			}
+			else
+			{
+				// This should NOT happen ...
+			}
+		}
+		else
+		{
+			i = data.find("last_used");
+			if (i != data.end())
+				SEND(service, user, N_("Last Used      : %1%"),
+					 DurationToString(mantra::duration(boost::get<boost::posix_time::ptime>(i->second),
+													   mantra::GetCurrentDateTime()), mantra::Second));
+			i = data.find("topic");
+			if (i != data.end())
+			{
+				SEND(service, user, N_("Last Topic     : %1%"), boost::get<std::string>(i->second));
+				i = data.find("topic_setter");
+				j = data.find("topic_set_time");
+				if (i != data.end() && j != data.end())
+					SEND(service, user, N_("Topic Set By   : %1%, %2% ago."),
+						 boost::get<std::string>(i->second) %
+						 DurationToString(mantra::duration(boost::get<boost::posix_time::ptime>(j->second),
+														   mantra::GetCurrentDateTime()), mantra::Second));
+			}
+		}
+
+		std::string str;
+
+		i = data.find("mlock_on");
+		j = data.find("mlock_off");
+		if (i != data.end())
+			str += '+' + boost::get<std::string>(i->second);
+		if (j != data.end())
+			str += '-' + boost::get<std::string>(j->second);
+		if (!str.empty())
+			SEND(service, user, N_("Mode Lock      : %1%"), str);
+
+		Revenge_t r = (Revenge_t) ROOT->ConfigValue<unsigned int>("chanserv.defaults.revenge");
+		if (ROOT->ConfigValue<bool>("chanserv.lock.revenge"))
+		{
+			if (r > R_None && r < R_MAX)
+				SEND(service, user, N_("Revenge        : %1%"),
+					 ('\002' + std::string(revenge_desc[r]) + '\017'));
+		}
+		else
+		{
+			i = data.find("revenge");
+			if (i != data.end())
+			{
+				r = (Revenge_t) boost::get<boost::uint8_t>(i->second);
+				if (r > R_None && r < R_MAX)
+				{
+					j = data.find("lock_revenge");
+					if (j != data.end() && boost::get<bool>(j->second))
+						SEND(service, user, N_("Revenge        : %1%"),
+							 ('\002' + std::string(revenge_desc[r]) + '\017'));
+					else
+						SEND(service, user, N_("Revenge        : %1%"),
+							 revenge_desc[r]);
+				}
+			}
+			else if (r > R_None && r < R_MAX)
+				SEND(service, user, N_("Revenge        : %1%"),
+					 revenge_desc[r]);
+		}
+
+		mantra::duration d = ROOT->ConfigValue<mantra::duration>("chanserv.defaults.bantime");
+		if (ROOT->ConfigValue<bool>("chanserv.lock.bantime"))
+		{
+			if (d)
+				SEND(service, user, N_("Ban Expiry     : %1%"),
+					 ('\002' + DurationToString(d, mantra::Second) + '\017'));
+		}
+		else
+		{
+			i = data.find("bantime");
+			if (i != data.end())
+			{
+				d = boost::get<mantra::duration>(i->second);
+				if (d)
+				{
+					j = data.find("lock_bantime");
+					if (j != data.end() && boost::get<bool>(j->second))
+						SEND(service, user, N_("Ban Expiry     : %1%"),
+							 ('\002' + DurationToString(d, mantra::Second) + '\017'));
+					else
+						SEND(service, user, N_("Ban Expiry     : %1%"),
+							 DurationToString(d, mantra::Second));
+				}
+			}
+			else if (d)
+				SEND(service, user, N_("Ban Expiry     : %1%"),
+					 DurationToString(d, mantra::Second));
+		}
+
+		d = ROOT->ConfigValue<mantra::duration>("chanserv.defaults.parttime");
+		if (ROOT->ConfigValue<bool>("chanserv.lock.parttime"))
+		{
+			if (d)
+				SEND(service, user, N_("Greet Frequency: %1%"),
+					 ('\002' + DurationToString(d, mantra::Second) + '\017'));
+		}
+		else
+		{
+			i = data.find("parttime");
+			if (i != data.end())
+			{
+				d = boost::get<mantra::duration>(i->second);
+				if (d)
+				{
+					j = data.find("lock_parttime");
+					if (j != data.end() && boost::get<bool>(j->second))
+						SEND(service, user, N_("Greet Frequency: %1%"),
+							 ('\002' + DurationToString(d, mantra::Second) + '\017'));
+					else
+						SEND(service, user, N_("Greet Frequency: %1%"),
+							 DurationToString(d, mantra::Second));
+				}
+			}
+			else if (d)
+				SEND(service, user, N_("Greet Frequency: %1%"),
+					 DurationToString(d, mantra::Second));
+		}
+
+		str.clear();
+		check_option(str, data, "keeptopic", U_(user, "Keep Topic"));
+		check_option(str, data, "topiclock", U_(user, "Topic Lock"));
+		check_option(str, data, "private", U_(user, "Private"));
+		check_option(str, data, "secureops", U_(user, "Secure Ops"));
+		check_option(str, data, "secure", U_(user, "Secure"));
+		check_option(str, data, "anarchy", U_(user, "Anarchy"));
+		check_option(str, data, "kickonban", U_(user, "Kick On Ban"));
+		check_option(str, data, "restricted", U_(user, "Restricted"));
+		check_option(str, data, "cjoin", U_(user, "Join"));
+		if (opersop)
+			check_option(str, data, "noexpire", U_(user, "No Expire"));
+		if (!str.empty())
+			SEND(service, user, N_("Options        : %1%"), str);
+	}
+
+	if (opersop)
+	{
+		i = data.find("comment");
+		if (i != data.end())
+			SEND(service, user, N_("OPER Comment   : %1%"),
+				 boost::get<std::string>(i->second));
+	}
 
 	MT_EE
 }

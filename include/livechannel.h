@@ -42,8 +42,19 @@ RCSID(magick__livechannel_h, "@(#) $Id$");
 #include <boost/weak_ptr.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/operators.hpp>
+#include <boost/regex.hpp>
 
 class StoredChannel;
+
+class rx_iless
+{
+public:
+	inline bool operator()(const boost::regex &lhs, const boost::regex &rhs) const
+	{
+		static mantra::iless<std::string> cmp;
+		return cmp(lhs.str(), rhs.str());
+	}
+};
 
 class LiveChannel : private boost::noncopyable,
 					public boost::totally_ordered1<LiveChannel>,
@@ -86,7 +97,10 @@ public:
 	typedef std::map<boost::shared_ptr<LiveUser>, std::set<char> > users_t;
 	typedef std::map<std::string, std::pair<boost::posix_time::ptime, unsigned int>,
 					 mantra::iless<std::string> > bans_t;
+	typedef std::map<boost::regex, std::pair<boost::posix_time::ptime, unsigned int>,
+					 rx_iless> rxbans_t;
 	typedef std::set<std::string, mantra::iless<std::string> > exempts_t;
+	typedef std::set<boost::regex, rx_iless> rxexempts_t;
 	typedef std::map<boost::shared_ptr<LiveUser>, PendingModes> pending_modes_t; 
 	typedef std::map<boost::shared_ptr<LiveUser>, unsigned int> recent_parts_t;
 
@@ -105,7 +119,9 @@ private:
 	users_t splits_;
 
 	bans_t RWSYNC(bans_);
+	rxbans_t rxbans_;
 	exempts_t RWSYNC(exempts_);
+	rxexempts_t rxexempts_;
 
 	std::string SYNC(topic_);
 	std::string topic_setter_;
@@ -185,12 +201,16 @@ public:
 	}
 
 	void Bans(bans_t &bans) const;
+	void RxBans(rxbans_t &bans) const;
 	bool MatchBan(const std::string &in) const;
 	bool MatchBan(const boost::shared_ptr<LiveUser> &in) const;
 	void Exempts(exempts_t &exempts) const;
+	void RxExempts(rxexempts_t &exempts) const;
 	bool MatchExempt(const std::string &in) const;
 	bool MatchExempt(const boost::shared_ptr<LiveUser> &in) const;
 
+	bool IsBanned(const std::string &in) const
+		{ return (MatchBan(in) && !MatchExempt(in)); }
 	bool IsBanned(const boost::shared_ptr<LiveUser> &in) const
 		{ return (MatchBan(in) && !MatchExempt(in)); }
 

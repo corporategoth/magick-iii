@@ -139,7 +139,7 @@ static int init_trace(int prv, const boost::function0<bool> &check,
 	mantra::mtrace::instance().RegisterType(MAGICK_TRACE_EVENT, TraceHandler("trace_EVENT.log"));
 	
 	MT_ASSIGN(MAGICK_TRACE_MAIN);
-	MT_AUTOFLUSH(true);
+/*	MT_AUTOFLUSH(true); */
 	return prv;
 }
 #endif

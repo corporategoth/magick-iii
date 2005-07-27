@@ -118,6 +118,11 @@ public:
 
 	void SendInfo(const boost::shared_ptr<LiveUser> &service,
 				  const boost::shared_ptr<LiveUser> &user) const;
+
+	std::string translate(const std::string &in) const;
+	std::string translate(const std::string &single,
+						  const std::string &plural,
+						  unsigned long n) const;
 };
 
 // Special interface used by LiveUser.

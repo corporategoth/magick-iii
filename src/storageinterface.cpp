@@ -177,7 +177,7 @@ mantra::StorageValue StorageInterface::GetField(const mantra::ComparisonSet &sea
 	MT_EE
 }
 
-bool StorageInterface::PutField(const mantra::ComparisonSet &search, const std::string &column, const mantra::StorageValue &value)
+unsigned int StorageInterface::PutField(const mantra::ComparisonSet &search, const std::string &column, const mantra::StorageValue &value)
 {
 	MT_EB
 	MT_FUNC("StorageInterface::PutField" << search << column << value);
@@ -186,7 +186,7 @@ bool StorageInterface::PutField(const mantra::ComparisonSet &search, const std::
 	data[column] = value;
 	unsigned int rv = ChangeRow(data, search);
 
-	MT_RET(rv == 1u);
+	MT_RET(rv);
 	MT_EE
 }
 

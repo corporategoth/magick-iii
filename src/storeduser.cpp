@@ -46,7 +46,11 @@ StorageInterface StoredUser::storage_access("users_access", std::string(), "last
 StorageInterface StoredUser::storage_ignore("users_ignore", std::string(), "last_update");
 
 StoredUser::StoredUser(boost::uint32_t id)
-	: id_(id), SYNC_NRWINIT(online_users_, reader_priority)
+	: id_(id), SYNC_NRWINIT(online_users_, reader_priority),
+	  SYNC_NRWINIT(cached_language_, reader_priority),
+	  cached_language_update_(boost::date_time::not_a_date_time),
+	  SYNC_RWINIT(cached_privmsg_, reader_priority, false),
+	  cached_privmsg_update_(boost::date_time::not_a_date_time)
 {
 	MT_EB
 	MT_FUNC("StoredUser::StoredUser");
@@ -598,33 +602,59 @@ bool StoredUser::Language(const std::string &in)
 	if (LOCK_Language())
 		MT_RET(false);
 
+	SYNC_WLOCK(cached_language_);
 	if (in.empty())
+	{
 		storage.PutField(id_, "language", mantra::NullValue::instance());
+		cached_language_ = ROOT->ConfigValue<std::string>("nickserv.defaults.language");
+	}
 	else
+	{
 		storage.PutField(id_, "language", in);
+		cached_language_ = in;
+	}
+	cached_language_update_ = mantra::GetCurrentDateTime();
 
 	MT_RET(true);
 	MT_EE
 }
 
-std::string StoredUser::Language() const
+const std::string &StoredUser::Language() const
 {
 	MT_EB
 	MT_FUNC("StoredUser::Language");
 
-	std::string ret;
+	SYNC_RWLOCK(cached_language_);
 	if (ROOT->ConfigValue<bool>("nickserv.lock.language"))
-		ret = ROOT->ConfigValue<std::string>("nickserv.defaults.language");
-	else
 	{
-		mantra::StorageValue rv = storage.GetField(id_, "language");
-		if (rv.type() == typeid(mantra::NullValue))
-			ret = ROOT->ConfigValue<std::string>("nickserv.defaults.language");
-		else
-			ret = boost::get<std::string>(rv);
+		std::string ret = ROOT->ConfigValue<std::string>("nickserv.defaults.language");
+		if (ret != cached_language_)
+		{
+			SYNC_PROMOTE(cached_language_);
+			cached_language_ = ret;
+			cached_language_update_ = boost::date_time::not_a_date_time;
+		}
+	}
+	else if (cached_language_update_.is_special() || cached_language_update_ +
+			 ROOT->ConfigValue<mantra::duration>("nickserv.cache-expire") <
+			 mantra::GetCurrentDateTime())
+	{
+		// Double check it once promotion is done.
+		SYNC_PROMOTE(cached_language_);
+		if (cached_language_update_.is_special() || cached_language_update_ +
+			ROOT->ConfigValue<mantra::duration>("nickserv.cache-expire") <
+			mantra::GetCurrentDateTime())
+		{
+			mantra::StorageValue rv = storage.GetField(id_, "language");
+			if (rv.type() == typeid(mantra::NullValue))
+				cached_language_ = ROOT->ConfigValue<std::string>("nickserv.defaults.language");
+			else
+				cached_language_ = boost::get<std::string>(rv);
+			cached_language_update_ = mantra::GetCurrentDateTime();
+		}
 	}
 
-	MT_RET(ret);
+	MT_RET(cached_language_);
 	MT_EE
 }
 
@@ -788,10 +818,18 @@ bool StoredUser::PRIVMSG(const boost::logic::tribool &in)
 	if (LOCK_PRIVMSG())
 		MT_RET(false);
 
+	SYNC_WLOCK(cached_privmsg_);
 	if (boost::logic::indeterminate(in))
+	{
 		storage.PutField(id_, "privmsg", mantra::NullValue::instance());
+		cached_privmsg_ = ROOT->ConfigValue<bool>("nickserv.defaults.privmsg");
+	}
 	else
+	{
 		storage.PutField(id_, "privmsg", (bool) in);
+		cached_privmsg_ = in;
+	}
+	cached_privmsg_update_ = mantra::GetCurrentDateTime();
 
 	MT_RET(true);
 	MT_EE
@@ -802,19 +840,37 @@ bool StoredUser::PRIVMSG() const
 	MT_EB
 	MT_FUNC("StoredUser::PRIVMSG");
 
-	bool ret;
+	SYNC_RWLOCK(cached_privmsg_);
 	if (ROOT->ConfigValue<bool>("nickserv.lock.privmsg"))
-		ret = ROOT->ConfigValue<bool>("nickserv.defaults.privmsg");
-	else
 	{
-		mantra::StorageValue rv = storage.GetField(id_, "privmsg");
-		if (rv.type() == typeid(mantra::NullValue))
-			ret = ROOT->ConfigValue<bool>("nickserv.defaults.privmsg");
-		else
-			ret = boost::get<bool>(rv);
+		bool ret = ROOT->ConfigValue<bool>("nickserv.defaults.privmsg");
+		if (ret != cached_privmsg_)
+		{
+			SYNC_PROMOTE(cached_privmsg_);
+			cached_privmsg_ = ret;
+			cached_privmsg_update_ = boost::date_time::not_a_date_time;
+		}
+	}
+	else if (cached_privmsg_update_.is_special() || cached_privmsg_update_ +
+			 ROOT->ConfigValue<mantra::duration>("nickserv.cache-expire") <
+			 mantra::GetCurrentDateTime())
+	{
+		// Double check it once promotion is done.
+		SYNC_PROMOTE(cached_privmsg_);
+		if (cached_privmsg_update_.is_special() || cached_privmsg_update_ +
+			ROOT->ConfigValue<mantra::duration>("nickserv.cache-expire") <
+			mantra::GetCurrentDateTime())
+		{
+			mantra::StorageValue rv = storage.GetField(id_, "privmsg");
+			if (rv.type() == typeid(mantra::NullValue))
+				cached_privmsg_ = ROOT->ConfigValue<bool>("nickserv.defaults.privmsg");
+			else
+				cached_privmsg_ = boost::get<bool>(rv);
+			cached_privmsg_update_ = mantra::GetCurrentDateTime();
+		}
 	}
 
-	MT_RET(ret);
+	MT_RET(cached_privmsg_);
 	MT_EE
 }
 
@@ -1240,10 +1296,10 @@ void StoredUser::ACCESS_Get(std::vector<boost::uint32_t> &fill) const
 	MT_EE
 }
 
-bool StoredUser::IGNORE_Matches(const boost::shared_ptr<StoredUser> &in) const
+bool StoredUser::IGNORE_Exists(const boost::shared_ptr<StoredUser> &in) const
 {
 	MT_EB
-	MT_FUNC("StoredUser::IGNORE_Matches" << in);
+	MT_FUNC("StoredUser::IGNORE_Exists" << in);
 
 	return (storage_ignore.RowExists(
 				mantra::Comparison<mantra::C_EqualTo>::make("id", id_) &&
@@ -1286,6 +1342,18 @@ boost::uint32_t StoredUser::IGNORE_Add(const boost::shared_ptr<StoredUser> &in)
 	if (storage_ignore.InsertRow(rec))
 		MT_RET(number);
 	MT_RET(0);
+
+	MT_EE
+}
+
+void StoredUser::IGNORE_Del(const boost::shared_ptr<StoredUser> &in)
+{
+	MT_EB
+	MT_FUNC("StoredUser::IGNORE_Del" << in);
+
+	storage_ignore.RemoveRow(
+				mantra::Comparison<mantra::C_EqualTo>::make("id", id_) &&
+				mantra::Comparison<mantra::C_EqualTo>::make("entry", in->ID()));
 
 	MT_EE
 }
@@ -1480,7 +1548,7 @@ void StoredUser::SendInfo(const boost::shared_ptr<LiveUser> &service,
 	mantra::Storage::RecordMap data;
 	storage.GetRow(id_, data);
 
-	mantra::Storage::RecordMap::const_iterator i;
+	mantra::Storage::RecordMap::const_iterator i, j;
 	bool priv = false;
 	if (!opersop)
 	{
@@ -1537,12 +1605,15 @@ void StoredUser::SendInfo(const boost::shared_ptr<LiveUser> &service,
 			 boost::get<std::string>(i->second));
 
 	i = data.find("suspend_by");
-	if (i != data.end())
+	j = data.find("suspend_time");
+	if (i != data.end() && j != data.end())
 	{
-		SEND(service, user, N_("Suspended By   : %1% at %2%"),
+		SEND(service, user, N_("Suspended By   : %1%, %2% ago."),
 			 boost::get<std::string>(i->second) %
-			 boost::get<boost::posix_time::ptime>(data["suspend_time"]));
+			 DurationToString(mantra::duration(boost::get<boost::posix_time::ptime>(j->second),
+											   mantra::GetCurrentDateTime()), mantra::Second));
 		i = data.find("suspend_reason");
+		if (i != data.end())
 		SEND(service, user, N_("Suspended For  : %1%"),
 			 boost::get<std::string>(i->second));
 	}
@@ -1550,12 +1621,12 @@ void StoredUser::SendInfo(const boost::shared_ptr<LiveUser> &service,
 	if (!priv)
 	{
 		std::string str;
-		check_option(str, data, "protect", N_("Nick Protection"));
-		check_option(str, data, "secure", N_("Secure"));
-		check_option(str, data, "nomemo", N_("No Memos"));
-		check_option(str, data, "private", N_("Private"));
+		check_option(str, data, "protect", U_(user, "Nick Protection"));
+		check_option(str, data, "secure", U_(user, "Secure"));
+		check_option(str, data, "nomemo", U_(user, "No Memos"));
+		check_option(str, data, "private", U_(user, "Private"));
 		if (opersop)
-			check_option(str, data, "noexpire", N_("No Expire"));
+			check_option(str, data, "noexpire", U_(user, "No Expire"));
 		if (!str.empty())
 			SEND(service, user, N_("Options        : %1%"), str);
 
@@ -1599,5 +1670,19 @@ void StoredUser::SendInfo(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	MT_EE
+}
+
+std::string StoredUser::translate(const std::string &in) const
+{
+	std::locale loc(Language().c_str());
+	return mantra::translate::get(in, loc);
+}
+
+std::string StoredUser::translate(const std::string &single,
+								  const std::string &plural,
+								  unsigned long n) const
+{
+	std::locale loc(Language().c_str());
+	return mantra::translate::get(single, plural, loc, n);
 }
 

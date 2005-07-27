@@ -132,8 +132,91 @@ void LiveChannel::Stored(const boost::shared_ptr<StoredChannel> &stored)
 	MT_EB
 	MT_FUNC("LiveChannel::Stored" << stored);
 
-	SYNC_WLOCK(stored_);
-	stored_ = stored;
+	{
+		SYNC_WLOCK(stored_);
+		stored_ = stored;
+	}
+
+	{
+		SYNC_LOCK(topic_);
+		if (!topic_.empty())
+			if_StoredChannel_LiveChannel(stored).Topic(topic_, topic_setter_, topic_set_time_);
+	}
+
+	std::string modes("+");
+	std::vector<std::string> mode_params;
+	{
+		SYNC_LOCK(modes_);
+		std::set<char>::const_iterator i;
+		for (i = modes_.begin(); i != modes_.end(); ++i)
+			modes += *i;
+		if (!modes_key_.empty())
+		{
+			modes += 'k';
+			mode_params.push_back(modes_key_);
+		}
+		if (modes_limit_)
+		{
+			modes += 'l';
+			mode_params.push_back(boost::lexical_cast<std::string>(modes_limit_));
+		}
+	}
+	{
+		SYNC_RLOCK(users_);
+		users_t::const_iterator i;
+		for (i = users_.begin(); i != users_.end(); ++i)
+		{
+			if_StoredChannel_LiveChannel(stored).Join(i->first);
+			std::set<char>::const_iterator j;
+			for (j = i->second.begin(); j != i->second.end(); ++j)
+			{
+				modes += *j;
+				mode_params.push_back(i->first->Name());
+			}
+		}
+	}
+
+	std::string cmp = ROOT->proto.ConfigValue<std::string>("channel-mode-params");
+	{
+		SYNC_RLOCK(bans_);
+		bans_t::const_iterator i;
+		for (i = bans_.begin(); i != bans_.end(); ++i)
+		{
+			modes += 'b';
+			mode_params.push_back(i->first);
+		}
+		if (cmp.find('d') != std::string::npos)
+		{
+			rxbans_t::const_iterator j;
+			for (j = rxbans_.begin(); j != rxbans_.end(); ++j)
+			{
+				modes += 'd';
+				mode_params.push_back(j->first.str());
+			}
+		}
+	}
+	{
+		SYNC_RLOCK(exempts_);
+		exempts_t::const_iterator i;
+		for (i = exempts_.begin(); i != exempts_.end(); ++i)
+		{
+			modes += 'e';
+			mode_params.push_back(*i);
+		}
+#if 0
+		if (cmp.find('?') != std::string::npos)
+		{
+			rxexempts_t::const_iterator j;
+			for (j = rxexempts_.begin(); j != rxexempts_.end(); ++j)
+			{
+				modes += '?';
+				mode_params.push_back(j->str());
+			}
+		}
+#endif
+	}
+	if_StoredChannel_LiveChannel(stored).Modes(boost::shared_ptr<LiveUser>(),
+											   modes, mode_params);
 
 	MT_EE
 }
@@ -345,6 +428,17 @@ void LiveChannel::Bans(LiveChannel::bans_t &bans) const
 	MT_EE
 }
 
+void LiveChannel::RxBans(LiveChannel::rxbans_t &bans) const
+{
+	MT_EB
+	MT_FUNC("LiveChannel::RxBans" << bans);
+
+	SYNC_RLOCK(bans_);
+	bans = rxbans_;
+
+	MT_EE
+}
+
 bool LiveChannel::MatchBan(const std::string &in) const
 {
 	MT_EB
@@ -355,6 +449,12 @@ bool LiveChannel::MatchBan(const std::string &in) const
 	for (i = bans_.begin(); i != bans_.end(); ++i)
 	{
 		if (mantra::glob_match(i->first, in, true))
+			MT_RET(true);
+	}
+	rxbans_t::const_iterator j;
+	for (j = rxbans_.begin(); j != rxbans_.end(); ++j)
+	{
+		if (boost::regex_match(in, j->first))
 			MT_RET(true);
 	}
 	MT_RET(false);
@@ -383,6 +483,17 @@ void LiveChannel::Exempts(LiveChannel::exempts_t &exempts) const
 	MT_EE
 }
 
+void LiveChannel::RxExempts(LiveChannel::rxexempts_t &exempts) const
+{
+	MT_EB
+	MT_FUNC("LiveChannel::RxExempts" << exempts);
+
+	SYNC_RLOCK(exempts_);
+	exempts = rxexempts_;
+
+	MT_EE
+}
+
 bool LiveChannel::MatchExempt(const std::string &in) const
 {
 	MT_EB
@@ -393,6 +504,12 @@ bool LiveChannel::MatchExempt(const std::string &in) const
 	for (i = exempts_.begin(); i != exempts_.end(); ++i)
 	{
 		if (mantra::glob_match(*i, in, true))
+			MT_RET(true);
+	}
+	rxexempts_t::const_iterator j;
+	for (j = rxexempts_.begin(); j != rxexempts_.end(); ++j)
+	{
+		if (boost::regex_match(in, *j))
 			MT_RET(true);
 	}
 	MT_RET(false);
@@ -573,6 +690,37 @@ void LiveChannel::Modes(const boost::shared_ptr<LiveUser> &user,
 					}
 					break;
 
+				case 'd':
+					if (add)
+					{
+						SYNC_WLOCK(bans_);
+						rxbans_[boost::regex(params[m],
+											 boost::regex_constants::normal |
+											 boost::regex_constants::icase)] =
+							std::make_pair(mantra::GetCurrentDateTime(), 0);
+					}
+					else
+					{
+						SYNC_RWLOCK(bans_);
+						rxbans_t::iterator k;
+						for (k = rxbans_.begin(); k != rxbans_.end(); ++k)
+						{
+							static mantra::iless<std::string> cmp;
+							if (cmp(k->first.str(), params[m]))
+								break;
+						}
+
+						if (k == rxbans_.end())
+						{
+							// LOG an error!
+							break;
+						}
+
+						SYNC_PROMOTE(bans_);
+						rxbans_.erase(k);
+					}
+					break;
+
 				case 'e':
 					if (add)
 					{
@@ -593,6 +741,35 @@ void LiveChannel::Modes(const boost::shared_ptr<LiveUser> &user,
 						exempts_.erase(k);
 					}
 					break;
+
+#if 0
+				case '?': // Who knows ...
+					if (add)
+					{
+						SYNC_WLOCK(exempts_);
+						rxexempts_.insert(boost::regex(params[m],
+													   boost::regex_constants::normal |
+													   boost::regex_constants::icase));
+					}
+					else
+					{
+						SYNC_RWLOCK(exempts_);
+						rxexempts_t::iterator k = std::lower_bound(rxexempts_.begin(),
+																   rxexempts_.end(),
+																   params[m]);
+
+						static mantra::iless<std::string> cmp;
+						if (k == rxexempts_.end() || !cmp(k->str(), params[m]))
+						{
+							// LOG an error!
+							break;
+						}
+
+						SYNC_PROMOTE(exempts_);
+						rxexempts_.erase(k);
+					}
+					break;
+#endif
 
 				case 'k':
 					if (add)

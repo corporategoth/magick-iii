@@ -66,7 +66,7 @@ static bool biREGISTER(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	if (ROOT->data.Forbid_Check(user->Name()))
+	if (ROOT->data.Matches_Forbidden(user->Name(), false))
 	{
 		SEND(service, user, N_("Nickname %1% is forbidden."), user->Name());
 		MT_RET(false);
@@ -174,8 +174,7 @@ static bool biDROP(const boost::shared_ptr<LiveUser> &service,
 		SEND(service, user, N_("Please re-issue your %1% command within %2% with the following parameter: %3%"),
 			 boost::algorithm::to_upper_copy(params[0]) %
 			 mantra::DurationToString(ROOT->ConfigValue<mantra::duration>("nickserv.drop"),
-									  mantra::Second) %
-			 token);
+									  mantra::Second) % token);
 	}
 	else
 	{
@@ -183,17 +182,18 @@ static bool biDROP(const boost::shared_ptr<LiveUser> &service,
 		if (token.empty())
 		{
 			NSEND(service, user, N_("Drop token has expired (nickname not dropped)."));
+			MT_RET(false);
 		}
-		else if (params[1] == token)
-		{
-			user->DropToken(std::string());
-			user->Stored()->Drop();
-			NSEND(service, user, N_("Your nickname has been dropped."));
-		}
-		else
+
+		if (params[1] != token)
 		{
 			NSEND(service, user, N_("Drop token incorrect (nickname not dropped)."));
+			MT_RET(false);
 		}
+
+		user->DropToken(std::string());
+		user->Stored()->Drop();
+		NSEND(service, user, N_("Your nickname has been dropped."));
 	}
 
 	MT_RET(true);
@@ -226,7 +226,7 @@ static bool biLINK(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	if (ROOT->data.Forbid_Check(user->Name()))
+	if (ROOT->data.Matches_Forbidden(user->Name()))
 	{
 		SEND(service, user, N_("Nickname %1% is forbidden."), user->Name());
 		MT_RET(false);
@@ -372,6 +372,12 @@ static bool biINFO(const boost::shared_ptr<LiveUser> &service,
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
 			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	if (ROOT->data.Matches_Forbidden(params[1], false))
+	{
+		SEND(service, user, N_("Nickname %1% is forbidden."), params[1]);
 		MT_RET(false);
 	}
 
@@ -587,7 +593,7 @@ static bool biFORBID_ADD(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
-	if (params.size() < 2)
+	if (params.size() < 3)
 	{
 		SEND(service, user,
 			 N_("Insufficient parameters for %1% command."),
@@ -611,7 +617,12 @@ static bool biFORBID_ADD(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	ROOT->data.Forbid_Add(params[1], nick);
+	std::string reason(params[2]);
+	for (size_t i = 3; i < params.size(); ++i)
+		reason += ' ' + params[i];
+
+	Forbidden f = Forbidden::create(params[1], reason, nick);
+	ROOT->data.Add(f);
 	SEND(service, user,
 		 N_("Nickname mask \002%1%\017 has been added to the forbidden list."),
 		 params[1]);
@@ -646,8 +657,9 @@ static bool biFORBID_DEL(const boost::shared_ptr<LiveUser> &service,
 	std::vector<unsigned int> v;
 	if (!mantra::ParseNumbers(numbers, v))
 	{
-//		std::map<boost::uint32_t, std::pair<std::string, boost::posix_time::ptime> > ent;
-//		nick->User()->ACCESS_Get(ent);
+		std::vector<Forbidden> ent;
+		ROOT->data.Get_Forbidden(ent, false);
+
 		for (size_t i = 1; i < params.size(); ++i)
 		{
 			if (ROOT->proto.IsChannel(params[i]))
@@ -656,14 +668,18 @@ static bool biFORBID_DEL(const boost::shared_ptr<LiveUser> &service,
 				continue;
 			}
 
-//			std::map<boost::uint32_t, std::pair<std::string, boost::posix_time::ptime> >::iterator j;
-//			for (j = ent.begin(); j != ent.end(); ++j)
-//			{
-//				if (mantra::glob_match(params[i], j->second.first, true))
-//					v.push_back(j->first);
-//			}
-//			if (j == ent.end())
-//				++skipped;
+			bool found = false;
+			std::vector<Forbidden>::iterator j;
+			for (j = ent.begin(); j != ent.end(); ++j)
+			{
+				if (mantra::glob_match(params[i], j->Mask(), true))
+				{
+					v.push_back(j->Number());
+					found = true;
+				}
+			}
+			if (!found)
+				++skipped;
 		}
 
 		if (v.empty())
@@ -677,10 +693,11 @@ static bool biFORBID_DEL(const boost::shared_ptr<LiveUser> &service,
 
 	for (size_t i = 0; i < v.size(); ++i)
 	{
-//        if (!ROOT->data.FORBID_Exists(v[i]))
-//            ++skipped;
-//        else
-			ROOT->data.Forbid_Del(v[i]);
+		Forbidden f = ROOT->data.Get_Forbidden(v[i]);
+		if (f.Number())
+			ROOT->data.Del(f);
+		else
+			++skipped;
 	}
 	if (!skipped)
 	{
@@ -714,18 +731,22 @@ static bool biFORBID_LIST(const boost::shared_ptr<LiveUser> &service,
 	if (!service || !service->GetService())
 		MT_RET(false);
 
-	std::vector<std::string> forbid = ROOT->data.Forbid_List_Nick();
+	std::vector<Forbidden> ent;
+	ROOT->data.Get_Forbidden(ent, false);
 
-	if (forbid.empty())
+	if (ent.empty())
 		NSEND(service, user, N_("The forbidden nickname list is empty"));
 	else
 	{
 		NSEND(service, user, N_("Forbidden Nicknames:"));
-		for (size_t i=0; i<forbid.size(); ++i)
+		std::vector<Forbidden>::const_iterator i;
+		for (i = ent.begin(); i != ent.end(); ++i)
 		{
-//			SEND(service, user, N_("%1%. %2% [Added by %3% at %4%]"),
-//				 forbid[i].entry, forbid[i].added_by, forbid[i].added);
-			SEND(service, user, N_("%1%"), forbid[i]);
+			SEND(service, user, N_("%1$ 3d. %2$s [Added by %3$s, %4$s ago]"),
+				 i->Number() % i->Mask() % i->Last_UpdaterName() % 
+				 DurationToString(mantra::duration(i->Last_Update(),
+								  mantra::GetCurrentDateTime()), mantra::Second));
+			SEND(service, user, N_("     %1%"), i->Reason());
 		}
 	}
 
@@ -965,13 +986,17 @@ static bool biACCESS_DEL(const boost::shared_ptr<LiveUser> &service,
 		nick->User()->ACCESS_Get(ent);
 		for (size_t i = 1; i < params.size(); ++i)
 		{
+			bool found = false;
 			std::map<boost::uint32_t, std::pair<std::string, boost::posix_time::ptime> >::iterator j;
 			for (j = ent.begin(); j != ent.end(); ++j)
 			{
 				if (mantra::glob_match(params[i], j->second.first, true))
+				{
 					v.push_back(j->first);
+					found = true;
+				}
 			}
-			if (j == ent.end())
+			if (!found)
 				++skipped;
 		}
 
@@ -1053,7 +1078,7 @@ static bool biACCESS_LIST(const boost::shared_ptr<LiveUser> &service,
 				 user->Name());
 			first = true;
 		}
-		SEND(service, user, N_("%1%. %2% [Added %3% ago]"),
+		SEND(service, user, N_("%1$ 3d. %2$s [Added %3$s ago]"),
 			 i->first % i->second.first %
 			 DurationToString(mantra::duration(i->second.second,
 							  mantra::GetCurrentDateTime()), mantra::Second));
@@ -1157,7 +1182,7 @@ static bool biIGNORE_ADD(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	if (nick->User()->IGNORE_Matches(target->User()))
+	if (nick->User()->IGNORE_Exists(target->User()))
 	{
 		NSEND(service, user,
 			 N_("The nickname %1% is already on your memo ignore list."));
@@ -1202,61 +1227,53 @@ static bool biIGNORE_DEL(const boost::shared_ptr<LiveUser> &service,
 	for (size_t i=2; i<params.size(); ++i)
 		numbers += ' ' + params[i];
 
-	size_t skipped = 0;
+	size_t del = 0, skipped = 0;
 	std::vector<unsigned int> v;
 	if (!mantra::ParseNumbers(numbers, v))
 	{
-		std::map<boost::uint32_t, std::pair<boost::shared_ptr<StoredUser>, boost::posix_time::ptime> > ent;
-		nick->User()->IGNORE_Get(ent);
 		for (size_t i = 1; i < params.size(); ++i)
 		{
-			std::map<boost::uint32_t, std::pair<boost::shared_ptr<StoredUser>, boost::posix_time::ptime> >::iterator j;
-			for (j = ent.begin(); j != ent.end(); ++j)
+			boost::shared_ptr<StoredNick> target = ROOT->data.Get_StoredNick(params[i]);
+			if (!target)
 			{
-				StoredUser::my_nicks_t nicks = j->second.first->Nicks();
-				if (nicks.empty())
-					continue;
-				StoredUser::my_nicks_t::const_iterator k;
-				for (k = nicks.begin(); k != nicks.end(); ++k)
-					if (**k == params[i])
-					{
-						v.push_back(j->first);
-						break;
-					}
-				if (k != nicks.end())
-					break;
-			}
-			if (j == ent.end())
 				++skipped;
-		}
+				continue;
+			}
 
-		if (v.empty())
+			if (!nick->User()->IGNORE_Exists(target->User()))
+			{
+				++skipped;
+				continue;
+			}
+
+			nick->User()->IGNORE_Del(target->User());
+			++del;
+		}
+	}
+	else
+	{
+		for (size_t i = 0; i < v.size(); ++i)
 		{
-			SEND(service, user,
-				 N_("No entries matching \002%1%\017 could be found on your memo ignore list."),
-				 numbers);
-			MT_RET(false);
+			if (!nick->User()->IGNORE_Exists(v[i]))
+			{
+				++skipped;
+				continue;
+			}
+			
+			nick->User()->IGNORE_Del(v[i]);
+			++del;
 		}
 	}
 
-	for (size_t i = 0; i < v.size(); ++i)
+	if (del)
 	{
-		if (!nick->User()->IGNORE_Exists(v[i]))
-			++skipped;
+		if (skipped)
+			SEND(service, user,
+				 N_("%1% entries removed from your memo ignore list and %2% entries specified could not be found."),
+				 del % skipped);
 		else
-			nick->User()->IGNORE_Del(v[i]);
-	}
-	if (!skipped)
-	{
-		SEND(service, user,
-			 N_("%1% entries removed from your memo ignore list."),
-			 v.size());
-	}
-	else if (v.size() != skipped)
-	{
-		SEND(service, user,
-			 N_("%1% entries removed from your memo ignore list and %2% entries specified could not be found."),
-			 (v.size() - skipped) % skipped);
+			SEND(service, user,
+				 N_("%1% entries removed from your memo ignore list."), del);
 	}
 	else
 	{
@@ -1320,7 +1337,7 @@ static bool biIGNORE_LIST(const boost::shared_ptr<LiveUser> &service,
 				 user->Name());
 			first = true;
 		}
-		SEND(service, user, N_("%1%. %2% [Added %3% ago]"),
+		SEND(service, user, N_("%1$ 3d. %2$s [Added %3$s ago]"),
 			 i->first % str %
 			 DurationToString(mantra::duration(i->second.second,
 							  mantra::GetCurrentDateTime()), mantra::Second));
@@ -3160,8 +3177,8 @@ void init_nickserv_functions(Service &serv)
 
 	serv.PushCommand("^FORBID$",
 					 Service::CommandMerge(serv, 0, 1), comm_sop);
-	serv.PushCommand("^FORBID\\s+ADD$", &biFORBID_ADD, comm_sop);
-	serv.PushCommand("^FORBID\\s+(ERASE|DEL(ETE)?)$", &biFORBID_DEL, comm_sop);
+	serv.PushCommand("^FORBID\\s+(ADD|NEW|CREATE)$", &biFORBID_ADD, comm_sop);
+	serv.PushCommand("^FORBID\\s+(ERASE|DEL(ETE)?|REM(OVE)?)$", &biFORBID_DEL, comm_sop);
 	serv.PushCommand("^FORBID\\s+(LIST|VIEW)$", &biFORBID_LIST, comm_sop);
 	serv.PushCommand("^FORBID\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
@@ -3171,9 +3188,9 @@ void init_nickserv_functions(Service &serv)
 					 Service::CommandMerge(serv, 0, 1), comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+CUR(R(ENT)?)?$",
 					 &biACCESS_CURRENT, comm_regd);
-	serv.PushCommand("^ACC(ESS)?\\s+ADD$",
+	serv.PushCommand("^ACC(ESS)?\\s+(ADD|NEW|CREATE)$",
 					 &biACCESS_ADD, comm_regd);
-	serv.PushCommand("^ACC(ESS)?\\s+(ERASE|DEL(ETE)?)$",
+	serv.PushCommand("^ACC(ESS)?\\s+(ERASE|DEL(ETE)?|REM(OVE)?)$",
 					 &biACCESS_DEL, comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+(LIST|VIEW)$",
 					 &biACCESS_LIST, comm_regd);
@@ -3185,9 +3202,9 @@ void init_nickserv_functions(Service &serv)
 
 	serv.PushCommand("^IGNORE$",
 					 Service::CommandMerge(serv, 0, 1), comm_regd);
-	serv.PushCommand("^IGNORE\\s+ADD$",
+	serv.PushCommand("^IGNORE\\s+(ADD|NEW|CREATE)$",
 					 &biIGNORE_ADD, comm_regd);
-	serv.PushCommand("^IGNORE\\s+(ERASE|DEL(ETE)?)$",
+	serv.PushCommand("^IGNORE\\s+(ERASE|DEL(ETE)?|REM(OVE)?)$",
 					 &biIGNORE_DEL, comm_regd);
 	serv.PushCommand("^IGNORE\\s+(LIST|VIEW)$",
 					 &biIGNORE_LIST, comm_regd);

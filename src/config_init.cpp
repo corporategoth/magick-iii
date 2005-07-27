@@ -34,6 +34,8 @@ RCSID(magick__config_init_cpp, "@(#)$Id$");
 
 #include "magick.h"
 
+#include "storedchannel.h"
+
 #include <fstream>
 
 #include <mantra/core/algorithms.h>
@@ -827,6 +829,8 @@ static void add_nickserv_options(po::options_description &opts)
 					"maximum size a user's picture may be")
 		("nickserv.picture-extensions", mantra::value<std::string>()->default_value("jpg png gif bmp tif"),
 					"valid extensions for an image")
+		("nickserv.cache-expire", mantra::value<mantra::duration>()->default_value(mantra::duration("5n")),
+					"how long to remember cached preferenes before going back to the DB.")
 
 		("nickserv.defaults.protect", mantra::value<bool>()->default_value(true), "")
 		("nickserv.defaults.secure", mantra::value<bool>()->default_value(false), "")
@@ -893,19 +897,20 @@ static void add_chanserv_options(po::options_description &opts)
 		("chanserv.defaults.secure", mantra::value<bool>()->default_value(false), "")
 		("chanserv.defaults.noexpire", mantra::value<bool>()->default_value(false), "")
 		("chanserv.defaults.anarchy", mantra::value<bool>()->default_value(false), "")
-		("chanserv.defaults.kick-on-ban", mantra::value<bool>()->default_value(false), "")
+		("chanserv.defaults.kickonban", mantra::value<bool>()->default_value(false), "")
 		("chanserv.defaults.restricted", mantra::value<bool>()->default_value(false), "")
 		("chanserv.defaults.cjoin", mantra::value<bool>()->default_value(false), "")
 		("chanserv.defaults.revenge", mantra::value<unsigned int>()->default_value(0u)->parser(
-					mantra::validate_mapped<std::string, unsigned int, mantra::iless<std::string> >("NONE", 0)
-						+ std::make_pair("REVERSE",1)
-						+ std::make_pair("DEOP",2)
-						+ std::make_pair("KICK",3)
-						+ std::make_pair("BAN1",4)
-						+ std::make_pair("BAN2",5)
-						+ std::make_pair("BAN3",6)
-						+ std::make_pair("BAN4",7)
-						+ std::make_pair("MIRROR",8) ), "")
+					mantra::validate_mapped<std::string, unsigned int, mantra::iless<std::string> >("NONE", StoredChannel::R_None)
+						+ std::make_pair("REVERSE",StoredChannel::R_Reverse)
+						+ std::make_pair("MIRROR",StoredChannel::R_Mirror)
+						+ std::make_pair("DEOP",StoredChannel::R_DeOp)
+						+ std::make_pair("KICK",StoredChannel::R_Kick)
+						+ std::make_pair("BAN1",StoredChannel::R_Ban1)
+						+ std::make_pair("BAN2",StoredChannel::R_Ban2)
+						+ std::make_pair("BAN3",StoredChannel::R_Ban3)
+						+ std::make_pair("BAN4",StoredChannel::R_Ban4)
+						+ std::make_pair("BAN5",StoredChannel::R_Ban5) ), "")
 
 		("chanserv.lock.mlock", mantra::value<bool>()->default_value(false), "")
 		("chanserv.lock.bantime", mantra::value<bool>()->default_value(false), "")
@@ -917,7 +922,7 @@ static void add_chanserv_options(po::options_description &opts)
 		("chanserv.lock.secure", mantra::value<bool>()->default_value(false), "")
 		("chanserv.lock.noexpire", mantra::value<bool>()->default_value(false), "")
 		("chanserv.lock.anarchy", mantra::value<bool>()->default_value(false), "")
-		("chanserv.lock.kick-on-ban", mantra::value<bool>()->default_value(false), "")
+		("chanserv.lock.kickonban", mantra::value<bool>()->default_value(false), "")
 		("chanserv.lock.restricted", mantra::value<bool>()->default_value(false), "")
 		("chanserv.lock.cjoin", mantra::value<bool>()->default_value(false), "")
 		("chanserv.lock.revenge", mantra::value<bool>()->default_value(false), "")
