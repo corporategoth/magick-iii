@@ -101,7 +101,7 @@ public:
 	{
 		boost::shared_ptr<StoredUser> rv;
 		mantra::StorageValue v = storage.GetField(number_, "last_updater_id");
-		if (v.type() == typeid(NullValue))
+		if (v.type() == typeid(mantra::NullValue))
 			return rv;
 		return lookup_user(boost::get<boost::uint32_t>(v));
 	}

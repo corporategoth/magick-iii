@@ -37,18 +37,29 @@ RCSID(magick__otherdata_cpp, "@(#)$Id$");
 
 #include <mantra/core/trace.h>
 
-StorageInterface generic_data_base<Forbidden>::storage("forbidden", "number", "last_update");
-boost::mutex generic_data_base<Forbidden>::number_lock;
-StorageInterface generic_data_base<Akill>::storage("akills", "number", "last_update");
-boost::mutex generic_data_base<Akill>::number_lock;
-StorageInterface generic_data_base<Clone>::storage("clones", "number", "last_update");
-boost::mutex generic_data_base<Clone>::number_lock;
-StorageInterface generic_data_base<OperDeny>::storage("operdenies", "number", "last_update");
-boost::mutex generic_data_base<OperDeny>::number_lock;
-StorageInterface generic_data_base<Ignore>::storage("ignores", "number", "last_update");
-boost::mutex generic_data_base<Ignore>::number_lock;
-StorageInterface generic_data_base<KillChannel>::storage("killchans", "number", "last_update");
-boost::mutex generic_data_base<KillChannel>::number_lock;
+template<> StorageInterface generic_data_base<Forbidden>::storage("forbidden", "number", "last_update");
+template boost::mutex generic_data_base<Forbidden>::number_lock;
+template<> boost::mutex generic_data_base<Forbidden>::number_lock;
+
+template<> StorageInterface generic_data_base<Akill>::storage("akills", "number", "last_update");
+template boost::mutex generic_data_base<Akill>::number_lock;
+template<> boost::mutex generic_data_base<Akill>::number_lock;
+
+template<> StorageInterface generic_data_base<Clone>::storage("clones", "number", "last_update");
+template boost::mutex generic_data_base<Clone>::number_lock;
+template<> boost::mutex generic_data_base<Clone>::number_lock;
+
+template<> StorageInterface generic_data_base<OperDeny>::storage("operdenies", "number", "last_update");
+template boost::mutex generic_data_base<OperDeny>::number_lock;
+template<> boost::mutex generic_data_base<OperDeny>::number_lock;
+
+template<> StorageInterface generic_data_base<Ignore>::storage("ignores", "number", "last_update");
+template boost::mutex generic_data_base<Ignore>::number_lock;
+template<> boost::mutex generic_data_base<Ignore>::number_lock;
+
+template<> StorageInterface generic_data_base<KillChannel>::storage("killchans", "number", "last_update");
+template boost::mutex generic_data_base<KillChannel>::number_lock;
+template<> boost::mutex generic_data_base<KillChannel>::number_lock;
 
 boost::shared_ptr<StoredUser> generic_data_base_proxy::lookup_user(boost::uint32_t id)
 {
