@@ -41,6 +41,19 @@ RCSID(magick__storednick_cpp, "@(#)$Id$");
 
 StorageInterface StoredNick::storage("nicks", "name");
 
+StoredNick::StoredNick(const std::string &name,
+					   const boost::shared_ptr<StoredUser> &user)
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire"),
+			mantra::Comparison<mantra::C_EqualToNC>::make("name", name)),
+	  name_(name), user_(user)
+{
+	MT_EB
+	MT_FUNC("StoredNick::StoredNick" << name << user);
+
+
+	MT_EE
+}
+
 boost::shared_ptr<StoredNick> StoredNick::create(const std::string &name,
 												 const std::string &password)
 {
@@ -110,7 +123,8 @@ void StoredNick::Online(const boost::shared_ptr<LiveUser> &live)
 	data["last_realname"] = live->Real();
 	data["last_mask"] = live->User() + "@" + live->Host();
 	data["last_seen"] = mantra::GetCurrentDateTime();
-	storage.ChangeRow(data, mantra::Comparison<mantra::C_EqualToNC>::make("name", name_));
+	cache.Put(data);
+
 	if_StoredUser_StoredNick(user_).Online(live);
 	SYNC_LOCK(live_);
 	live_ = live;
@@ -129,7 +143,8 @@ void StoredNick::Offline(const std::string &reason)
 	else
 		data["last_quit"] = reason;
 	data["last_seen"] = mantra::GetCurrentDateTime();
-	storage.ChangeRow(data, mantra::Comparison<mantra::C_EqualToNC>::make("name", name_));
+	cache.Put(data);
+
 	SYNC_LOCK(live_);
 	if (live_)
 	{
@@ -207,7 +222,11 @@ void StoredNick::expire()
 	mantra::Storage::FieldSet fields;
 	fields.insert("name");
 
-	storage.RetrieveRow(data, mantra::Comparison<mantra::C_LessThan>::make("last_seen", exptime), fields);
+	mantra::ComparisonSet cs = mantra::Comparison<mantra::C_LessThan>::make("last_seen", exptime);
+	if (!locked)
+		cs.And(mantra::Comparison<mantra::C_EqualTo>::make("noexpire", true, true));
+	storage.RetrieveRow(data, cs, fields);
+
 	if (data.empty())
 		return;
 
@@ -221,9 +240,6 @@ void StoredNick::expire()
 		boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(
 									boost::get<std::string>(j->second));
 		if (!nick)
-			continue;
-
-		if (!locked && nick->User()->NoExpire())
 			continue;
 
 		LOG(Notice, "Expiring nickname %1%.", nick->Name());
@@ -250,7 +266,7 @@ std::string StoredNick::Last_RealName() const
 	MT_FUNC("StoredNick::Last_RealName");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(name_, "last_realname");
+	mantra::StorageValue rv = cache.Get("last_realname");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -265,7 +281,7 @@ std::string StoredNick::Last_Mask() const
 	MT_FUNC("StoredNick::Last_Mask");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(name_, "last_mask");
+	mantra::StorageValue rv = cache.Get("last_mask");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -280,7 +296,7 @@ std::string StoredNick::Last_Quit() const
 	MT_FUNC("StoredNick::Last_Quit");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(name_, "last_quit");
+	mantra::StorageValue rv = cache.Get("last_quit");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -295,7 +311,7 @@ boost::posix_time::ptime StoredNick::Last_Seen() const
 	MT_FUNC("StoredNick::Last_Seen");
 
 	boost::posix_time::ptime ret(boost::date_time::not_a_date_time);
-	mantra::StorageValue rv = storage.GetField(name_, "last_seen");
+	mantra::StorageValue rv = cache.Get("last_seen");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<boost::posix_time::ptime>(rv);
@@ -349,11 +365,11 @@ void StoredNick::SendInfo(const boost::shared_ptr<LiveUser> &service,
 
 	mantra::Storage::RecordMap data, last_data;
 	mantra::Storage::RecordMap::const_iterator i, j;
-	storage.GetRow(name_, data);
+	cache.Get(data);
 
 	boost::shared_ptr<StoredNick> last = Last_Seen(user_);
 	if (last != self.lock())
-		storage.GetRow(last->name_, last_data);
+		last->cache.Get(last_data);
 
 	boost::shared_ptr<LiveUser> live;
 	{

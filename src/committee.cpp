@@ -45,7 +45,9 @@ StorageInterface Committee::Member::storage("committees_member", std::string(), 
 StorageInterface Committee::Message::storage("committees_message", std::string(), "last_update");
 
 Committee::Committee(boost::uint32_t id, const std::string &name)
-	: id_(id), name_(name), SYNC_NRWINIT(online_members_, reader_priority)
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire"),
+			mantra::Comparison<mantra::C_EqualTo>::make("id", id)),
+	  id_(id), name_(name), SYNC_NRWINIT(online_members_, reader_priority)
 {
 	MT_EB
 	MT_FUNC("Committee::Committee" << name);
@@ -292,7 +294,7 @@ void Committee::Head(const boost::shared_ptr<StoredUser> &head)
 	mantra::Storage::RecordMap rec;
 	rec["head_committee"] = mantra::NullValue();
 	rec["head_user"] = head->ID();
-	storage.ChangeRow(rec, mantra::Comparison<mantra::C_EqualTo>::make("id", id_));
+	cache.Put(rec);
 
 	MT_EE
 }
@@ -308,7 +310,7 @@ void Committee::Head(const boost::shared_ptr<Committee> &head)
 	mantra::Storage::RecordMap rec;
 	rec["head_committee"] = head->ID();
 	rec["head_user"] = mantra::NullValue();
-	storage.ChangeRow(rec, mantra::Comparison<mantra::C_EqualTo>::make("id", id_));
+	cache.Put(rec);
 
 	MT_EE
 }
@@ -319,7 +321,7 @@ boost::shared_ptr<StoredUser> Committee::HeadUser() const
 	MT_FUNC("HeadUser");
 
 	boost::shared_ptr<StoredUser> ret;
-	mantra::StorageValue rv = storage.GetField(id_, "head_user");
+	mantra::StorageValue rv = cache.Get("head_user");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = ROOT->data.Get_StoredUser(boost::get<boost::uint32_t>(rv));
@@ -334,7 +336,7 @@ boost::shared_ptr<Committee> Committee::HeadCommittee() const
 	MT_FUNC("HeadCommittee");
 
 	boost::shared_ptr<Committee> ret;
-	mantra::StorageValue rv = storage.GetField(id_, "head_committee");
+	mantra::StorageValue rv = cache.Get("head_committee");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = ROOT->data.Get_Committee(boost::get<boost::uint32_t>(rv));
@@ -348,7 +350,7 @@ void Committee::Description(const std::string &in)
 	MT_EB
 	MT_FUNC("Committee::Description" << in);
 
-	storage.PutField(id_, "description", in);
+	cache.Put("description", in);
 
 	MT_EE
 }
@@ -359,7 +361,7 @@ std::string Committee::Description() const
 	MT_FUNC("Committee::Description");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(id_, "description");
+	mantra::StorageValue rv = cache.Get("description");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -373,7 +375,7 @@ void Committee::Comment(const std::string &in)
 	MT_EB
 	MT_FUNC("Committee::Comment" << in);
 
-	storage.PutField(id_, "comment", in);
+	cache.Put("comment", in);
 
 	MT_EE
 }
@@ -384,7 +386,7 @@ std::string Committee::Comment() const
 	MT_FUNC("Committee::Comment");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(id_, "comment");
+	mantra::StorageValue rv = cache.Get("comment");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -399,9 +401,9 @@ void Committee::Email(const std::string &in)
 	MT_FUNC("Committee::Email" << in);
 
 	if (in.empty())
-		storage.PutField(id_, "email", mantra::NullValue());
+		cache.Put("email", mantra::NullValue());
 	else
-		storage.PutField(id_, "email", in);
+		cache.Put("email", in);
 
 	MT_EE
 }
@@ -412,7 +414,7 @@ std::string Committee::Email() const
 	MT_FUNC("Committee::Email");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(id_, "email");
+	mantra::StorageValue rv = cache.Get("email");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -427,9 +429,9 @@ void Committee::Website(const std::string &in)
 	MT_FUNC("Committee::Website" << in);
 
 	if (in.empty())
-		storage.PutField(id_, "website", mantra::NullValue());
+		cache.Put("website", mantra::NullValue());
 	else
-		storage.PutField(id_, "website", in);
+		cache.Put("website", in);
 
 	MT_EE
 }
@@ -440,7 +442,7 @@ std::string Committee::Website() const
 	MT_FUNC("Committee::Website");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(id_, "website");
+	mantra::StorageValue rv = cache.Get("website");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -458,9 +460,9 @@ bool Committee::Private(const boost::logic::tribool &in)
 		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
-		storage.PutField(id_, "private", mantra::NullValue::instance());
+		cache.Put("private", mantra::NullValue::instance());
 	else
-		storage.PutField(id_, "private", (bool) in);
+		cache.Put("private", (bool) in);
 
 	MT_RET(true);
 	MT_EE
@@ -476,7 +478,7 @@ bool Committee::Private() const
 		ret = ROOT->ConfigValue<bool>("commserv.defaults.private");
 	else
 	{
-		mantra::StorageValue rv = storage.GetField(id_, "private");
+		mantra::StorageValue rv = cache.Get("private");
 		if (rv.type() == typeid(mantra::NullValue))
 			ret = ROOT->ConfigValue<bool>("commserv.defaults.private");
 		else
@@ -496,9 +498,9 @@ bool Committee::OpenMemos(const boost::logic::tribool &in)
 		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
-		storage.PutField(id_, "openmemos", mantra::NullValue::instance());
+		cache.Put("openmemos", mantra::NullValue::instance());
 	else
-		storage.PutField(id_, "openmemos", (bool) in);
+		cache.Put("openmemos", (bool) in);
 
 	MT_RET(true);
 	MT_EE
@@ -514,7 +516,7 @@ bool Committee::OpenMemos() const
 		ret = ROOT->ConfigValue<bool>("commserv.defaults.openmemos");
 	else
 	{
-		mantra::StorageValue rv = storage.GetField(id_, "openmemos");
+		mantra::StorageValue rv = cache.Get("openmemos");
 		if (rv.type() == typeid(mantra::NullValue))
 			ret = ROOT->ConfigValue<bool>("commserv.defaults.openmemos");
 		else
@@ -534,9 +536,9 @@ bool Committee::Secure(const boost::logic::tribool &in)
 		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
-		storage.PutField(id_, "secure", mantra::NullValue::instance());
+		cache.Put("secure", mantra::NullValue::instance());
 	else
-		storage.PutField(id_, "secure", (bool) in);
+		cache.Put("secure", (bool) in);
 
 	MT_RET(true);
 	MT_EE
@@ -552,7 +554,7 @@ bool Committee::Secure() const
 		ret = ROOT->ConfigValue<bool>("commserv.defaults.secure");
 	else
 	{
-		mantra::StorageValue rv = storage.GetField(id_, "secure");
+		mantra::StorageValue rv = cache.Get("secure");
 		if (rv.type() == typeid(mantra::NullValue))
 			ret = ROOT->ConfigValue<bool>("commserv.defaults.secure");
 		else
@@ -578,7 +580,7 @@ bool Committee::LOCK_Private(const bool &in)
 		MT_RET(false);
 	}
 
-	storage.PutField(id_, "lock_private", in);
+	cache.Put("lock_private", in);
 
 	MT_RET(true);
 	MT_EE
@@ -592,7 +594,7 @@ bool Committee::LOCK_Private() const
 	if (ROOT->ConfigValue<bool>("commserv.lock.private"))
 		MT_RET(true);
 
-	mantra::StorageValue rv = storage.GetField(id_, "lock_private");
+	mantra::StorageValue rv = cache.Get("lock_private");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(false);
 	bool ret = boost::get<bool>(rv);
@@ -616,7 +618,7 @@ bool Committee::LOCK_OpenMemos(const bool &in)
 		MT_RET(false);
 	}
 
-	storage.PutField(id_, "lock_openmemos", in);
+	cache.Put("lock_openmemos", in);
 
 	MT_RET(true);
 	MT_EE
@@ -630,7 +632,7 @@ bool Committee::LOCK_OpenMemos() const
 	if (ROOT->ConfigValue<bool>("commserv.lock.openmemos"))
 		MT_RET(true);
 
-	mantra::StorageValue rv = storage.GetField(id_, "lock_openmemos");
+	mantra::StorageValue rv = cache.Get("lock_openmemos");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(false);
 	bool ret = boost::get<bool>(rv);
@@ -654,7 +656,7 @@ bool Committee::LOCK_Secure(const bool &in)
 		MT_RET(false);
 	}
 
-	storage.PutField(id_, "lock_secure", in);
+	cache.Put("lock_secure", in);
 
 	MT_RET(true);
 	MT_EE
@@ -668,7 +670,7 @@ bool Committee::LOCK_Secure() const
 	if (ROOT->ConfigValue<bool>("commserv.lock.secure"))
 		MT_RET(true);
 
-	mantra::StorageValue rv = storage.GetField(id_, "lock_secure");
+	mantra::StorageValue rv = cache.Get("lock_secure");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(false);
 	bool ret = boost::get<bool>(rv);
@@ -1125,7 +1127,7 @@ void Committee::SendInfo(const boost::shared_ptr<LiveUser> &service,
 
 	mantra::Storage::RecordMap data, last_data;
 	mantra::Storage::RecordMap::const_iterator i;
-	storage.GetRow(id_, data);
+	cache.Get(data);
 
 	bool priv = false;
 	if (!opersop && !IsMember(user))
@@ -1213,9 +1215,23 @@ void Committee::SendInfo(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
+Committee::Member::Member()
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire")),
+	  number_(0u)
+{
+	MT_EB
+	MT_FUNC("Committee::Member::Member");
+
+
+	MT_EE
+}
+
 Committee::Member::Member(const boost::shared_ptr<Committee> &owner,
 						  boost::uint32_t number)
-	: owner_(owner), number_(number)
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire"),
+			mantra::Comparison<mantra::C_EqualTo>::make("id", owner->ID()) &&
+			mantra::Comparison<mantra::C_EqualTo>::make("number", number)),
+	  owner_(owner), number_(number)
 {
 	MT_EB
 	MT_FUNC("Committee::Member::Member" << owner << number);
@@ -1245,7 +1261,8 @@ Committee::Member::Member(const boost::shared_ptr<Committee> &owner,
 
 Committee::Member::Member(const boost::shared_ptr<Committee> &owner,
 						  const boost::shared_ptr<StoredUser> &entry)
-	: owner_(owner), entry_(entry)
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire")),
+	  owner_(owner), entry_(entry)
 {
 	MT_EB
 	MT_FUNC("Committee::Member::Member" << owner << entry);
@@ -1269,6 +1286,8 @@ Committee::Member::Member(const boost::shared_ptr<Committee> &owner,
 		return;
 
 	number_ = boost::get<boost::uint32_t>(i->second);
+	cache.Search(mantra::Comparison<mantra::C_EqualTo>::make("id", owner_->ID()) &&
+				 mantra::Comparison<mantra::C_EqualTo>::make("number", number_));
 
 	MT_EE
 }
@@ -1278,27 +1297,13 @@ std::string Committee::Member::Last_UpdaterName() const
 	MT_EB
 	MT_FUNC("Committee::Member::Last_UpdaterName");
 
-	mantra::Storage::DataSet data;
-	mantra::Storage::FieldSet fields;
-	fields.insert("last_updater");
+	mantra::StorageValue rv = cache.Get("last_updater");
 
-	storage.RetrieveRow(data,
-			mantra::Comparison<mantra::C_EqualTo>::make("id", owner_->ID()) &&
-			mantra::Comparison<mantra::C_EqualTo>::make("number", number_), fields);
+	std::string ret;
+	if (rv.type() != typeid(mantra::NullValue))
+		ret = boost::get<std::string>(rv);
 
-	std::string rv;
-	if (data.empty() || data.size() > 1)
-		MT_RET(rv);
-
-	mantra::Storage::RecordMap::iterator i = data[0].find("last_updater");
-	if (i == data[0].end())
-		MT_RET(rv);
-
-	if (i->second.type() == typeid(mantra::NullValue))
-		MT_RET(rv);
-	rv = boost::get<std::string>(i->second);
-
-	MT_RET(rv);
+	MT_RET(ret);
 	MT_EE
 }
 
@@ -1307,28 +1312,13 @@ boost::shared_ptr<StoredUser> Committee::Member::Last_Updater() const
 	MT_EB
 	MT_FUNC("Committee::Member::Last_Updater");
 
-	mantra::Storage::DataSet data;
-	mantra::Storage::FieldSet fields;
-	fields.insert("last_updater_id");
+	mantra::StorageValue rv = cache.Get("last_updater_id");
 
-	storage.RetrieveRow(data,
-			mantra::Comparison<mantra::C_EqualTo>::make("id", owner_->ID()) &&
-			mantra::Comparison<mantra::C_EqualTo>::make("number", number_), fields);
+	boost::shared_ptr<StoredUser> ret;
+	if (rv.type() != typeid(mantra::NullValue))
+		ret = ROOT->data.Get_StoredUser(boost::get<boost::uint32_t>(rv));
 
-	boost::shared_ptr<StoredUser> rv;
-	if (data.empty() || data.size() > 1)
-		MT_RET(rv);
-
-	mantra::Storage::RecordMap::iterator i = data[0].find("last_updater_id");
-	if (i == data[0].end())
-		MT_RET(rv);
-
-	if (i->second.type() == typeid(mantra::NullValue))
-		MT_RET(rv);
-
-	rv = ROOT->data.Get_StoredUser(boost::get<boost::uint32_t>(i->second));
-
-	MT_RET(rv);
+	MT_RET(ret);
 	MT_EE
 }
 
@@ -1337,27 +1327,55 @@ boost::posix_time::ptime Committee::Member::Last_Update() const
 	MT_EB
 	MT_FUNC("Committee::Member::Last_Update");
 
-	mantra::Storage::DataSet data;
-	mantra::Storage::FieldSet fields;
-	fields.insert("last_update");
+	mantra::StorageValue rv = cache.Get("last_update");
 
-	storage.RetrieveRow(data,
-			mantra::Comparison<mantra::C_EqualTo>::make("id", owner_->ID()) &&
-			mantra::Comparison<mantra::C_EqualTo>::make("number", number_), fields);
+	boost::posix_time::ptime ret;
+	if (rv.type() != typeid(mantra::NullValue))
+		ret = boost::get<boost::posix_time::ptime>(rv);
 
-	boost::posix_time::ptime rv;
-	if (data.empty() || data.size() > 1)
-		MT_RET(rv);
+	MT_RET(ret);
+	MT_EE
+}
 
-	mantra::Storage::RecordMap::iterator i = data[0].find("last_update");
-	if (i == data[0].end())
-		MT_RET(rv);
+Committee::Message::Message()
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire")),
+	  number_(0)
+{
+	MT_EB
+	MT_FUNC("Committee::Message::Message");
 
-	if (i->second.type() == typeid(mantra::NullValue))
-		MT_RET(rv);
-	rv = boost::get<boost::posix_time::ptime>(i->second);
 
-	MT_RET(rv);
+	MT_EE
+}
+
+Committee::Message::Message(const boost::shared_ptr<Committee> &owner,
+							boost::uint32_t number)
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire"),
+			mantra::Comparison<mantra::C_EqualTo>::make("id", owner->ID()) &&
+			mantra::Comparison<mantra::C_EqualTo>::make("number", number)),
+	  owner_(owner), number_(number)
+{
+	MT_EB
+	MT_FUNC("Committee::Message::Message");
+
+
+	MT_EE
+}
+
+void Committee::Message::Change(const std::string &entry,
+								const boost::shared_ptr<StoredNick> &updater)
+{
+	MT_EB
+	MT_FUNC("Committee::Message::Change" << entry << updater);
+
+	mantra::Storage::RecordMap rec;
+	rec["entry"] = entry;
+	rec["last_updater"] = updater->Name();
+	rec["last_updater_id"] = updater->User()->ID();
+	rec["last_update"] = mantra::GetCurrentDateTime();
+
+	cache.Put(rec);
+
 	MT_EE
 }
 
@@ -1366,27 +1384,13 @@ std::string Committee::Message::Entry() const
 	MT_EB
 	MT_FUNC("Committee::Message::Entry");
 
-	mantra::Storage::DataSet data;
-	mantra::Storage::FieldSet fields;
-	fields.insert("entry");
+	mantra::StorageValue rv = cache.Get("entry");
 
-	storage.RetrieveRow(data,
-			mantra::Comparison<mantra::C_EqualTo>::make("id", owner_->ID()) &&
-			mantra::Comparison<mantra::C_EqualTo>::make("number", number_), fields);
+	std::string ret;
+	if (rv.type() != typeid(mantra::NullValue))
+		ret = boost::get<std::string>(rv);
 
-	std::string rv;
-	if (data.empty() || data.size() > 1)
-		MT_RET(rv);
-
-	mantra::Storage::RecordMap::iterator i = data[0].find("entry");
-	if (i == data[0].end())
-		MT_RET(rv);
-
-	if (i->second.type() == typeid(mantra::NullValue))
-		MT_RET(rv);
-	rv = boost::get<std::string>(i->second);
-
-	MT_RET(rv);
+	MT_RET(ret);
 	MT_EE
 }
 
@@ -1395,27 +1399,13 @@ std::string Committee::Message::Last_UpdaterName() const
 	MT_EB
 	MT_FUNC("Committee::Message::Last_UpdaterName");
 
-	mantra::Storage::DataSet data;
-	mantra::Storage::FieldSet fields;
-	fields.insert("last_updater");
+	mantra::StorageValue rv = cache.Get("last_updater");
 
-	storage.RetrieveRow(data,
-			mantra::Comparison<mantra::C_EqualTo>::make("id", owner_->ID()) &&
-			mantra::Comparison<mantra::C_EqualTo>::make("number", number_), fields);
+	std::string ret;
+	if (rv.type() != typeid(mantra::NullValue))
+		ret = boost::get<std::string>(rv);
 
-	std::string rv;
-	if (data.empty() || data.size() > 1)
-		MT_RET(rv);
-
-	mantra::Storage::RecordMap::iterator i = data[0].find("last_updater");
-	if (i == data[0].end())
-		MT_RET(rv);
-
-	if (i->second.type() == typeid(mantra::NullValue))
-		MT_RET(rv);
-	rv = boost::get<std::string>(i->second);
-
-	MT_RET(rv);
+	MT_RET(ret);
 	MT_EE
 }
 
@@ -1424,28 +1414,13 @@ boost::shared_ptr<StoredUser> Committee::Message::Last_Updater() const
 	MT_EB
 	MT_FUNC("Committee::Message::Last_Updater");
 
-	mantra::Storage::DataSet data;
-	mantra::Storage::FieldSet fields;
-	fields.insert("last_updater_id");
+	mantra::StorageValue rv = cache.Get("last_updater_id");
 
-	storage.RetrieveRow(data,
-			mantra::Comparison<mantra::C_EqualTo>::make("id", owner_->ID()) &&
-			mantra::Comparison<mantra::C_EqualTo>::make("number", number_), fields);
+	boost::shared_ptr<StoredUser> ret;
+	if (rv.type() != typeid(mantra::NullValue))
+		ret = ROOT->data.Get_StoredUser(boost::get<boost::uint32_t>(rv));
 
-	boost::shared_ptr<StoredUser> rv;
-	if (data.empty() || data.size() > 1)
-		MT_RET(rv);
-
-	mantra::Storage::RecordMap::iterator i = data[0].find("last_updater_id");
-	if (i == data[0].end())
-		MT_RET(rv);
-
-	if (i->second.type() == typeid(mantra::NullValue))
-		MT_RET(rv);
-
-	rv = ROOT->data.Get_StoredUser(boost::get<boost::uint32_t>(i->second));
-
-	MT_RET(rv);
+	MT_RET(ret);
 	MT_EE
 }
 
@@ -1454,27 +1429,13 @@ boost::posix_time::ptime Committee::Message::Last_Update() const
 	MT_EB
 	MT_FUNC("Committee::Message::Last_Update");
 
-	mantra::Storage::DataSet data;
-	mantra::Storage::FieldSet fields;
-	fields.insert("last_update");
+	mantra::StorageValue rv = cache.Get("last_update");
 
-	storage.RetrieveRow(data,
-			mantra::Comparison<mantra::C_EqualTo>::make("id", owner_->ID()) &&
-			mantra::Comparison<mantra::C_EqualTo>::make("number", number_), fields);
+	boost::posix_time::ptime ret;
+	if (rv.type() != typeid(mantra::NullValue))
+		ret = boost::get<boost::posix_time::ptime>(rv);
 
-	boost::posix_time::ptime rv;
-	if (data.empty() || data.size() > 1)
-		MT_RET(rv);
-
-	mantra::Storage::RecordMap::iterator i = data[0].find("last_update");
-	if (i == data[0].end())
-		MT_RET(rv);
-
-	if (i->second.type() == typeid(mantra::NullValue))
-		MT_RET(rv);
-	rv = boost::get<boost::posix_time::ptime>(i->second);
-
-	MT_RET(rv);
+	MT_RET(ret);
 	MT_EE
 }
 

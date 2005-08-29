@@ -65,6 +65,8 @@ private:
 	static StorageInterface storage_access;
 	static StorageInterface storage_ignore;
 
+	mutable CachedRecord cache;
+
 	boost::uint32_t id_;
 
 	NSYNC(access_number);
@@ -73,11 +75,6 @@ private:
 	online_users_t RWSYNC(online_users_);
 	my_nicks_t SYNC(my_nicks_);
 	my_channels_t SYNC(my_channels_);
-
-	mutable std::string RWSYNC(cached_language_);
-	mutable boost::posix_time::ptime cached_language_update_;
-	mutable bool RWSYNC(cached_privmsg_);
-	mutable boost::posix_time::ptime cached_privmsg_update_;
 
 	// use if_StoredUser_DCC
 	void Picture(boost::uint32_t in, const std::string &ext);
@@ -104,7 +101,7 @@ public:
 	inline boost::uint32_t ID() const { return id_; }
 
 	boost::posix_time::ptime Last_Update() const
-		{ return boost::get<boost::posix_time::ptime>(storage.GetField(id_, "last_update")); }
+		{ return boost::get<boost::posix_time::ptime>(cache.Get("last_update")); }
 	boost::shared_ptr<StoredNick> Last_Online() const;
 	online_users_t Online() const;
 	my_nicks_t Nicks() const;
@@ -145,7 +142,7 @@ public:
 	boost::posix_time::ptime Suspend_Time() const;
 
 	bool Language(const std::string &in);
-	const std::string &Language() const;
+	std::string Language() const;
 	bool Protect(const boost::logic::tribool &in);
 	bool Protect() const;
 	bool Secure(const boost::logic::tribool &in);

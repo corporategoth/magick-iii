@@ -241,7 +241,7 @@ static bool biIDENTIFY(const boost::shared_ptr<LiveUser> &service,
 	SEND(service, user, N_("Password correct, you are now identified to channel %1%."),
 		  channel->Name());
 
-	MT_RET(false);
+	MT_RET(true);
 	MT_EE
 }
 
@@ -278,7 +278,7 @@ static bool biINFO(const boost::shared_ptr<LiveUser> &service,
 
 	channel->SendInfo(service, user);
 
-	MT_RET(false);
+	MT_RET(true);
 	MT_EE
 }
 
@@ -289,7 +289,40 @@ static bool biSUSPEND(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biSUSPEND" << service << user << params);
 
-	MT_RET(false);
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredChannel> channel = ROOT->data.Get_StoredChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	std::string reason(params[2]);
+	for (size_t i = 3; i < params.size(); ++i)
+		reason += ' ' + reason;
+
+	channel->Suspend(nick, reason);
+	SEND(service, user, N_("Channel %1% has been suspended."), channel->Name());
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -300,7 +333,34 @@ static bool biUNSUSPEND(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biUNSUSPEND" << service << user << params);
 
-	MT_RET(false);
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredChannel> channel = ROOT->data.Get_StoredChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (channel->Suspend_Reason().empty())
+	{
+		SEND(service, user, N_("Channel %1% is not suspended."), channel->Name());
+		MT_RET(false);
+	}
+
+	channel->Unsuspend();
+	SEND(service, user, N_("Channel %1% has been unsuspended."), channel->Name());
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -311,18 +371,68 @@ static bool biSETPASS(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biSETPASS" << service << user << params);
 
-	MT_RET(false);
-	MT_EE
-}
+	if (!service || !service->GetService())
+		MT_RET(false);
 
-static bool biMODE(const boost::shared_ptr<LiveUser> &service,
-					const boost::shared_ptr<LiveUser> &user,
-					const std::vector<std::string> &params)
-{
-	MT_EB
-	MT_FUNC("biMODE" << service << user << params);
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
 
-	MT_RET(false);
+	static mantra::iequal_to<std::string> cmp;
+	if (params[2].size() < 5 || cmp(params[1], params[2]))
+	{
+		NSEND(service, user, N_("Password is not complex enough."));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredChannel> channel = ROOT->data.Get_StoredChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (nick->User() == channel->Founder())
+	{
+		NSEND(service, user,
+			 N_("Use standard SET PASSWORD on your own channels."));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(
+			ROOT->ConfigValue<std::string>("commserv.sop.name"));
+	if (comm && comm->MEMBER_Exists(channel->Founder()))
+	{
+		comm = ROOT->data.Get_Committee(
+			ROOT->ConfigValue<std::string>("commserv.sadmin.name"));
+		if (comm && !comm->MEMBER_Exists(nick->User()))
+		{
+			SEND(service, user, N_("Only a member of the %1% committee may set the password of a channel owned by a member of the %2% committee."),
+				 ROOT->ConfigValue<std::string>("commserv.sadmin.name") %
+				 ROOT->ConfigValue<std::string>("commserv.sop.name"));
+			MT_RET(false);
+		}
+	}
+
+	channel->Password(params[2]);
+    SEND(service, user, N_("Password for channel %1% has been set to \002%2%\017."),
+		 channel->Name() % params[2].substr(0, 32));
+	service->GetService()->ANNOUNCE(service, format(_("%1% has changed the password for %2%.")) %
+									user->Name() % channel->Name());
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -333,7 +443,86 @@ static bool biOP(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biOP" << service << user << params);
 
-	MT_RET(false);
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<LiveChannel> channel = ROOT->data.Get_LiveChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not in use."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.op")))
+	{
+		if (!stored)
+		{
+			SEND(service, user, N_("Channel %1% is not registered."), channel->Name());
+			MT_RET(false);
+		}
+
+		if (!stored->ACCESS_Matches(user, StoredChannel::Level::LVL_CMD_Op))
+		{
+			SEND(service, user, N_("You don't have access to op users in channel %1%."),
+				 channel->Name());
+			MT_RET(false);
+		}
+	}
+
+	bool secureops = (stored && stored->SecureOps());
+
+	std::string modes;
+	std::vector<std::string> p;
+	for (size_t i=3; i < params.size(); ++i)
+	{
+		boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
+		if (!lu)
+		{
+			SEND(service, user, N_("User %1% is not currently online."), params[i]);
+			continue;
+		}
+
+		if (!channel->IsUser(lu))
+		{
+			SEND(service, user, N_("User %1% is not in channel %2%."),
+				 lu->Name() % channel->Name());
+			continue;
+		}
+
+		if (channel->User(lu, 'o'))
+		{
+			SEND(service, user, N_("User %1% is already oped in channel %2%."),
+				 lu->Name() % channel->Name());
+			continue;
+		}
+
+		if (secureops && !(stored->ACCESS_Matches(lu, StoredChannel::Level::LVL_AutoOp) ||
+						   stored->ACCESS_Matches(lu, StoredChannel::Level::LVL_CMD_Op)))
+		{
+			SEND(service, user, N_("User %1% does not have op access on channel %2% and Secure Ops is enabled."),
+				 lu->Name() % channel->Name());
+			continue;
+		}
+
+		modes += 'o';
+		p.push_back(lu->Name());
+	}
+
+	if (modes.empty())
+	{
+		SEND(service, user, N_("No users to op on channel %1%."), channel->Name());
+		MT_RET(false);
+	}
+
+	channel->SendModes(service, "+" + modes, p);
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -344,7 +533,76 @@ static bool biDEOP(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biDEOP" << service << user << params);
 
-	MT_RET(false);
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<LiveChannel> channel = ROOT->data.Get_LiveChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not in use."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.op")))
+	{
+		if (!stored)
+		{
+			SEND(service, user, N_("Channel %1% is not registered."), channel->Name());
+			MT_RET(false);
+		}
+
+		if (!stored->ACCESS_Matches(user, StoredChannel::Level::LVL_CMD_Op))
+		{
+			SEND(service, user, N_("You don't have access to deop users in channel %1%."),
+				 channel->Name());
+			MT_RET(false);
+		}
+	}
+
+	std::string modes;
+	std::vector<std::string> p;
+	for (size_t i=3; i < params.size(); ++i)
+	{
+		boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
+		if (!lu)
+		{
+			SEND(service, user, N_("User %1% is not currently online."), params[i]);
+			continue;
+		}
+
+		if (!channel->IsUser(lu))
+		{
+			SEND(service, user, N_("User %1% is not in channel %2%."),
+				 lu->Name() % channel->Name());
+			continue;
+		}
+
+		if (!channel->User(lu, 'o'))
+		{
+			SEND(service, user, N_("User %1% is not oped in channel %2%."),
+				 lu->Name() % channel->Name());
+			continue;
+		}
+
+		modes += 'o';
+		p.push_back(lu->Name());
+	}
+
+	if (modes.empty())
+	{
+		SEND(service, user, N_("No users to deop on channel %1%."), channel->Name());
+		MT_RET(false);
+	}
+
+	channel->SendModes(service, "-" + modes, p);
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -355,7 +613,95 @@ static bool biHOP(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biHOP" << service << user << params);
 
-	MT_RET(false);
+	std::string chanmodeparams = ROOT->proto.ConfigValue<std::string>("channel-mode-params");
+	if (chanmodeparams.find("h") == std::string::npos)
+	{
+		SEND(service, user,
+			 N_("The %1% command is not supported by the IRC server software in use on this network."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<LiveChannel> channel = ROOT->data.Get_LiveChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not in use."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.halfop")))
+	{
+		if (!stored)
+		{
+			SEND(service, user, N_("Channel %1% is not registered."), channel->Name());
+			MT_RET(false);
+		}
+
+		if (!stored->ACCESS_Matches(user, StoredChannel::Level::LVL_CMD_HalfOp))
+		{
+			SEND(service, user, N_("You don't have access to half op users in channel %1%."),
+				 channel->Name());
+			MT_RET(false);
+		}
+	}
+
+	bool secureops = (stored && stored->SecureOps());
+
+	std::string modes;
+	std::vector<std::string> p;
+	for (size_t i=3; i < params.size(); ++i)
+	{
+		boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
+		if (!lu)
+		{
+			SEND(service, user, N_("User %1% is not currently online."), params[i]);
+			continue;
+		}
+
+		if (!channel->IsUser(lu))
+		{
+			SEND(service, user, N_("User %1% is not in channel %2%."),
+				 lu->Name() % channel->Name());
+			continue;
+		}
+
+		if (channel->User(lu, 'h'))
+		{
+			SEND(service, user, N_("User %1% is already half oped in channel %2%."),
+				 lu->Name() % channel->Name());
+			continue;
+		}
+
+		if (secureops && !(stored->ACCESS_Matches(lu, StoredChannel::Level::LVL_AutoHalfOp) ||
+						   stored->ACCESS_Matches(lu, StoredChannel::Level::LVL_CMD_HalfOp)))
+		{
+			SEND(service, user, N_("User %1% does not have half op access on channel %2% and Secure Ops is enabled."),
+				 lu->Name() % channel->Name());
+			continue;
+		}
+
+		modes += 'h';
+		p.push_back(lu->Name());
+	}
+
+	if (modes.empty())
+	{
+		SEND(service, user, N_("No users to half op on channel %1%."), channel->Name());
+		MT_RET(false);
+	}
+
+	channel->SendModes(service, "+" + modes, p);
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -366,7 +712,85 @@ static bool biDEHOP(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biDEHOP" << service << user << params);
 
-	MT_RET(false);
+	std::string chanmodeparams = ROOT->proto.ConfigValue<std::string>("channel-mode-params");
+	if (chanmodeparams.find("h") == std::string::npos)
+	{
+		SEND(service, user,
+			 N_("The %1% command is not supported by the IRC server software in use on this network."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<LiveChannel> channel = ROOT->data.Get_LiveChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not in use."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.halfop")))
+	{
+		if (!stored)
+		{
+			SEND(service, user, N_("Channel %1% is not registered."), channel->Name());
+			MT_RET(false);
+		}
+
+		if (!stored->ACCESS_Matches(user, StoredChannel::Level::LVL_CMD_HalfOp))
+		{
+			SEND(service, user, N_("You don't have access to de-half op users in channel %1%."),
+				 channel->Name());
+			MT_RET(false);
+		}
+	}
+
+	std::string modes;
+	std::vector<std::string> p;
+	for (size_t i=3; i < params.size(); ++i)
+	{
+		boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
+		if (!lu)
+		{
+			SEND(service, user, N_("User %1% is not currently online."), params[i]);
+			continue;
+		}
+
+		if (!channel->IsUser(lu))
+		{
+			SEND(service, user, N_("User %1% is not in channel %2%."),
+				 lu->Name() % channel->Name());
+			continue;
+		}
+
+		if (!channel->User(lu, 'h'))
+		{
+			SEND(service, user, N_("User %1% is not half oped in channel %2%."),
+				 lu->Name() % channel->Name());
+			continue;
+		}
+
+		modes += 'h';
+		p.push_back(lu->Name());
+	}
+
+	if (modes.empty())
+	{
+		SEND(service, user, N_("No users to de-half op on channel %1%."), channel->Name());
+		MT_RET(false);
+	}
+
+	channel->SendModes(service, "-" + modes, p);
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -377,7 +801,86 @@ static bool biVOICE(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biVOICE" << service << user << params);
 
-	MT_RET(false);
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<LiveChannel> channel = ROOT->data.Get_LiveChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not in use."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.voice")))
+	{
+		if (!stored)
+		{
+			SEND(service, user, N_("Channel %1% is not registered."), channel->Name());
+			MT_RET(false);
+		}
+
+		if (!stored->ACCESS_Matches(user, StoredChannel::Level::LVL_CMD_Voice))
+		{
+			SEND(service, user, N_("You don't have access to voice users in channel %1%."),
+				 channel->Name());
+			MT_RET(false);
+		}
+	}
+
+	bool secureops = (stored && stored->SecureOps());
+
+	std::string modes;
+	std::vector<std::string> p;
+	for (size_t i=3; i < params.size(); ++i)
+	{
+		boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
+		if (!lu)
+		{
+			SEND(service, user, N_("User %1% is not currently online."), params[i]);
+			continue;
+		}
+
+		if (!channel->IsUser(lu))
+		{
+			SEND(service, user, N_("User %1% is not in channel %2%."),
+				 lu->Name() % channel->Name());
+			continue;
+		}
+
+		if (channel->User(lu, 'v'))
+		{
+			SEND(service, user, N_("User %1% is already voiced in channel %2%."),
+				 lu->Name() % channel->Name());
+			continue;
+		}
+
+		if (secureops && !(stored->ACCESS_Matches(lu, StoredChannel::Level::LVL_AutoVoice) ||
+						   stored->ACCESS_Matches(lu, StoredChannel::Level::LVL_CMD_Voice)))
+		{
+			SEND(service, user, N_("User %1% does not have voice access on channel %2% and Secure Ops is enabled."),
+				 lu->Name() % channel->Name());
+			continue;
+		}
+
+		modes += 'v';
+		p.push_back(lu->Name());
+	}
+
+	if (modes.empty())
+	{
+		SEND(service, user, N_("No users to voice on channel %1%."), channel->Name());
+		MT_RET(false);
+	}
+
+	channel->SendModes(service, "+" + modes, p);
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -388,7 +891,246 @@ static bool biDEVOICE(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biDEVOICE" << service << user << params);
 
-	MT_RET(false);
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<LiveChannel> channel = ROOT->data.Get_LiveChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not in use."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.voice")))
+	{
+		if (!stored)
+		{
+			SEND(service, user, N_("Channel %1% is not registered."), channel->Name());
+			MT_RET(false);
+		}
+
+		if (!stored->ACCESS_Matches(user, StoredChannel::Level::LVL_CMD_Voice))
+		{
+			SEND(service, user, N_("You don't have access to devoice users in channel %1%."),
+				 channel->Name());
+			MT_RET(false);
+		}
+	}
+
+	std::string modes;
+	std::vector<std::string> p;
+	for (size_t i=3; i < params.size(); ++i)
+	{
+		boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
+		if (!lu)
+		{
+			SEND(service, user, N_("User %1% is not currently online."), params[i]);
+			continue;
+		}
+
+		if (!channel->IsUser(lu))
+		{
+			SEND(service, user, N_("User %1% is not in channel %2%."),
+				 lu->Name() % channel->Name());
+			continue;
+		}
+
+		if (!channel->User(lu, 'v'))
+		{
+			SEND(service, user, N_("User %1% is not voiced in channel %2%."),
+				 lu->Name() % channel->Name());
+			continue;
+		}
+
+		modes += 'v';
+		p.push_back(lu->Name());
+	}
+
+	if (modes.empty())
+	{
+		SEND(service, user, N_("No users to devoice on channel %1%."), channel->Name());
+		MT_RET(false);
+	}
+
+	channel->SendModes(service, "-" + modes, p);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool biUSERS(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("biUSERS" << service << user << params);
+
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<LiveChannel> channel = ROOT->data.Get_LiveChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not in use."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.view")))
+	{
+		boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
+		if (!stored)
+		{
+			SEND(service, user, N_("Channel %1% is not registered."), channel->Name());
+			MT_RET(false);
+		}
+
+		if (!stored->ACCESS_Matches(user, StoredChannel::Level::LVL_View))
+		{
+			SEND(service, user, N_("You don't have access to view the current modes for channel %1%."),
+				 channel->Name());
+			MT_RET(false);
+		}
+	}
+
+	LiveChannel::users_t users;
+	channel->Users(users);
+
+	std::string out;
+	LiveChannel::users_t::iterator i;
+	for (i = users.begin(); i != users.end(); ++i)
+	{
+		std::string name = i->first->Name();
+		if (channel->Name().size() + out.size() + name.size() + 3 >
+			ROOT->proto.ConfigValue<unsigned int>("max-line"))
+		{
+			SEND(service, user, N_("%1%:%2%"), channel->Name() % out);
+			out.clear();
+		}
+
+		if (i->second.find('o') != i->second.end())
+			out += " @" + name;
+		else if (i->second.find('h') != i->second.end())
+			out += " %" + name;
+		else if (i->second.find('v') != i->second.end())
+			out += " +" + name;
+		// "q" (*)
+		// "u" (.)
+		// "a" (~)
+		else
+			out += " " + name;
+	}
+	if (!out.empty())
+		SEND(service, user, N_("%1%:%2%"), channel->Name() % out);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool biMODE(const boost::shared_ptr<LiveUser> &service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("biMODE" << service << user << params);
+
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<LiveChannel> channel = ROOT->data.Get_LiveChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not in use."), params[1]);
+		MT_RET(false);
+	}
+
+	if (params.size() < 3)
+	{
+		if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.view")))
+		{
+			boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
+			if (!stored)
+			{
+				SEND(service, user, N_("Channel %1% is not registered."), channel->Name());
+				MT_RET(false);
+			}
+
+			if (!stored->ACCESS_Matches(user, StoredChannel::Level::LVL_View))
+			{
+				SEND(service, user, N_("You don't have access to view the current modes for channel %1%."),
+					 channel->Name());
+				MT_RET(false);
+			}
+		}
+
+		std::set<char> modes = channel->Modes();
+		if (modes.empty())
+		{
+			SEND(service, user, N_("Channel %1% has no modes set."), channel->Name());
+		}
+		else
+		{
+			std::string out(modes.begin(), modes.end());
+			if (modes.find('k') != modes.end())
+				out += " " + channel->Modes_Key();
+			if (modes.find('l') != modes.end())
+				out += " " + boost::lexical_cast<std::string>(channel->Modes_Limit());
+			SEND(service, user, N_("Modes for %1%: +%2%"), channel->Name() % out);
+		}
+	}
+	else
+	{
+		boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
+		if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.mode")))
+		{
+			if (!stored)
+			{
+				SEND(service, user, N_("Channel %1% is not registered."), channel->Name());
+				MT_RET(false);
+			}
+
+			if (!stored->ACCESS_Matches(user, StoredChannel::Level::LVL_CMD_Mode))
+			{
+				SEND(service, user, N_("You don't have access to change the current modes for channel %1%."),
+					 channel->Name());
+				MT_RET(false);
+			}
+		}
+
+		std::vector<std::string> p;
+		if (params.size() > 3)
+			p.assign(params.begin() + 3, params.end());
+		std::string modes;
+		if (stored)
+			modes = stored->FilterModes(user, params[2], p);
+		else
+			modes = params[2];
+
+		if (modes.empty())
+		{
+			SEND(service, user, N_("No valid modes to change on channel %1%."), channel->Name());
+			MT_RET(false);
+		}
+
+		channel->SendModes(service, modes, p);
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -399,7 +1141,89 @@ static bool biTOPIC(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biTOPIC" << service << user << params);
 
-	MT_RET(false);
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	if (params.size() < 3)
+	{
+		boost::shared_ptr<LiveChannel> channel = ROOT->data.Get_LiveChannel(params[1]);
+		if (!channel)
+		{
+			SEND(service, user, N_("Channel %1% is not in use."), params[1]);
+			MT_RET(false);
+		}
+
+		if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.view")))
+		{
+			boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
+			if (!stored)
+			{
+				SEND(service, user, N_("Channel %1% is not registered."), channel->Name());
+				MT_RET(false);
+			}
+
+			if (!stored->ACCESS_Matches(user, StoredChannel::Level::LVL_View))
+			{
+				SEND(service, user, N_("You don't have access to view the current modes for channel %1%."),
+					 channel->Name());
+				MT_RET(false);
+			}
+		}
+
+		std::string topic = channel->Topic();
+		if (topic.empty())
+		{
+			SEND(service, user, N_("Channel %1% has no topic set."), channel->Name());
+		}
+		else
+		{
+			SEND(service, user, N_("Topic for %1%: +%2%"), channel->Name() % topic);
+			std::string setter = channel->Topic_Setter();
+			boost::posix_time::ptime settime = channel->Topic_Set_Time();
+			if (!setter.empty() && !settime.is_special())
+			{
+				SEND(service, user, N_("    Set By %1% %2% ago."), setter %
+					 DurationToString(mantra::duration(settime,
+													   mantra::GetCurrentDateTime()), mantra::Second));
+			}
+		}
+	}
+	else
+	{
+		boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(params[1]);
+		if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.mode")))
+		{
+			if (!stored)
+			{
+				SEND(service, user, N_("Channel %1% is not registered."), stored->Name());
+				MT_RET(false);
+			}
+
+			if (!stored->ACCESS_Matches(user, StoredChannel::Level::LVL_CMD_Mode))
+			{
+				SEND(service, user, N_("You don't have access to change the topic on channel %1%."),
+					 stored->Name());
+				MT_RET(false);
+			}
+		}
+
+		std::string topic = params[2];
+		for (size_t i = 3; i < params.size(); ++i)
+			topic += ' ' + params[i];
+
+		stored->Topic(user, topic);
+
+		boost::shared_ptr<LiveChannel> channel = ROOT->data.Get_LiveChannel(params[1]);
+		if (channel)
+			service->GetService()->TOPIC(channel, topic);
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -410,7 +1234,79 @@ static bool biKICK(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biKICK" << service << user << params);
 
-	MT_RET(false);
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<LiveChannel> channel = ROOT->data.Get_LiveChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not in use."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[2]);
+	if (!lu)
+	{
+		SEND(service, user, N_("User %1% is not currently online."), params[2]);
+		MT_RET(false);
+	}
+
+	if (!channel->IsUser(lu))
+	{
+		SEND(service, user, N_("User %1% is not in channel %2%."),
+			 lu->Name() % channel->Name());
+		MT_RET(false);
+	}
+
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.kick")))
+	{
+		boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
+		if (!stored)
+		{
+			SEND(service, user, N_("Channel %1% is not registered."), channel->Name());
+			MT_RET(false);
+		}
+
+		if (!stored->ACCESS_Matches(user, StoredChannel::Level::LVL_CMD_Kick))
+		{
+			SEND(service, user, N_("You don't have access to kick users in channel %1%."),
+				 channel->Name());
+			MT_RET(false);
+		}
+
+		boost::int32_t user_level = 0, lu_level = 0;
+		std::list<StoredChannel::Access> access = stored->ACCESS_Matches(user);
+		if (!access.empty())
+			user_level = access.front().Level();
+		std::list<StoredChannel::Access> target = stored->ACCESS_Matches(lu);
+		if (!target.empty())
+			user_level = target.front().Level();
+
+		if (user_level < lu_level)
+		{
+			SEND(service, user, N_("%1% is higher than you in the access list for channel %2%."),
+				 lu->Name() % channel->Name());
+			MT_RET(false);
+		}
+	}
+
+	std::string reason;
+	for (size_t i = 3; i < params.size(); ++i)
+		reason += " " + params[i];
+
+	if (reason.empty())
+		service->GetService()->KICK(channel, lu, boost::format(_("Kicked by %1%")) %
+								   user->Name());
+	else
+		service->GetService()->KICK(channel, lu, boost::format(_("Kicked by %1%:%2%")) %
+								   user->Name() % reason);
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -421,16 +1317,72 @@ static bool biANONKICK(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biANONKICK" << service << user << params);
 
-	MT_RET(false);
-	MT_EE
-}
+	if (params.size() < 4)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
 
-static bool biUSERS(const boost::shared_ptr<LiveUser> &service,
-					const boost::shared_ptr<LiveUser> &user,
-					const std::vector<std::string> &params)
-{
-	MT_EB
-	MT_FUNC("biUSERS" << service << user << params);
+	boost::shared_ptr<LiveChannel> channel = ROOT->data.Get_LiveChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not in use."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[2]);
+	if (!lu)
+	{
+		SEND(service, user, N_("User %1% is not currently online."), params[2]);
+		MT_RET(false);
+	}
+
+	if (!channel->IsUser(lu))
+	{
+		SEND(service, user, N_("User %1% is not in channel %2%."),
+			 lu->Name() % channel->Name());
+		MT_RET(false);
+	}
+
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.kick")))
+	{
+		boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
+		if (!stored)
+		{
+			SEND(service, user, N_("Channel %1% is not registered."), channel->Name());
+			MT_RET(false);
+		}
+
+		if (!stored->ACCESS_Matches(user, StoredChannel::Level::LVL_Super))
+		{
+			SEND(service, user, N_("You don't have access to anonymously kick users in channel %1%."),
+				 channel->Name());
+			MT_RET(false);
+		}
+
+		boost::int32_t user_level = 0, lu_level = 0;
+		std::list<StoredChannel::Access> access = stored->ACCESS_Matches(user);
+		if (!access.empty())
+			user_level = access.front().Level();
+		std::list<StoredChannel::Access> target = stored->ACCESS_Matches(lu);
+		if (!target.empty())
+			user_level = target.front().Level();
+
+		if (user_level < lu_level)
+		{
+			SEND(service, user, N_("%1% is higher than you in the access list for channel %2%."),
+				 lu->Name() % channel->Name());
+			MT_RET(false);
+		}
+	}
+
+	std::string reason = params[3];
+	for (size_t i = 4; i < params.size(); ++i)
+		reason += " " + params[i];
+
+	service->GetService()->KICK(channel, lu, boost::format(_("%2%")) % reason);
 
 	MT_RET(false);
 	MT_EE
@@ -443,6 +1395,68 @@ static bool biINVITE(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biINVITE" << service << user << params);
 
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<LiveChannel> channel = ROOT->data.Get_LiveChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not in use."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.invite")))
+	{
+		if (!stored)
+		{
+			SEND(service, user, N_("Channel %1% is not registered."), channel->Name());
+			MT_RET(false);
+		}
+
+		if (!stored->ACCESS_Matches(user, StoredChannel::Level::LVL_CMD_Invite))
+		{
+			SEND(service, user, N_("You don't have access to invite users to channel %1%."),
+				 channel->Name());
+			MT_RET(false);
+		}
+	}
+
+	bool restricted = (stored && stored->Restricted());
+
+	for (size_t i=3; i < params.size(); ++i)
+	{
+		boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
+		if (!lu)
+		{
+			SEND(service, user, N_("User %1% is not currently online."), params[i]);
+			continue;
+		}
+
+		if (channel->IsUser(lu))
+		{
+			SEND(service, user, N_("User %1% is already in channel %2%."),
+				 lu->Name() % channel->Name());
+			continue;
+		}
+
+		// They must have a positive entry on the access list, regardless of what
+		// it is.
+		if (restricted && !stored->ACCESS_Matches(lu, 1))
+		{
+			SEND(service, user, N_("User %1% is not on the access list for channel %2% and Restricted is enabled."),
+				 lu->Name() % channel->Name());
+			continue;
+		}
+
+		service->GetService()->INVITE(channel, lu);
+	}
+
 	MT_RET(false);
 	MT_EE
 }
@@ -454,7 +1468,78 @@ static bool biUNBAN(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biUNBAN" << service << user << params);
 
-	MT_RET(false);
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<LiveChannel> channel = ROOT->data.Get_LiveChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not in use."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.unban")))
+	{
+		if (!stored)
+		{
+			SEND(service, user, N_("Channel %1% is not registered."), channel->Name());
+			MT_RET(false);
+		}
+
+		if (!stored->ACCESS_Matches(user, StoredChannel::Level::LVL_CMD_Unban))
+		{
+			SEND(service, user, N_("You don't have access to unban users from channel %1%."),
+				 channel->Name());
+			MT_RET(false);
+		}
+	}
+
+	std::string modes;
+	std::vector<std::string> p;
+	for (size_t i=3; i < params.size(); ++i)
+	{
+		boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
+		if (!lu)
+		{
+			SEND(service, user, N_("User %1% is not currently online."), params[i]);
+			continue;
+		}
+
+		LiveChannel::bans_t bans;
+		LiveChannel::rxbans_t rxbans;
+		channel->MatchBan(lu, bans);
+		channel->MatchBan(lu, rxbans);
+
+		if (bans.empty() && rxbans.empty())
+		{
+			SEND(service, user, N_("User %1% is not banned from channel %2%."),
+				 lu->Name() % channel->Name());
+			continue;
+		}
+
+		LiveChannel::bans_t::const_iterator j;
+		for (j = bans.begin(); j != bans.end(); ++j)
+		{
+			modes += 'b';
+			p.push_back(j->first);
+		}
+		LiveChannel::rxbans_t::const_iterator k;
+		for (k = rxbans.begin(); k != rxbans.end(); ++k)
+		{
+			modes += 'd';
+			p.push_back(k->first.str());
+		}
+	}
+
+	channel->SendModes(service, '-' + modes, p);
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -542,7 +1627,44 @@ static bool biFORBID_ADD(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biFORBID_ADD" << service << user << params);
 
-	MT_RET(false);
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
+
+	static boost::regex channel_rx("^[&#+][^[:space:][:cntrl:],]*$");
+	if (!boost::regex_match(params[1], channel_rx))
+	{
+		NSEND(service, user,
+			  N_("Channel mask specified is not a valid."));
+		MT_RET(false);
+	}
+
+	std::string reason(params[2]);
+	for (size_t i = 3; i < params.size(); ++i)
+		reason += ' ' + params[i];
+
+	Forbidden f = Forbidden::create(params[1], reason, nick);
+	ROOT->data.Add(f);
+	SEND(service, user,
+		 N_("Channel mask \002%1%\017 has been added to the forbidden list."),
+		 params[1]);
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -553,7 +1675,86 @@ static bool biFORBID_DEL(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biFORBID_DEL" << service << user << params);
 
-	MT_RET(false);
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	std::string numbers(params[1]);
+	for (size_t i=2; i<params.size(); ++i)
+		numbers += ' ' + params[i];
+
+	size_t skipped = 0;
+	std::vector<unsigned int> v;
+	if (!mantra::ParseNumbers(numbers, v))
+	{
+		std::vector<Forbidden> ent;
+		ROOT->data.Get_Forbidden(ent, true);
+
+		for (size_t i = 1; i < params.size(); ++i)
+		{
+			if (!ROOT->proto.IsChannel(params[i]))
+			{
+				++skipped;
+				continue;
+			}
+
+			bool found = false;
+			std::vector<Forbidden>::iterator j;
+			for (j = ent.begin(); j != ent.end(); ++j)
+			{
+				if (mantra::glob_match(params[i], j->Mask(), true))
+				{
+					v.push_back(j->Number());
+					found = true;
+				}
+			}
+			if (!found)
+				++skipped;
+		}
+
+		if (v.empty())
+		{
+			SEND(service, user,
+				 N_("No channels matching \002%1%\017 are forbidden."),
+				 numbers);
+			MT_RET(false);
+		}
+	}
+
+	for (size_t i = 0; i < v.size(); ++i)
+	{
+		Forbidden f = ROOT->data.Get_Forbidden(v[i]);
+		if (f.Number())
+			ROOT->data.Del(f);
+		else
+			++skipped;
+	}
+	if (!skipped)
+	{
+		SEND(service, user,
+			 N_("%1% entries removed from the forbidden channel list."),
+			 v.size());
+	}
+	else if (v.size() != skipped)
+	{
+		SEND(service, user,
+			 N_("%1% entries removed from the forbidden channel list and %2% entries specified could not be found."),
+			 (v.size() - skipped) % skipped);
+	}
+	else
+	{
+		NSEND(service, user,
+			  N_("No specified entries could be found on the forbidden channel list."));
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -564,7 +1765,29 @@ static bool biFORBID_LIST(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biFORBID_LIST" << service << user << params);
 
-	MT_RET(false);
+	if (!service || !service->GetService())
+		MT_RET(false);
+
+	std::vector<Forbidden> ent;
+	ROOT->data.Get_Forbidden(ent, true);
+
+	if (ent.empty())
+		NSEND(service, user, N_("The forbidden channel list is empty"));
+	else
+	{
+		NSEND(service, user, N_("Forbidden Channels:"));
+		std::vector<Forbidden>::const_iterator i;
+		for (i = ent.begin(); i != ent.end(); ++i)
+		{
+			SEND(service, user, N_("%1$ 3d. %2$s [Added by %3$s, %4$s ago]"),
+				 i->Number() % i->Mask() % i->Last_UpdaterName() % 
+				 DurationToString(mantra::duration(i->Last_Update(),
+								  mantra::GetCurrentDateTime()), mantra::Second));
+			SEND(service, user, N_("     %1%"), i->Reason());
+		}
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -574,6 +1797,111 @@ static bool biLEVEL_SET(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biLEVEL_SET" << service << user << params);
+
+	if (params.size() < 4)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(user->Name());
+	if (!nick)
+	{
+		NSEND(service, user, N_("Your nickname is not registered."));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredChannel> channel = ROOT->data.Get_StoredChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!user->Identified(channel) && (channel->Secure() ||  nick->User() != channel->Founder()))
+	{
+		SEND(service, user, N_("You don't have access to alter levels for channel %1%."),
+			 channel->Name());
+		MT_RET(false);
+	}
+
+	boost::uint32_t level;
+	try
+	{
+		level = boost::lexical_cast<boost::uint32_t>(params[2]);
+
+		if (StoredChannel::Level::DefaultDesc(level).empty())
+		{
+			SEND(service, user, N_("No such level %1% exists."), params[2]);
+			MT_RET(false);
+		}
+	}
+	catch (const boost::bad_lexical_cast &e)
+	{
+
+		level = StoredChannel::Level::DefaultName(params[2]);
+
+		if (!level)
+		{
+			SEND(service, user, N_("No such level %1% exists."), params[2]);
+			MT_RET(false);
+		}
+	}
+
+	boost::int32_t value;
+	try
+	{
+		value = boost::lexical_cast<boost::int32_t>(params[3]);
+
+		if (value < ROOT->ConfigValue<boost::int32_t>("chanserv.min-level") ||
+			value > ROOT->ConfigValue<boost::int32_t>("chanserv.max-level"))
+		{
+			SEND(service, user, N_("New level value must be between %1% and %2%."),
+				 ROOT->ConfigValue<boost::int32_t>("chanserv.min-level") %
+				 ROOT->ConfigValue<boost::int32_t>("chanserv.max-level"));
+			MT_RET(false);
+		}
+	}
+	catch (const boost::bad_lexical_cast &e)
+	{
+		static boost::regex founder("^(HEAD|FOUNDER|OWNER)$", boost::regex::normal | boost::regex::icase);
+		static boost::regex disable("^(DISABLED?|OFF)$", boost::regex::normal | boost::regex::icase);
+
+		if (boost::regex_match(params[3], founder))
+		{
+			value = ROOT->ConfigValue<boost::int32_t>("chanserv.max-level") + 1;
+		}
+		else if (boost::regex_match(params[3], disable))
+		{
+			value = ROOT->ConfigValue<boost::int32_t>("chanserv.max-level") + 2;
+		}
+		else
+		{
+			NSEND(service, user, N_("New level value must be an integer, FOUNDER or DISABLE."));
+			MT_RET(false);
+		}
+	}
+
+	StoredChannel::Level entry = channel->LEVEL_Get(level);
+	entry.Change(value, nick);
+
+	if (value <= ROOT->ConfigValue<boost::int32_t>("chanserv.max-level"))
+	{
+		SEND(service, user, N_("%1% level for channel %2% has been set to %3%."),
+			 StoredChannel::Level::DefaultDesc(level, user) % channel->Name() % value);
+	}
+	else if (value == ROOT->ConfigValue<boost::int32_t>("chanserv.max-level") + 1)
+	{
+		SEND(service, user, N_("%1% level for channel %2% has been set to founder only."),
+			 StoredChannel::Level::DefaultDesc(level, user) % channel->Name());
+	}
+	else
+	{
+		SEND(service, user, N_("%1% level for channel %2% has been disabled."),
+			 StoredChannel::Level::DefaultDesc(level, user) % channel->Name());
+	}
 
 	MT_RET(false);
 	MT_EE
@@ -586,6 +1914,62 @@ static bool biLEVEL_UNSET(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biLEVEL_UNSET" << service << user << params);
 
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(user->Name());
+	if (!nick)
+	{
+		NSEND(service, user, N_("Your nickname is not registered."));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredChannel> channel = ROOT->data.Get_StoredChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!user->Identified(channel) && (channel->Secure() ||  nick->User() != channel->Founder()))
+	{
+		SEND(service, user, N_("You don't have access to alter levels for channel %1%."),
+			 channel->Name());
+		MT_RET(false);
+	}
+
+	boost::uint32_t level;
+	try
+	{
+		level = boost::lexical_cast<boost::uint32_t>(params[2]);
+
+		if (StoredChannel::Level::DefaultDesc(level).empty())
+		{
+			SEND(service, user, N_("No such level %1% exists."), params[2]);
+			MT_RET(false);
+		}
+	}
+	catch (const boost::bad_lexical_cast &e)
+	{
+
+		level = StoredChannel::Level::DefaultName(params[2]);
+
+		if (!level)
+		{
+			SEND(service, user, N_("No such level %1% exists."), params[2]);
+			MT_RET(false);
+		}
+	}
+
+	channel->LEVEL_Del(level);
+	SEND(service, user, N_("%1% level for channel %2% has been reset to the default value."),
+		 StoredChannel::Level::DefaultDesc(level, user) % channel->Name());
+
 	MT_RET(false);
 	MT_EE
 }
@@ -596,6 +1980,90 @@ static bool biLEVEL_LIST(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biLEVEL_LIST" << service << user << params);
+
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(user->Name());
+	if (!nick)
+	{
+		NSEND(service, user, N_("Your nickname is not registered."));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredChannel> channel = ROOT->data.Get_StoredChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!user->Identified(channel) && (channel->Secure() ||  nick->User() != channel->Founder()))
+	{
+		std::set<StoredChannel::Level> levels;
+		channel->LEVEL_Get(levels);
+
+		NSEND(service, user, N_("    DESCRIPTION                         LEVEL"));
+		std::set<StoredChannel::Level>::iterator i;
+		for (i = levels.begin(); i != levels.end(); ++i)
+		{
+			std::string updater = i->Last_UpdaterName();
+			std::string value;
+			if (i->Value() <= ROOT->ConfigValue<boost::int32_t>("chanserv.max-level"))
+			{
+				value = boost::lexical_cast<std::string>(i->Value());
+			}
+			else if (i->Value() == ROOT->ConfigValue<boost::int32_t>("chanserv.max-level") + 1)
+			{
+				value = U_(user, "FOUNDER");
+			}
+			else
+			{
+				value = U_(user, "DISABLED");
+			}
+
+			if (updater.empty())
+				SEND(service, user, N_("%1$_2d. %2$-35s %3$s (default)"), i->ID() %
+					 StoredChannel::Level::DefaultDesc(i->ID(), user) % value);
+			else
+				SEND(service, user, N_("%1$_2d. %2$-35s %3$s (set %4$s ago by %5$s)"), i->ID() %
+					 StoredChannel::Level::DefaultDesc(i->ID(), user) % value %
+					 DurationToString(mantra::duration(i->Last_Update(),
+													   mantra::GetCurrentDateTime()),
+									  mantra::Second) % updater);
+		}
+	}
+	else
+	{
+		std::list<StoredChannel::Access> acc(channel->ACCESS_Matches(user));
+		boost::int32_t level = 0;
+		if (!acc.empty())
+			level = acc.front().Level();
+		if (level <= 0)
+		{
+			SEND(service, user, N_("You do not have any access on channel %1%."),
+				 channel->Name());
+			MT_RET(false);
+		}
+
+		std::set<StoredChannel::Level> levels;
+		channel->LEVEL_Get(levels);
+
+		std::set<StoredChannel::Level>::iterator i;
+		for (i = levels.begin(); i != levels.end(); ++i)
+		{
+			if (level >= i->Value())
+			{
+				SEND(service, user, N_("You have access to %1%."),
+					 StoredChannel::Level::DefaultDesc(level, user));
+			}
+		}
+	}
 
 	MT_RET(false);
 	MT_EE
@@ -608,7 +2076,214 @@ static bool biACCESS_ADD(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biACCESS_ADD" << service << user << params);
 
-	MT_RET(false);
+	if (params.size() < 4)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(user->Name());
+	if (!nick)
+	{
+		NSEND(service, user, N_("Your nickname is not registered."));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredChannel> channel = ROOT->data.Get_StoredChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::int32_t level = 0;
+	if (user->Identified(channel) || (!channel->Secure() && nick->User() == channel->Founder()))
+		level = ROOT->ConfigValue<boost::int32_t>("chanserv.max-level") + 1;
+	else
+	{
+		std::list<StoredChannel::Access> acc(channel->ACCESS_Matches(user));
+		if (!acc.empty())
+			level = acc.front().Level();
+	}
+
+	if (level < channel->LEVEL_Get(StoredChannel::Level::LVL_Access).Value())
+	{
+		SEND(service, user, N_("You do not have sufficient access to modify the access list for channel %1%."),
+			 channel->Name());
+		MT_RET(false);
+	}
+
+	boost::int32_t newlevel;
+	try
+	{
+		newlevel = boost::lexical_cast<boost::int32_t>(params[3]);
+		if (newlevel == 0)
+		{
+			NSEND(service, user, N_("New access level must not be 0."));
+			MT_RET(false);
+		}
+
+		if (newlevel < ROOT->ConfigValue<boost::int32_t>("chanserv.min-level") ||
+			newlevel > ROOT->ConfigValue<boost::int32_t>("chanserv.max-level"))
+		{
+			SEND(service, user, N_("New access level must be between %1% and %2%."),
+				 ROOT->ConfigValue<boost::int32_t>("chanserv.min-level") %
+				 ROOT->ConfigValue<boost::int32_t>("chanserv.max-level"));
+			MT_RET(false);
+		}
+
+		if (newlevel >= level)
+		{
+			NSEND(service, user, N_("You may only add entries to the access list below your own level."));
+			MT_RET(false);
+		}
+	}
+	catch (const boost::bad_lexical_cast &e)
+	{
+		NSEND(service, user, N_("New access level must be an integer."));
+		MT_RET(false);
+	}
+
+	static boost::regex nick_rx("^[[:alpha:]\\x5B-\\x60\\x7B-\\x7D][-[:alnum:]\\x5B-\\x60\\x7B-\\x7D]*$");
+	static boost::regex committee_rx("^@[[:print:]]+$");
+	static boost::regex mask_rx("^([[:alpha:]\\x5B-\\x60\\x7B-\\x7D*?][-[:alnum:]\\x5B-\\x60\\x7B-\\x7D*?]*!)?"
+								"[^[:space:][:cntrl:]@]+@(([[:alnum:]*?]([-[:alnum:]*?]{0,61}[[:alnum:]*?])?\\.)*"
+								"[[:alnum:]*?]([-[:alnum:]*?]{0,61}[[:alnum:]*?])?|[[:xdigit:]:*?]*)$");
+	if (boost::regex_match(params[2], nick_rx))
+	{
+		boost::shared_ptr<StoredNick> target = ROOT->data.Get_StoredNick(params[2]);
+		if (!target)
+		{
+			SEND(service, user, N_("Nickname %1% is not registered."), params[2]);	
+			MT_RET(false);
+		}
+
+		StoredChannel::Access acc(channel->ACCESS_Get(target->User()));
+		if (acc.Number())
+		{
+			if (acc.Level() >= level)
+			{
+				SEND(service, user, N_("Nickname %1% is higher than you or equal to you on the channel %2% access list."),
+					 target->Name() % channel->Name());
+				MT_RET(false);
+			}
+
+			acc.ChangeValue(newlevel, nick);
+			SEND(service, user, N_("Nickname %1% has been changed to access level %2% on channel %3%."),
+				 target->Name() % newlevel % channel->Name());
+		}
+		else
+		{
+			StoredChannel::Access acc2(channel->ACCESS_Add(target->User(), newlevel, nick));
+			if (!acc2.Number())
+			{
+				SEND(service, user, N_("Could not add nickname %1% to channel %2% access list."),
+					 target->Name() % channel->Name());
+				MT_RET(false);
+			}
+
+			SEND(service, user, N_("Nickname %1% has been added at access level %2% to channel %3%."),
+				 target->Name() % newlevel % channel->Name());
+		}
+	}
+	else if (boost::regex_match(params[2], committee_rx))
+	{
+		boost::shared_ptr<Committee> target = ROOT->data.Get_Committee(params[2].substr(1));
+		if (!target)
+		{
+			SEND(service, user, N_("Committee %1% is not registered."), params[2].substr(1));	
+			MT_RET(false);
+		}
+
+		StoredChannel::Access acc(channel->ACCESS_Get(target));
+		if (acc.Number())
+		{
+			if (acc.Level() >= level)
+			{
+				SEND(service, user, N_("Committee %1% is higher than you or equal to you on the channel %2% access list."),
+					 target->Name() % channel->Name());
+				MT_RET(false);
+			}
+
+			acc.ChangeValue(newlevel, nick);
+			SEND(service, user, N_("Committee %1% has been changed to access level %2% on channel %3%."),
+				 target->Name() % newlevel % channel->Name());
+		}
+		else
+		{
+			StoredChannel::Access acc2(channel->ACCESS_Add(target, newlevel, nick));
+			if (!acc2.Number())
+			{
+				SEND(service, user, N_("Could not add committee %1% to channel %2% access list."),
+					 target->Name() % channel->Name());
+				MT_RET(false);
+			}
+
+			SEND(service, user, N_("Committee %1% has been added at access level %2% to channel %3%."),
+				 target->Name() % newlevel % channel->Name());
+		}
+	}
+	else if (boost::regex_match(params[2], mask_rx))
+	{
+		StoredChannel::Access acc(channel->ACCESS_Get(params[2]));
+		if (acc.Number())
+		{
+			if (acc.Level() >= level)
+			{
+				SEND(service, user, N_("Mask %1% is higher than you or equal to you on the channel %2% access list."),
+					 acc.Mask() % channel->Name());
+				MT_RET(false);
+			}
+
+			acc.ChangeValue(newlevel, nick);
+			SEND(service, user, N_("Mask %1% has been changed to access level %2% on channel %3%."),
+				 acc.Mask() % newlevel % channel->Name());
+		}
+		else
+		{
+			StoredChannel::Access acc2(channel->ACCESS_Add(params[2], newlevel, nick));
+			if (!acc2.Number())
+			{
+				SEND(service, user, N_("Could not add mask %1% to channel %2% access list."),
+					 params[2] % channel->Name());
+				MT_RET(false);
+			}
+
+			SEND(service, user, N_("Mask %1% has been added at access level %2% to channel %3%."),
+				 params[2] % newlevel % channel->Name());
+		}
+	}
+	else
+	{
+		try
+		{
+			boost::uint32_t entry = boost::lexical_cast<boost::uint32_t>(params[2]);
+
+			StoredChannel::Access acc(channel->ACCESS_Get(entry));
+			if (acc.Number())
+			{
+				if (acc.Level() >= level)
+				{
+					SEND(service, user, N_("Entry #%1% is higher than you or equal to you on the channel %2% access list."),
+						 entry % channel->Name());
+					MT_RET(false);
+				}
+
+				acc.ChangeValue(newlevel, nick);
+				SEND(service, user, N_("Entry #%1% has been changed to access level %2% on channel %3%."),
+					 entry % newlevel % channel->Name());
+			}
+		}
+		catch (const boost::bad_lexical_cast &e)
+		{
+			NSEND(service, user, N_("Invalid mask, nickname, committee or existing entry specified."));
+			MT_RET(false);
+		}
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -619,7 +2294,192 @@ static bool biACCESS_DEL(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biACCESS_DEL" << service << user << params);
 
-	MT_RET(false);
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(user->Name());
+	if (!nick)
+	{
+		NSEND(service, user, N_("Your nickname is not registered."));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredChannel> channel = ROOT->data.Get_StoredChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::int32_t level = 0;
+	if (user->Identified(channel) || (!channel->Secure() && nick->User() == channel->Founder()))
+		level = ROOT->ConfigValue<boost::int32_t>("chanserv.max-level") + 1;
+	else
+	{
+		std::list<StoredChannel::Access> acc(channel->ACCESS_Matches(user));
+		if (!acc.empty())
+			level = acc.front().Level();
+	}
+
+	if (level < channel->LEVEL_Get(StoredChannel::Level::LVL_Access).Value())
+	{
+		SEND(service, user, N_("You do not have sufficient access to modify the access list for channel %1%."),
+			 channel->Name());
+		MT_RET(false);
+	}
+
+	size_t deleted = 0, skipped = 0, notfound = 0;
+
+	static boost::regex nick_rx("^[[:alpha:]\\x5B-\\x60\\x7B-\\x7D][-[:alnum:]\\x5B-\\x60\\x7B-\\x7D]*$");
+	static boost::regex committee_rx("^@[[:print:]]+$");
+	static boost::regex mask_rx("^([[:alpha:]\\x5B-\\x60\\x7B-\\x7D*?][-[:alnum:]\\x5B-\\x60\\x7B-\\x7D*?]*!)?"
+								"[^[:space:][:cntrl:]@]+@(([[:alnum:]*?]([-[:alnum:]*?]{0,61}[[:alnum:]*?])?\\.)*"
+								"[[:alnum:]*?]([-[:alnum:]*?]{0,61}[[:alnum:]*?])?|[[:xdigit:]:*?]*)$");
+	for (size_t i = 2; i < params.size(); ++i)
+	{
+		if (boost::regex_match(params[i], nick_rx))
+		{
+			boost::shared_ptr<StoredNick> target = ROOT->data.Get_StoredNick(params[i]);
+			if (!target)
+			{
+				++notfound;
+				continue;
+			}
+
+			StoredChannel::Access acc(channel->ACCESS_Get(target->User()));
+			if (acc.Number())
+			{
+				if (acc.Level() >= level)
+				{
+					++skipped;
+					continue;
+				}
+
+				channel->ACCESS_Del(acc.Number());
+				++deleted;
+			}
+			else
+			{
+				++notfound;
+			}
+		}
+		else if (boost::regex_match(params[i], committee_rx))
+		{
+			boost::shared_ptr<Committee> target = ROOT->data.Get_Committee(params[i].substr(1));
+			if (!target)
+			{
+				++notfound;
+				continue;
+			}
+
+			StoredChannel::Access acc(channel->ACCESS_Get(target));
+			if (acc.Number())
+			{
+				if (acc.Level() >= level)
+				{
+					++skipped;
+					continue;
+				}
+
+				channel->ACCESS_Del(acc.Number());
+				++deleted;
+			}
+			else
+			{
+				++notfound;
+			}
+		}
+		else if (boost::regex_match(params[i], mask_rx))
+		{
+			std::list<StoredChannel::Access> acc(channel->ACCESS_Matches(
+					mantra::make_globrx(params[i], boost::regex_constants::normal |
+												   boost::regex_constants::icase)));
+			if (!acc.empty())
+			{
+				std::list<StoredChannel::Access>::iterator j;
+				for (j = acc.begin(); j != acc.end(); ++j)
+				{
+					if (j->Level() >= level)
+					{
+						++skipped;
+						continue;
+					}
+
+					channel->ACCESS_Del(j->Number());
+					++deleted;
+				}
+			}
+			else
+			{
+				++notfound;
+			}
+		}
+		else
+		{
+			std::vector<unsigned int> nums;
+			if (mantra::ParseNumbers(params[i], nums))
+			{
+				std::vector<unsigned int>::iterator j;
+				for (j = nums.begin(); j != nums.end(); ++j)
+				{
+					StoredChannel::Access acc = channel->ACCESS_Get(*j);
+					if (acc.Number())
+					{
+						if (acc.Level() >= level)
+						{
+							++skipped;
+							continue;
+						}
+
+						channel->ACCESS_Del(acc.Number());
+						++deleted;
+					}
+					else
+						++notfound;
+				}
+			}
+			else
+			{
+				++notfound;
+			}
+		}
+	}
+
+	if (deleted)
+	{
+		if (skipped)
+			SEND(service, user,
+				 N_("%1% entries removed (%2% had higher access and skipped) from the access list for channel %3%."),
+				 deleted % skipped % channel->Name());
+		else
+			SEND(service, user,
+				 N_("%1% entries removed from the access list for channel %2%."),
+				 deleted % channel->Name());
+	}
+	else if (notfound)
+	{
+		if (skipped)
+			SEND(service, user,
+				  N_("No specified entries could be found (%1% had higher access and skipped) on the access list for channel %2%."),
+				  skipped % channel->Name());
+		else
+			SEND(service, user,
+				  N_("No specified entries could be found on the access list for channel %1%."),
+				  channel->Name());
+	}
+	else
+	{
+		SEND(service, user,
+			  N_("All specified entries had higher access and were skipped on the access list for channel %1%."),
+			  channel->Name());
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -630,7 +2490,152 @@ static bool biACCESS_LIST(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biACCESS_LIST" << service << user << params);
 
-	MT_RET(false);
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredChannel> channel = ROOT->data.Get_StoredChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!channel->ACCESS_Matches(user, StoredChannel::Level::LVL_Access))
+	{
+		SEND(service, user, N_("You do not have sufficient access to view the access list for channel %1%."),
+			 channel->Name());
+		MT_RET(false);
+	}
+
+	std::set<StoredChannel::Access> acc;
+	if (params.size() > 2)
+	{
+		static boost::regex nick_rx("^[[:alpha:]\\x5B-\\x60\\x7B-\\x7D][-[:alnum:]\\x5B-\\x60\\x7B-\\x7D]*$");
+		static boost::regex committee_rx("^@[[:print:]]+$");
+		static boost::regex mask_rx("^([[:alpha:]\\x5B-\\x60\\x7B-\\x7D*?][-[:alnum:]\\x5B-\\x60\\x7B-\\x7D*?]*!)?"
+									"[^[:space:][:cntrl:]@]+@(([[:alnum:]*?]([-[:alnum:]*?]{0,61}[[:alnum:]*?])?\\.)*"
+									"[[:alnum:]*?]([-[:alnum:]*?]{0,61}[[:alnum:]*?])?|[[:xdigit:]:*?]*)$");
+		for (size_t i = 2; i < params.size(); ++i)
+		{
+			if (boost::regex_match(params[i], nick_rx))
+			{
+				boost::shared_ptr<StoredNick> target = ROOT->data.Get_StoredNick(params[i]);
+				if (!target)
+					continue;
+
+				StoredChannel::Access tmp(channel->ACCESS_Get(target->User()));
+				if (tmp.Number())
+					acc.insert(tmp);
+			}
+			else if (boost::regex_match(params[i], committee_rx))
+			{
+				boost::shared_ptr<Committee> target = ROOT->data.Get_Committee(params[i].substr(1));
+				if (!target)
+					continue;
+
+				StoredChannel::Access tmp(channel->ACCESS_Get(target));
+				if (tmp.Number())
+					acc.insert(tmp);
+			}
+			else if (boost::regex_match(params[i], mask_rx))
+			{
+				std::list<StoredChannel::Access> tmp(channel->ACCESS_Matches(
+						mantra::make_globrx(params[i], boost::regex_constants::normal |
+													   boost::regex_constants::icase)));
+				if (!tmp.empty())
+					acc.insert(tmp.begin(), tmp.end());
+			}
+			else
+			{
+				std::vector<unsigned int> nums;
+				if (mantra::ParseNumbers(params[i], nums))
+				{
+					std::vector<unsigned int>::iterator j;
+					for (j = nums.begin(); j != nums.end(); ++j)
+					{
+						StoredChannel::Access tmp = channel->ACCESS_Get(*j);
+						if (tmp.Number())
+							acc.insert(tmp);
+					}
+				}
+			}
+		}
+	}
+	else
+	{
+		channel->ACCESS_Get(acc);
+	}
+
+	if (acc.empty())
+	{
+		if (params.size() > 2)
+		{
+			SEND(service, user, N_("No entries matching your specification on the access list for channel %1%."),
+				 channel->Name());
+			MT_RET(false);
+		}
+		else
+		{
+			SEND(service, user, N_("The access list for channel %1% is empty."),
+				 channel->Name());
+			MT_RET(false);
+		}
+	}
+	else
+	{
+		NSEND(service, user, N_("     SPECIFICATION               LEVEL"));
+		std::set<StoredChannel::Access>::iterator i;
+		for (i = acc.begin(); i != acc.end(); ++i)
+		{
+			if (!i->Number())
+				continue;
+
+			if (i->User())
+			{
+				StoredUser::my_nicks_t nicks = i->User()->Nicks();
+				if (nicks.empty())
+					continue;
+
+				std::string str;
+				StoredUser::my_nicks_t::const_iterator j;
+				for (j = nicks.begin(); j != nicks.end(); ++j)
+				{
+					if (!*j)
+						continue;
+
+					if (!str.empty())
+						str += ", ";
+					str += (*j)->Name();
+				}
+
+				SEND(service, user, N_("%1$ 3d. %2$-65s %3$ 2d (last modified by %4$s %5$s ago)"),
+					 i->Number() % str % i->Level() % i->Last_UpdaterName() %
+					 DurationToString(mantra::duration(i->Last_Update(),
+													   mantra::GetCurrentDateTime()), mantra::Second));
+			}
+			else if (i->GetCommittee())
+			{
+				SEND(service, user, N_("%1$ 3d. %2$-65s %3$ 2d (last modified by %4$s %5$s ago)"),
+					 i->Number() % i->GetCommittee()->Name() % i->Level() % i->Last_UpdaterName() %
+					 DurationToString(mantra::duration(i->Last_Update(),
+													   mantra::GetCurrentDateTime()), mantra::Second));
+			}
+			else
+			{
+				SEND(service, user, N_("%1$ 3d. %2$-65s %3$ 2d (last modified by %4$s %5$s ago)"),
+					 i->Number() % i->Mask() % i->Level() % i->Last_UpdaterName() %
+					 DurationToString(mantra::duration(i->Last_Update(),
+													   mantra::GetCurrentDateTime()), mantra::Second));
+			}
+		}
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -641,7 +2646,53 @@ static bool biACCESS_REINDEX(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biACCESS_REINDEX" << service << user << params);
 
-	MT_RET(false);
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredChannel> channel = ROOT->data.Get_StoredChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!channel->ACCESS_Matches(user, StoredChannel::Level::LVL_Access))
+	{
+		SEND(service, user, N_("You do not have sufficient access to modify the access list for channel %1%."),
+			 channel->Name());
+		MT_RET(false);
+	}
+
+	std::set<StoredChannel::Access> acc;
+	channel->ACCESS_Get(acc);
+
+	if (acc.empty())
+	{
+		SEND(service, user, N_("The access list for channel %1% is empty."),
+			 channel->Name());
+		MT_RET(false);
+	}
+
+	size_t count = 0, changed = 0;
+	std::set<StoredChannel::Access>::iterator i;
+	for (i = acc.begin(); i != acc.end(); ++i)
+	{
+		if (i->Number() != ++count)
+		{
+			channel->ACCESS_Reindex(i->Number(), count);
+			++changed;
+		}
+	}
+
+	SEND(service, user, N_("Reindexing of access list for channel %1% complete, \002%2%\017 entries changed."),
+		 channel->Name() % changed);
+
+	MT_RET(true);
 	MT_EE
 }
 

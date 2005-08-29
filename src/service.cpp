@@ -34,6 +34,7 @@ RCSID(magick__service_cpp, "@(#)$Id$");
 
 #include "magick.h"
 #include "liveuser.h"
+#include "livechannel.h"
 #include "storednick.h"
 #include "storeduser.h"
 
@@ -215,10 +216,7 @@ unsigned int Service::PushCommand(const boost::regex &rx,
 	func_map_.push_front(Command_t());
 	func_map_.front().id = ++id;
 	func_map_.front().perms = perms;
-	if (rx.flags() & boost::regex_constants::icase)
-		func_map_.front().rx = rx;
-	else
-		func_map_.front().rx = boost::regex(rx.str(),
+	func_map_.front().rx = boost::regex(rx.str(),
 			rx.flags() | boost::regex_constants::icase);
 	func_map_.front().func = func;
 
@@ -449,6 +447,243 @@ void Service::SVSNICK(const boost::shared_ptr<LiveUser> &target,
 		return;
 
 	SVSNICK(*j, target, newnick);
+
+	MT_EE
+}
+
+void Service::JOIN(const boost::shared_ptr<LiveUser> &source,
+				   const boost::shared_ptr<LiveChannel> &channel) const
+{
+	MT_EB
+	MT_FUNC("Service::JOIN" << source << channel);
+
+	if (!source || source->GetService() != this)
+		return;
+
+	std::string out;
+	switch (ROOT->proto.ConfigValue<unsigned int>("join"))
+	{
+	case 0:
+		ROOT->proto.addline(*source, out, ROOT->proto.tokenise("TOPIC") + " :" +
+							channel->Name());
+		break;
+	case 1:
+		ROOT->proto.addline(*source, out, ROOT->proto.tokenise("SJOIN") + ' ' +
+							boost::lexical_cast<std::string>(time(NULL)) + ' ' +
+							channel->Name());
+		break;
+	case 2:
+		ROOT->proto.addline(out, ROOT->proto.tokenise("SJOIN") + ' ' +
+							boost::lexical_cast<std::string>(time(NULL)) + ' ' +
+							channel->Name() + " :@" + source->Name());
+		break;
+	}
+
+	ROOT->proto.send(out);
+	channel->Join(source);
+
+	MT_EE
+}
+
+void Service::JOIN(const boost::shared_ptr<LiveChannel> &channel) const
+{
+	MT_EB
+	MT_FUNC("Service::JOIN" << channel);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator j = std::lower_bound(users_.begin(),
+												 users_.end(),
+												 primary_);
+	if (j == users_.end() || **j != primary_)
+		return;
+
+	JOIN(*j, channel);
+
+	MT_EE
+}
+
+void Service::PART(const boost::shared_ptr<LiveUser> &source,
+				   const boost::shared_ptr<LiveChannel> &channel,
+				   const std::string &reason) const
+{
+	MT_EB
+	MT_FUNC("Service::PART" << source << channel << reason);
+
+	if (!source || source->GetService() != this)
+		return;
+
+	std::string out;
+	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("PART") + " " +
+						channel->Name() + (reason.empty() ? std::string() :
+															" :" + reason));
+	ROOT->proto.send(out);
+	channel->Part(source);
+
+	MT_EE
+}
+
+void Service::PART(const boost::shared_ptr<LiveChannel> &channel,
+				   const std::string &reason) const
+{
+	MT_EB
+	MT_FUNC("Service::PART" << channel << reason);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator j = std::lower_bound(users_.begin(),
+												 users_.end(),
+												 primary_);
+	if (j == users_.end() || **j != primary_)
+		return;
+
+	PART(*j, channel, reason);
+
+	MT_EE
+}
+
+void Service::TOPIC(const boost::shared_ptr<LiveUser> &source,
+					const boost::shared_ptr<LiveChannel> &channel,
+				    const std::string &topic) const
+{
+	MT_EB
+	MT_FUNC("Service::TOPIC" << source << channel << topic);
+
+	if (!source || source->GetService() != this)
+		return;
+
+	std::string out, msg = ROOT->proto.tokenise("TOPIC") + ' ' + channel->Name();
+	if (ROOT->proto.ConfigValue<bool>("extended-topic"))
+	{
+		msg += ' ' + source->Name();
+		if (!topic.empty())
+			msg += ' ' + boost::lexical_cast<std::string>(time(NULL));
+	}
+	if (!topic.empty())
+		msg += " :" + topic;
+	ROOT->proto.addline(*source, out, msg);
+
+	bool didjoin = false;
+	boost::shared_ptr<LiveUser> sender = source;
+	if (ROOT->proto.ConfigValue<bool>("topic-join") && !source->InChannel(channel))
+	{
+		if (*source == primary_)
+		{
+			JOIN(source, channel);
+			didjoin = true;
+		}
+		else
+		{
+			SYNC_RLOCK(users_);
+			users_t::const_iterator j = std::lower_bound(users_.begin(),
+														 users_.end(),
+														 primary_);
+			if (j != users_.end() && **j == primary_)
+				sender = *j;
+
+			if (!sender->InChannel(channel))
+			{
+				JOIN(sender, channel);
+				didjoin = true;
+			}
+		}
+	}
+
+	ROOT->proto.send(out);
+	channel->Topic(topic, sender->Name(), mantra::GetCurrentDateTime());
+	if (didjoin)
+		PART(sender, channel);
+
+	MT_EE
+}
+
+void Service::TOPIC(const boost::shared_ptr<LiveChannel> &channel,
+				    const std::string &topic) const
+{
+	MT_EB
+	MT_FUNC("Service::TOPIC" << channel << topic);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator j = std::lower_bound(users_.begin(),
+												 users_.end(),
+												 primary_);
+	if (j == users_.end() || **j != primary_)
+		return;
+
+	TOPIC(*j, channel, topic);
+
+	MT_EE
+}
+
+void Service::KICK(const boost::shared_ptr<LiveUser> &source,
+				   const boost::shared_ptr<LiveChannel> &channel,
+				   const boost::shared_ptr<LiveUser> &target,
+				   const boost::format &reason) const
+{
+	MT_EB
+	MT_FUNC("Service::KICK" << source << channel << target << reason);
+
+	if (!source || source->GetService() != this)
+		return;
+
+	std::string out;
+	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("KICK") + ' ' +
+						channel->Name() + ' ' + target->Name() + " :" + reason.str());
+	ROOT->proto.send(out);
+	channel->Kick(target, source, reason.str());
+
+	MT_EE
+}
+
+void Service::KICK(const boost::shared_ptr<LiveChannel> &channel,
+				   const boost::shared_ptr<LiveUser> &target,
+				   const boost::format &reason) const
+{
+	MT_EB
+	MT_FUNC("Service::KICK" << channel << target << reason);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator j = std::lower_bound(users_.begin(),
+												 users_.end(),
+												 primary_);
+	if (j == users_.end() || **j != primary_)
+		return;
+
+	KICK(*j, channel, target, reason);
+
+	MT_EE
+}
+
+void Service::INVITE(const boost::shared_ptr<LiveUser> &source,
+					 const boost::shared_ptr<LiveChannel> &channel,
+					 const boost::shared_ptr<LiveUser> &target)
+{
+	MT_EB
+	MT_FUNC("Service::INVITE" << source << channel << target);
+
+	if (!source || source->GetService() != this)
+		return;
+
+	std::string out;
+	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("INVITE") + ' ' +
+						target->Name() + " :" + channel->Name());
+	ROOT->proto.send(out);
+
+	MT_EE
+}
+
+void Service::INVITE(const boost::shared_ptr<LiveChannel> &channel,
+					 const boost::shared_ptr<LiveUser> &target)
+{
+	MT_EB
+	MT_FUNC("Service::INVITE" << channel << target);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator j = std::lower_bound(users_.begin(),
+												 users_.end(),
+												 primary_);
+	if (j == users_.end() || **j != primary_)
+		return;
+
+	INVITE(*j, channel, target);
 
 	MT_EE
 }

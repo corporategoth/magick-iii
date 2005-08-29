@@ -33,6 +33,7 @@ RCSID(magick__config_parse_cpp, "@(#)$Id$");
 ** ======================================================================= */
 
 #include "magick.h"
+#include "storedchannel.h"
 
 #include <fstream>
 
@@ -810,6 +811,80 @@ bool Magick::set_config(const po::variables_map &vm)
 	{
 		// TODO: Re-check clone limits
 	}
+
+	// Set the default levels ...
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_AutoDeop,
+								  vm["chanserv.levels.autodeop"].as<int>(),
+								  boost::regex("AUTOOP"), N_("Auto Deop"));
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_AutoVoice,
+								  vm["chanserv.levels.autovoice"].as<int>(),
+								  boost::regex("AUTOVOICE"), N_("Auto Voice"));
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_AutoHalfOp,
+								  vm["chanserv.levels.autohalfop"].as<int>(),
+								  boost::regex("AUTOHALFOP"), N_("Auto HalfOp"));
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_AutoOp,
+								  vm["chanserv.levels.autoop"].as<int>(),
+								  boost::regex("AUTOOP"), N_("Auto Op"));
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_ReadMemo,
+								  vm["chanserv.levels.readmemo"].as<int>(),
+								  boost::regex("READMEMO"), N_("Read News"));
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_WriteMemo,
+								  vm["chanserv.levels.writememo"].as<int>(),
+								  boost::regex("WRITEMEMO"), N_("Write News"));
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_DelMemo,
+								  vm["chanserv.levels.delmemo"].as<int>(),
+								  boost::regex("DELMEMO"), N_("Delete News"));
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_Greet,
+								  vm["chanserv.levels.greet"].as<int>(),
+								  boost::regex("GREET"), N_("Set Own Greeting"));
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_OverGreet,
+								  vm["chanserv.levels.overgreet"].as<int>(),
+								  boost::regex("OVERGREET"), N_("Set Any Greeting"));
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_Message,
+								  vm["chanserv.levels.message"].as<int>(),
+								  boost::regex("MESSAGE"), N_("Create On-Join Message"));
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_Akick,
+								  vm["chanserv.levels.akick"].as<int>(),
+								  boost::regex("AKICK"), N_("Manage AutoKicks"));
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_Super,
+								  vm["chanserv.levels.super"].as<int>(),
+								  boost::regex("SUPER"), N_("'Super' Op"));
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_Unban,
+								  vm["chanserv.levels.unban"].as<int>(),
+								  boost::regex("UNBAN"), N_("Unban Users"));
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_Access,
+								  vm["chanserv.levels.access"].as<int>(),
+								  boost::regex("ACCESS"), N_("Manage Access List"));
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_Set,
+								  vm["chanserv.levels.set"].as<int>(),
+								  boost::regex("SET"), N_("Alter Channel Settings"));
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_View,
+								  vm["chanserv.levels.view"].as<int>(),
+								  boost::regex("VIEW"), N_("View Current Channel Information"));
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_CMD_Invite,
+								  vm["chanserv.levels.cmd-invite"].as<int>(),
+								  boost::regex("CMDINVITE"), N_("Use the INVITE command"));
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_CMD_Unban,
+								  vm["chanserv.levels.cmd-unban"].as<int>(),
+								  boost::regex("CMDUNBAN"), N_("Use the UNBAN command"));
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_CMD_Voice,
+								  vm["chanserv.levels.cmd-voice"].as<int>(),
+								  boost::regex("CMDVOICE"), N_("Use the VOICE/DEVOICE command"));
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_CMD_HalfOp,
+								  vm["chanserv.levels.cmd-halfop"].as<int>(),
+								  boost::regex("CMDHALFOP"), N_("Use the HALFOP/DEHALFOP command"));
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_CMD_Op,
+								  vm["chanserv.levels.cmd-op"].as<int>(),
+								  boost::regex("CMDOP"), N_("Use the OP/DEOP command"));
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_CMD_Kick,
+								  vm["chanserv.levels.cmd-kick"].as<int>(),
+								  boost::regex("CMDKICK"), N_("Use the KICK/ANONKICK command"));
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_CMD_Mode,
+								  vm["chanserv.levels.cmd-mode"].as<int>(),
+								  boost::regex("CMDMODE"), N_("Use the MODE/TOPIC command"));
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_CMD_Clear,
+								  vm["chanserv.levels.cmd-clear"].as<int>(),
+								  boost::regex("CMDCLEAR"), N_("Use the CLEAR command"));
 
 	opt_config = vm;
 

@@ -794,6 +794,8 @@ static void add_general_options(po::options_description &opts)
 					"maximum time to delay a message with a dependancy")
 		("general.expire-check", mantra::value<mantra::duration>()->default_value(mantra::duration("5n")),
 					"how often to check if anything needs to be expired")
+		("general.cache-expire", mantra::value<mantra::duration>()->default_value(mantra::duration("5n")),
+					"how long to remember cached preferenes before going back to the DB.")
 	;
 
 	MT_EE
@@ -829,8 +831,6 @@ static void add_nickserv_options(po::options_description &opts)
 					"maximum size a user's picture may be")
 		("nickserv.picture-extensions", mantra::value<std::string>()->default_value("jpg png gif bmp tif"),
 					"valid extensions for an image")
-		("nickserv.cache-expire", mantra::value<mantra::duration>()->default_value(mantra::duration("5n")),
-					"how long to remember cached preferenes before going back to the DB.")
 
 		("nickserv.defaults.protect", mantra::value<bool>()->default_value(true), "")
 		("nickserv.defaults.secure", mantra::value<bool>()->default_value(false), "")

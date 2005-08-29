@@ -169,8 +169,8 @@ mantra::StorageValue StorageInterface::GetField(const mantra::ComparisonSet &sea
 	if (ds.size() != 1u)
 		MT_RET(nv);
 
-	mantra::Storage::RecordMap::iterator i = ds[0].find(column);
-	if (i == ds[0].end())
+	mantra::Storage::RecordMap::iterator i = ds.front().find(column);
+	if (i == ds.front().end())
 		MT_RET(nv);
 
 	MT_RET(i->second);
@@ -187,6 +187,174 @@ unsigned int StorageInterface::PutField(const mantra::ComparisonSet &search, con
 	unsigned int rv = ChangeRow(data, search);
 
 	MT_RET(rv);
+	MT_EE
+}
+
+mantra::StorageValue CachedRecord::Get(const std::string &field)
+{
+	MT_EB
+	MT_FUNC("CachedRecord::Get" << field);
+
+	assert(!search.empty());
+
+	if (ttl)
+	{
+		SYNC_LOCK(values);
+		values_t::iterator i = values.find(field);
+		if (i != values.end())
+		{
+			if (mantra::duration(i->second.second, mantra::GetCurrentDateTime()) < ttl)
+				MT_RET(i->second.first);
+			else
+				values.erase(i);
+		}
+	}
+
+	mantra::Storage::FieldSet fields;
+	fields.insert(field);
+
+	static mantra::NullValue nv;
+	mantra::Storage::DataSet ds;
+	storage.RetrieveRow(ds, search, fields);
+	if (ds.size() != 1u)
+		MT_RET(nv);
+
+	mantra::Storage::RecordMap::iterator i = ds.front().find(field);
+	if (i == ds.front().end() || i->second.type() == typeid(mantra::NullValue))
+		MT_RET(nv);
+
+	if (ttl)
+	{
+		SYNC_LOCK(values);
+		values[field] = std::make_pair(i->second, mantra::GetCurrentDateTime());
+	}
+
+	MT_RET(i->second);
+	MT_EE
+}
+
+void CachedRecord::Get(mantra::Storage::RecordMap &value,
+					   const mantra::Storage::FieldSet &infields)
+{
+	MT_EB
+	MT_FUNC("CachedRecord::Get" << value << infields);
+
+	assert(!search.empty());
+
+	mantra::Storage::FieldSet fields;
+	if (ttl && !infields.empty())
+	{
+		SYNC_LOCK(values);
+		mantra::Storage::FieldSet::iterator i;
+		for (i = infields.begin(); i != infields.end(); ++i)
+		{
+			values_t::iterator j = values.find(*i);
+			if (j != values.end())
+			{
+				if (mantra::duration(j->second.second, mantra::GetCurrentDateTime()) < ttl)
+					value[j->first] = j->second.first;
+				else
+				{
+					values.erase(j);
+					fields.insert(*i);
+				}
+			}
+			else
+				fields.insert(*i);
+		}
+	}
+	else
+		fields = infields;
+
+	if (fields.empty() && !infields.empty())
+		return;
+
+	mantra::Storage::DataSet ds;
+	storage.RetrieveRow(ds, search, fields);
+	if (ds.size() != 1u)
+		return;
+
+	mantra::Storage::RecordMap::iterator i;
+	for (i = ds.front().begin(); i != ds.front().end(); ++i)
+	{
+		value[i->first] = i->second;
+
+		if (ttl)
+		{
+			SYNC_LOCK(values);
+			values[i->first] = std::make_pair(i->second, mantra::GetCurrentDateTime());
+		}
+	}
+
+	MT_EE
+}
+
+void CachedRecord::Put(const std::string &field, const mantra::StorageValue &value)
+{
+	MT_EB
+	MT_FUNC("CachedRecord::Put" << field << value);
+
+	assert(!search.empty());
+
+	if (ttl)
+	{
+		SYNC_LOCK(values);
+		values[field] = std::make_pair(value, mantra::GetCurrentDateTime());
+	}
+
+	mantra::Storage::RecordMap data;
+	data[field] = value;
+	storage.ChangeRow(data, search);
+
+	MT_EE
+}
+
+void CachedRecord::Put(const mantra::Storage::RecordMap &value)
+{
+	MT_EB
+	MT_FUNC("CachedRecord::Put" << value);
+
+	assert(!search.empty());
+
+	if (ttl)
+	{
+		SYNC_LOCK(values);
+		mantra::Storage::RecordMap::const_iterator i;
+		for (i = value.begin(); i != value.end(); ++i)
+			values[i->first] = std::make_pair(i->second, mantra::GetCurrentDateTime());
+	}
+
+	storage.ChangeRow(value, search);
+
+	MT_EE
+}
+
+void CachedRecord::Clear()
+{
+	MT_EB
+	MT_FUNC("CachedRecord::Clear");
+
+	SYNC_LOCK(values);
+	values.clear();
+
+	MT_EE
+}
+
+void CachedRecord::Clean()
+{
+	MT_EB
+	MT_FUNC("CachedRecord::Clean");
+
+	SYNC_LOCK(values);
+	values_t::iterator i = values.begin();
+	while (i != values.end())
+	{
+		if (mantra::duration(i->second.second, mantra::GetCurrentDateTime()) >= ttl)
+			values.erase(i++);
+		else
+			++i;
+	}
+
 	MT_EE
 }
 

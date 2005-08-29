@@ -201,13 +201,21 @@ public:
 	}
 
 	void Bans(bans_t &bans) const;
-	void RxBans(rxbans_t &bans) const;
+	void Bans(rxbans_t &bans) const;
 	bool MatchBan(const std::string &in) const;
 	bool MatchBan(const boost::shared_ptr<LiveUser> &in) const;
+	void MatchBan(const std::string &in, bans_t &bans) const;
+	void MatchBan(const boost::shared_ptr<LiveUser> &in, bans_t &bans) const;
+	void MatchBan(const std::string &in, rxbans_t &bans) const;
+	void MatchBan(const boost::shared_ptr<LiveUser> &in, rxbans_t &bans) const;
 	void Exempts(exempts_t &exempts) const;
-	void RxExempts(rxexempts_t &exempts) const;
+	void Exempts(rxexempts_t &exempts) const;
 	bool MatchExempt(const std::string &in) const;
 	bool MatchExempt(const boost::shared_ptr<LiveUser> &in) const;
+	void MatchExempt(const std::string &in, exempts_t &bans) const;
+	void MatchExempt(const boost::shared_ptr<LiveUser> &in, exempts_t &bans) const;
+	void MatchExempt(const std::string &in, rxexempts_t &bans) const;
+	void MatchExempt(const boost::shared_ptr<LiveUser> &in, rxexempts_t &bans) const;
 
 	bool IsBanned(const std::string &in) const
 		{ return (MatchBan(in) && !MatchExempt(in)); }
@@ -236,6 +244,26 @@ public:
 	}
 	std::string Modes_Key() const;
 	unsigned int Modes_Limit() const;
+
+	void PRIVMSG(const boost::shared_ptr<LiveUser> &source,
+				 const std::set<char> &modes,
+				 const boost::format &message) const;
+	void PRIVMSG(const std::set<char> &modes,
+				 const boost::format &message);
+
+	void NOTICE(const boost::shared_ptr<LiveUser> &source,
+				const std::set<char> &modes,
+				const boost::format &message) const;
+	void NOTICE(const std::set<char> &modes,
+				const boost::format &message);
+
+/*
+	void SEND(const boost::shared_ptr<LiveUser> &source,
+			  const std::set<char> &modes,
+			  const boost::format &message) const;
+	void SEND(const std::set<char> &modes,
+			  const boost::format &message);
+*/
 };
 
 // Special interface used by StoredChannel.

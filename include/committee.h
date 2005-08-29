@@ -59,6 +59,7 @@ class Committee : private boost::noncopyable,
 
 	boost::weak_ptr<Committee> self;
 	static StorageInterface storage;
+	mutable CachedRecord cache;
 
 	boost::uint32_t id_;
 	std::string name_;
@@ -119,9 +120,9 @@ public:
 	static std::set<boost::shared_ptr<Committee> > FindCommittees(const boost::shared_ptr<StoredUser> &in);
 
 	boost::posix_time::ptime Registered() const
-		{ return boost::get<boost::posix_time::ptime>(storage.GetField(id_, "registered")); }
+		{ return boost::get<boost::posix_time::ptime>(cache.Get("registered")); }
 	boost::posix_time::ptime Last_Update() const
-		{ return boost::get<boost::posix_time::ptime>(storage.GetField(id_, "last_update")); }
+		{ return boost::get<boost::posix_time::ptime>(cache.Get("last_update")); }
 
 	void Description(const std::string &in);
 	std::string Description() const;
@@ -150,12 +151,13 @@ public:
 	{
 		friend class Committee;
 		static StorageInterface storage;
+		mutable CachedRecord cache;
 
 		boost::shared_ptr<Committee> owner_;
 		boost::uint32_t number_;
 		boost::shared_ptr<StoredUser> entry_;
 
-		Member() {}
+		Member();
 		Member(const boost::shared_ptr<Committee> &owner,
 			   boost::uint32_t number);
 		Member(const boost::shared_ptr<Committee> &owner,
@@ -194,19 +196,20 @@ public:
 	{
 		friend class Committee;
 		static StorageInterface storage;
+		mutable CachedRecord cache;
 
 		boost::shared_ptr<Committee> owner_;
 		boost::uint32_t number_;
 
-		Message() : number_(0) {}
+		Message();
 		Message(const boost::shared_ptr<Committee> &owner,
-				boost::uint32_t number)
-			: owner_(owner), number_(number) {}
+				boost::uint32_t number);
 	public:
 		const boost::shared_ptr<Committee> &Owner() const { return owner_; }
 		boost::uint32_t Number() const { return number_; }
 
-		void Change(const std::string &entry, const boost::shared_ptr<StoredNick> &updater);
+		void Change(const std::string &entry,
+					const boost::shared_ptr<StoredNick> &updater);
 		std::string Entry() const;
 		std::string Last_UpdaterName() const;
 		boost::shared_ptr<StoredUser> Last_Updater() const;

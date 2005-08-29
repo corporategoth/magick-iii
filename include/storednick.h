@@ -52,6 +52,7 @@ class StoredNick : public boost::noncopyable,
 
 	boost::weak_ptr<StoredNick> self;
 	static StorageInterface storage;
+	mutable CachedRecord cache;
 
 	std::string name_;
 	boost::shared_ptr<StoredUser> user_;
@@ -71,8 +72,7 @@ class StoredNick : public boost::noncopyable,
 											  const boost::shared_ptr<StoredUser> &user);
 	static void expire();
 
-	StoredNick(const std::string &name, const boost::shared_ptr<StoredUser> &user)
-		: name_(name), user_(user) {}
+	StoredNick(const std::string &name, const boost::shared_ptr<StoredUser> &user);
 public:
 	// This will also create the relevant StoredUser
 	static boost::shared_ptr<StoredNick> create(const std::string &name,
@@ -107,7 +107,7 @@ public:
 	boost::shared_ptr<LiveUser> Live() const;
 
 	boost::posix_time::ptime Registered() const
-		{ return boost::get<boost::posix_time::ptime>(storage.GetField(name_, "registered")); }
+		{ return boost::get<boost::posix_time::ptime>(cache.Get("registered")); }
 
 	std::string Last_RealName() const;
 	std::string Last_Mask() const;

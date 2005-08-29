@@ -47,6 +47,7 @@ RCSID(magick__service_h, "@(#) $Id$");
 #include <boost/tokenizer.hpp>
 
 class LiveUser;
+class LiveChannel;
 
 enum TraceTypes_t
 	{
@@ -155,6 +156,36 @@ public:
 				 const std::string &newnick) const;
 	void SVSNICK(const boost::shared_ptr<LiveUser> &target,
 				 const std::string &newnick) const;
+
+	void JOIN(const boost::shared_ptr<LiveUser> &source,
+			  const boost::shared_ptr<LiveChannel> &channel) const;
+	void JOIN(const boost::shared_ptr<LiveChannel> &channel) const;
+
+	void PART(const boost::shared_ptr<LiveUser> &source,
+			  const boost::shared_ptr<LiveChannel> &channel,
+			  const std::string &reason = std::string()) const;
+	void PART(const boost::shared_ptr<LiveChannel> &channel,
+			  const std::string &reason = std::string()) const;
+
+	void TOPIC(const boost::shared_ptr<LiveUser> &source,
+			   const boost::shared_ptr<LiveChannel> &channel,
+			   const std::string &topic) const;
+	void TOPIC(const boost::shared_ptr<LiveChannel> &channel,
+			   const std::string &topic) const;
+	
+	void KICK(const boost::shared_ptr<LiveUser> &source,
+			  const boost::shared_ptr<LiveChannel> &channel,
+			  const boost::shared_ptr<LiveUser> &target,
+			  const boost::format &reason) const;
+	void KICK(const boost::shared_ptr<LiveChannel> &channel,
+			  const boost::shared_ptr<LiveUser> &target,
+			  const boost::format &reason) const;
+
+	void INVITE(const boost::shared_ptr<LiveUser> &source,
+				const boost::shared_ptr<LiveChannel> &channel,
+				const boost::shared_ptr<LiveUser> &target);
+	void INVITE(const boost::shared_ptr<LiveChannel> &channel,
+				const boost::shared_ptr<LiveUser> &target);
 
 	class CommandMerge
 	{

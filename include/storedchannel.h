@@ -49,11 +49,17 @@ class StoredUser;
 class StoredNick;
 class Committee;
 
+class StoredChannel;
 class StoredChannel : private boost::noncopyable,
 					  public boost::totally_ordered1<StoredChannel>,
 					  public boost::totally_ordered2<StoredChannel, boost::uint32_t>,
 					  public boost::totally_ordered2<StoredChannel, std::string>
 {
+//	friend class StoredChannel::Level;
+//	friend class StoredChannel::Access;
+//	friend class StoredChannel::AutoKick;
+//	friend class StoredChannel::Greet;
+//	friend class StoredChannel::Message;
 	friend class if_StoredChannel_LiveUser;
 	friend class if_StoredChannel_LiveChannel;
 	friend class if_StoredChannel_Storage;
@@ -62,6 +68,7 @@ class StoredChannel : private boost::noncopyable,
 
 	boost::weak_ptr<StoredChannel> self;
 	static StorageInterface storage;
+	mutable CachedRecord cache;
 
 	boost::uint32_t id_;
 	std::string name_; // Too damn convenient :)
@@ -69,6 +76,10 @@ class StoredChannel : private boost::noncopyable,
 	boost::mutex lock_;
 	boost::shared_ptr<LiveChannel> live_;
 	identified_users_t identified_users_;
+
+	boost::mutex id_lock_access;
+	boost::mutex id_lock_autokick;
+	boost::mutex id_lock_message;
 
 	// use if_StoredChannel_LiveUser
 	bool Identify(const boost::shared_ptr<LiveUser> &user,
@@ -137,11 +148,11 @@ public:
 	inline bool operator==(const StoredChannel &rhs) const { return *this == rhs.ID(); }
 
 	boost::posix_time::ptime Registered() const
-		{ return boost::get<boost::posix_time::ptime>(storage.GetField(id_, "registered")); }
+		{ return boost::get<boost::posix_time::ptime>(cache.Get("registered")); }
 	boost::posix_time::ptime Last_Update() const
-		{ return boost::get<boost::posix_time::ptime>(storage.GetField(id_, "last_update")); }
+		{ return boost::get<boost::posix_time::ptime>(cache.Get("last_update")); }
 	boost::posix_time::ptime Last_Used() const
-		{ return boost::get<boost::posix_time::ptime>(storage.GetField(id_, "last_used")); }
+		{ return boost::get<boost::posix_time::ptime>(cache.Get("last_used")); }
 	
 	void Password(const std::string &password);
 	bool CheckPassword(const std::string &password) const;
@@ -240,12 +251,39 @@ public:
 	{
 		friend class StoredChannel;
 		static StorageInterface storage;
+		mutable CachedRecord cache;
+
+		struct DefaultLevel
+		{
+			boost::int32_t value;
+			boost::regex name;
+			std::string desc;
+		};
+		static boost::read_write_mutex DefaultLevelsLock;
+		static std::map<boost::uint32_t, DefaultLevel> DefaultLevels;
 
 		boost::shared_ptr<StoredChannel> owner_;
 		boost::uint32_t id_;
 
 		Level(const boost::shared_ptr<StoredChannel> &owner, boost::uint32_t id);
 	public:
+		enum Default_t {
+				LVL_AutoDeop = 1, LVL_AutoVoice, LVL_AutoHalfOp, LVL_AutoOp,
+				LVL_ReadMemo, LVL_WriteMemo, LVL_DelMemo, LVL_Greet,
+				LVL_OverGreet, LVL_Message, LVL_Akick, LVL_Super, LVL_Unban,
+				LVL_Access, LVL_Set, LVL_View, LVL_CMD_Invite, LVL_CMD_Unban,
+				LVL_CMD_Voice, LVL_CMD_HalfOp, LVL_CMD_Op, LVL_CMD_Kick,
+				LVL_CMD_Mode, LVL_CMD_Clear, LVL_MAX
+			};
+
+		static void Default(boost::uint32_t level, boost::int32_t value,
+							const boost::regex &name, const std::string &desc);
+		static boost::int32_t Default(boost::uint32_t level);
+		static boost::uint32_t DefaultName(const std::string &name);
+		static std::string DefaultDesc(boost::uint32_t level,
+									   const boost::shared_ptr<LiveUser> &user = 
+									   		boost::shared_ptr<LiveUser>());
+
 		const boost::shared_ptr<StoredChannel> &Owner() const { return owner_; }
 		boost::uint32_t ID() const { return id_; }
 
@@ -266,16 +304,17 @@ public:
 		}
 	};
 
-	bool LEVEL_Exists(boost::uint32_t id);
+	bool LEVEL_Exists(boost::uint32_t id) const;
 	void LEVEL_Del(boost::uint32_t id);
 	// Will insert on write.
-	Level LEVEL_Get(boost::uint32_t id);
-	void LEVEL_Get(std::set<Level> &fill);
+	Level LEVEL_Get(boost::uint32_t id) const;
+	void LEVEL_Get(std::set<Level> &fill) const;
 
 	class Access : public boost::totally_ordered1<Access>
 	{
 		friend class StoredChannel;
 		static StorageInterface storage;
+		mutable CachedRecord cache;
 
 		boost::shared_ptr<StoredChannel> owner_;
 		boost::uint32_t number_;
@@ -316,8 +355,11 @@ public:
 		}
 	};
 
-	Access ACCESS_Matched(const std::string &in) const;
-	Access ACCESS_Matched(const boost::shared_ptr<LiveUser> &in) const;
+	std::list<Access> ACCESS_Matches(const std::string &in) const;
+	std::list<Access> ACCESS_Matches(const boost::shared_ptr<LiveUser> &in) const;
+	std::list<Access> ACCESS_Matches(const boost::regex &in) const;
+	bool ACCESS_Matches(const std::string &in, boost::uint32_t level) const;
+	bool ACCESS_Matches(const boost::shared_ptr<LiveUser> &in, boost::uint32_t level) const;
 	bool ACCESS_Exists(boost::uint32_t num) const;
 	Access ACCESS_Add(const std::string &entry, boost::uint32_t value,
 					  const boost::shared_ptr<StoredNick> &updater);
@@ -326,13 +368,18 @@ public:
 	Access ACCESS_Add(const boost::shared_ptr<Committee> &entry, boost::uint32_t value,
 					  const boost::shared_ptr<StoredNick> &updater);
 	void ACCESS_Del(boost::uint32_t num);
+	void ACCESS_Reindex(boost::uint32_t num, boost::uint32_t newnum);
 	Access ACCESS_Get(boost::uint32_t num) const;
+	Access ACCESS_Get(const boost::shared_ptr<StoredUser> &in) const;
+	Access ACCESS_Get(const boost::shared_ptr<Committee> &in) const;
+	Access ACCESS_Get(const std::string &in) const;
 	void ACCESS_Get(std::set<Access> &fill) const;
 
 	class AutoKick : public boost::totally_ordered1<AutoKick>
 	{
 		friend class StoredChannel;
 		static StorageInterface storage;
+		mutable CachedRecord cache;
 
 		boost::shared_ptr<StoredChannel> owner_;
 		boost::uint32_t number_;
@@ -373,8 +420,8 @@ public:
 		}
 	};
 
-	AutoKick AKICK_Matched(const std::string &in) const;
-	AutoKick AKICK_Matched(const boost::shared_ptr<LiveUser> &in) const;
+	AutoKick AKICK_Matches(const std::string &in) const;
+	AutoKick AKICK_Matches(const boost::shared_ptr<LiveUser> &in) const;
 	bool AKICK_Exists(boost::uint32_t num) const;
 	AutoKick AKICK_Add(const std::string &entry, const std::string &reason,
 					  const boost::shared_ptr<StoredNick> &updater);
@@ -390,6 +437,7 @@ public:
 	{
 		friend class StoredChannel;
 		static StorageInterface storage;
+		mutable CachedRecord cache;
 
 		boost::shared_ptr<StoredChannel> owner_;
 		boost::shared_ptr<StoredUser> entry_;
@@ -431,6 +479,7 @@ public:
 	{
 		friend class StoredChannel;
 		static StorageInterface storage;
+		mutable CachedRecord cache;
 
 		boost::shared_ptr<StoredChannel> owner_;
 		boost::uint32_t number_;
@@ -475,6 +524,9 @@ public:
 
 	void SendInfo(const boost::shared_ptr<LiveUser> &service,
 				  const boost::shared_ptr<LiveUser> &user) const;
+	std::string FilterModes(const boost::shared_ptr<LiveUser> &user,
+							const std::string &modes,
+							std::vector<std::string> &params) const;
 };
 
 // Special interface used by LiveUser.

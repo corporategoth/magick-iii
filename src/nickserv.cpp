@@ -576,6 +576,13 @@ static bool biUNSUSPEND(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
+	if (target->User()->Suspend_Reason().empty())
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not suspended."), target->Name());
+		MT_RET(false);
+	}
+
 	target->User()->Unsuspend();
 	SEND(service, user, N_("Nickname %1% has been unsuspended."), target->Name());
 
@@ -820,6 +827,8 @@ static bool biSETPASS(const boost::shared_ptr<LiveUser> &service,
 	target->User()->Password(params[2]);
     SEND(service, user, N_("Password for nickname %1% has been set to \002%2%\017."),
 		 target->Name() % params[2].substr(0, 32));
+	service->GetService()->ANNOUNCE(service, format(_("%1% has changed the password for %2%.")) %
+									user->Name() % target->Name());
 
 	MT_RET(true);
 	MT_EE

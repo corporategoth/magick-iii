@@ -37,6 +37,7 @@ RCSID(magick__storageinterface_h, "@(#) $Id$");
 
 #include <string>
 
+#include <mantra/core/sync.h>
 #include <mantra/storage/interface.h>
 
 // Perfect way to do single-table access :)
@@ -90,6 +91,37 @@ public:
 		{ return PutField(mantra::Comparison<mantra::C_EqualToNC>::make(key_, key), column, value); }
 	inline unsigned int PutField(const boost::uint32_t &key, const std::string &column, const mantra::StorageValue &value)
 		{ return PutField(mantra::Comparison<mantra::C_EqualTo>::make(key_, key), column, value); }
+};
+
+class CachedRecord
+{
+	StorageInterface &storage;
+	mantra::duration ttl;
+	mantra::ComparisonSet search;
+
+	typedef std::map<std::string, std::pair<mantra::StorageValue, boost::posix_time::ptime>,
+			mantra::iless<std::string> > values_t;
+	values_t SYNC(values);
+
+public:
+	CachedRecord(StorageInterface &si, const mantra::duration &t,
+				 const mantra::ComparisonSet &s = mantra::ComparisonSet())
+		: storage(si), ttl(t), search(s) {}
+	CachedRecord(const CachedRecord &in)
+		: storage(in.storage), ttl(in.ttl), search(in.search), values(in.values) {}
+
+	// NOT locked, so be careful!
+	void Search(const mantra::ComparisonSet &s) { search = s; }
+
+	mantra::StorageValue Get(const std::string &field);
+	void Get(mantra::Storage::RecordMap &value,
+			 const mantra::Storage::FieldSet &fields = mantra::Storage::FieldSet());
+
+	void Put(const std::string &field, const mantra::StorageValue &value);
+	void Put(const mantra::Storage::RecordMap &value);
+
+	void Clear();
+	void Clean();
 };
 
 #endif // _MAGICK_STORAGEINTERFACE_H

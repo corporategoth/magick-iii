@@ -1208,21 +1208,82 @@ boost::posix_time::ptime LiveUser::Last_Memo() const
 
 std::string LiveUser::translate(const std::string &in) const
 {
+	MT_EB
+	MT_FUNC("LiveUser::translate" << in);
+
 	boost::shared_ptr<StoredNick> stored = Stored();
 	if (stored)
 		return stored->translate(in);
 	else
 		return mantra::translate::get(in);
+
+	MT_EE
 }
 
 std::string LiveUser::translate(const std::string &single,
 								const std::string &plural,
 								unsigned long n) const
 {
+	MT_EB
+	MT_FUNC("LiveUser::translate" << single << plural << n);
+
 	boost::shared_ptr<StoredNick> stored = Stored();
 	if (stored)
 		return stored->translate(single, plural, n);
 	else
 		return mantra::translate::get(single, plural, n);
+
+	MT_EE
+}
+
+boost::format LiveUser::format(const std::string &in) const
+{
+	MT_EB
+	MT_FUNC("LiveUser::format" << in);
+
+	boost::shared_ptr<StoredNick> stored = Stored();
+
+	std::locale loc;
+	if (stored)
+		loc = std::locale(stored->User()->Language().c_str());
+	else
+		loc = std::locale(ROOT->ConfigValue<std::string>("nickserv.defaults.language").c_str());
+
+	std::string str = mantra::translate::get(in, loc);
+	MT_COM("Translated To: %1%", str);
+	boost::format fmt = ::format(str, loc);
+
+	// CANNOT use just 'MT_RET', since it triggers operator<<.
+	return fmt;
+//	MT_RET(fmt);
+	MT_EE
+}
+
+void LiveUser::send(const boost::shared_ptr<LiveUser> &service,
+					const boost::format &fmt) const
+{
+	MT_EB
+	MT_FUNC("LiveUser::send" << service << fmt);
+
+	if (GetService() || !service->GetService())
+		return;
+
+	boost::shared_ptr<StoredNick> stored = Stored();
+	if (stored)
+	{
+		if (stored->User()->PRIVMSG())
+			service->GetService()->PRIVMSG(service, self.lock(), fmt);
+		else
+			service->GetService()->NOTICE(service, self.lock(), fmt);
+	}
+	else
+	{
+		if (ROOT->ConfigValue<bool>("nickserv.defaults.privmsg"))
+			service->GetService()->PRIVMSG(service, self.lock(), fmt);
+		else
+			service->GetService()->NOTICE(service, self.lock(), fmt);
+	}
+
+	MT_EE
 }
 

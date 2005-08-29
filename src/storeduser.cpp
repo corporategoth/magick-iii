@@ -46,15 +46,12 @@ StorageInterface StoredUser::storage_access("users_access", std::string(), "last
 StorageInterface StoredUser::storage_ignore("users_ignore", std::string(), "last_update");
 
 StoredUser::StoredUser(boost::uint32_t id)
-	: id_(id), SYNC_NRWINIT(online_users_, reader_priority),
-	  SYNC_NRWINIT(cached_language_, reader_priority),
-	  cached_language_update_(boost::date_time::not_a_date_time),
-	  SYNC_RWINIT(cached_privmsg_, reader_priority, false),
-	  cached_privmsg_update_(boost::date_time::not_a_date_time)
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire"),
+			mantra::Comparison<mantra::C_EqualTo>::make("id", id)),
+	  id_(id), SYNC_NRWINIT(online_users_, reader_priority)
 {
 	MT_EB
 	MT_FUNC("StoredUser::StoredUser");
-
 
 	MT_EE
 }
@@ -117,7 +114,7 @@ void StoredUser::Picture(boost::uint32_t in, const std::string &ext)
 	mantra::Storage::RecordMap rec;
 	rec["picture"] = in;
 	rec["picture_ext"] = ext;
-	storage.ChangeRow(rec, mantra::Comparison<mantra::C_EqualTo>::make("id", id_));
+	cache.Put(rec);
 
 	MT_EE
 }
@@ -231,8 +228,7 @@ void StoredUser::Password(const std::string &password)
 	MT_EB
 	MT_FUNC("StoredUser::Password" << password);
 
-	storage.PutField(id_, "password",
-					 ROOT->data.CryptPassword(password));
+	cache.Put("password", ROOT->data.CryptPassword(password));
 
 	MT_EE
 }
@@ -242,7 +238,7 @@ bool StoredUser::CheckPassword(const std::string &password) const
 	MT_EB
 	MT_FUNC("StoredUser::CheckPassword" << password);
 
-	mantra::StorageValue rv = storage.GetField(id_, "password");
+	mantra::StorageValue rv = cache.Get("password");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(false);
 	bool ret = (boost::get<std::string>(rv) == ROOT->data.CryptPassword(password));
@@ -257,9 +253,9 @@ void StoredUser::Email(const std::string &in)
 	MT_FUNC("StoredUser::Email" << in);
 
 	if (in.empty())
-		storage.PutField(id_, "email", mantra::NullValue());
+		cache.Put("email", mantra::NullValue());
 	else
-		storage.PutField(id_, "email", in);
+		cache.Put("email", in);
 
 	MT_EE
 }
@@ -270,7 +266,7 @@ std::string StoredUser::Email() const
 	MT_FUNC("StoredUser::Email");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(id_, "email");
+	mantra::StorageValue rv = cache.Get("email");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -285,9 +281,9 @@ void StoredUser::Website(const std::string &in)
 	MT_FUNC("StoredUser::Website" << in);
 
 	if (in.empty())
-		storage.PutField(id_, "website", mantra::NullValue());
+		cache.Put("website", mantra::NullValue());
 	else
-		storage.PutField(id_, "website", in);
+		cache.Put("website", in);
 
 	MT_EE
 }
@@ -298,7 +294,7 @@ std::string StoredUser::Website() const
 	MT_FUNC("StoredUser::Website");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(id_, "website");
+	mantra::StorageValue rv = cache.Get("website");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -313,9 +309,9 @@ void StoredUser::ICQ(const boost::uint32_t &in)
 	MT_FUNC("StoredUser::ICQ" << in);
 
 	if (!in)
-		storage.PutField(id_, "icq", mantra::NullValue());
+		cache.Put("icq", mantra::NullValue());
 	else
-		storage.PutField(id_, "icq", in);
+		cache.Put("icq", in);
 
 	MT_EE
 }
@@ -326,7 +322,7 @@ boost::uint32_t StoredUser::ICQ() const
 	MT_FUNC("StoredUser::ICQ");
 
 	boost::uint32_t ret;
-	mantra::StorageValue rv = storage.GetField(id_, "icq");
+	mantra::StorageValue rv = cache.Get("icq");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(0u);
 	ret = boost::get<boost::uint32_t>(rv);
@@ -341,9 +337,9 @@ void StoredUser::AIM(const std::string &in)
 	MT_FUNC("StoredUser::AIM" << in);
 
 	if (in.empty())
-		storage.PutField(id_, "aim", mantra::NullValue());
+		cache.Put("aim", mantra::NullValue());
 	else
-		storage.PutField(id_, "aim", in);
+		cache.Put("aim", in);
 
 	MT_EE
 }
@@ -354,7 +350,7 @@ std::string StoredUser::AIM() const
 	MT_FUNC("StoredUser::AIM");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(id_, "aim");
+	mantra::StorageValue rv = cache.Get("aim");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -369,9 +365,9 @@ void StoredUser::MSN(const std::string &in)
 	MT_FUNC("StoredUser::MSN" << in);
 
 	if (in.empty())
-		storage.PutField(id_, "msn", mantra::NullValue());
+		cache.Put("msn", mantra::NullValue());
 	else
-		storage.PutField(id_, "msn", in);
+		cache.Put("msn", in);
 
 	MT_EE
 }
@@ -382,7 +378,7 @@ std::string StoredUser::MSN() const
 	MT_FUNC("StoredUser::MSN");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(id_, "msn");
+	mantra::StorageValue rv = cache.Get("msn");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -397,9 +393,9 @@ void StoredUser::Jabber(const std::string &in)
 	MT_FUNC("StoredUser::Jabber" << in);
 
 	if (in.empty())
-		storage.PutField(id_, "jabber", mantra::NullValue());
+		cache.Put("jabber", mantra::NullValue());
 	else
-		storage.PutField(id_, "jabber", in);
+		cache.Put("jabber", in);
 
 	MT_EE
 }
@@ -410,7 +406,7 @@ std::string StoredUser::Jabber() const
 	MT_FUNC("StoredUser::Jabber");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(id_, "jabber");
+	mantra::StorageValue rv = cache.Get("jabber");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -425,9 +421,9 @@ void StoredUser::Yahoo(const std::string &in)
 	MT_FUNC("StoredUser::Yahoo" << in);
 
 	if (in.empty())
-		storage.PutField(id_, "yahoo", mantra::NullValue());
+		cache.Put("yahoo", mantra::NullValue());
 	else
-		storage.PutField(id_, "yahoo", in);
+		cache.Put("yahoo", in);
 
 	MT_EE
 }
@@ -438,7 +434,7 @@ std::string StoredUser::Yahoo() const
 	MT_FUNC("StoredUser::Yahoo");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(id_, "yahoo");
+	mantra::StorageValue rv = cache.Get("yahoo");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -453,9 +449,9 @@ void StoredUser::Description(const std::string &in)
 	MT_FUNC("StoredUser::Description" << in);
 
 	if (in.empty())
-		storage.PutField(id_, "description", mantra::NullValue());
+		cache.Put("description", mantra::NullValue());
 	else
-		storage.PutField(id_, "description", in);
+		cache.Put("description", in);
 
 	MT_EE
 }
@@ -466,7 +462,7 @@ std::string StoredUser::Description() const
 	MT_FUNC("StoredUser::Description");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(id_, "description");
+	mantra::StorageValue rv = cache.Get("description");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -481,9 +477,9 @@ void StoredUser::Comment(const std::string &in)
 	MT_FUNC("StoredUser::Comment" << in);
 
 	if (in.empty())
-		storage.PutField(id_, "comment", mantra::NullValue());
+		cache.Put("comment", mantra::NullValue());
 	else
-		storage.PutField(id_, "comment", in);
+		cache.Put("comment", in);
 
 	MT_EE
 }
@@ -494,7 +490,7 @@ std::string StoredUser::Comment() const
 	MT_FUNC("StoredUser::Comment");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(id_, "comment");
+	mantra::StorageValue rv = cache.Get("comment");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -514,7 +510,7 @@ void StoredUser::Suspend(const boost::shared_ptr<StoredNick> &nick,
 	rec["suspend_by_id"] = nick->User()->ID();
 	rec["suspend_reason"] = reason;
 	rec["suspend_time"] = mantra::GetCurrentDateTime();
-	storage.ChangeRow(rec, mantra::Comparison<mantra::C_EqualTo>::make("id", id_));
+	cache.Put(rec);
 
 	MT_EE
 }
@@ -529,7 +525,7 @@ void StoredUser::Unsuspend()
 	rec["suspend_by_id"] = mantra::NullValue();
 	rec["suspend_reason"] = mantra::NullValue();
 	rec["suspend_time"] = mantra::NullValue();
-	storage.ChangeRow(rec, mantra::Comparison<mantra::C_EqualTo>::make("id", id_));
+	cache.Put(rec);
 
 	MT_EE
 }
@@ -540,7 +536,7 @@ std::string StoredUser::Suspended_By() const
 	MT_FUNC("StoredUser::Suspended_By");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(id_, "suspend_by");
+	mantra::StorageValue rv = cache.Get("suspend_by");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -555,7 +551,7 @@ boost::shared_ptr<StoredUser> StoredUser::Suspended_ByShared() const
 	MT_FUNC("StoredUser::Suspended_ByShared");
 
 	boost::shared_ptr<StoredUser> ret;
-	mantra::StorageValue rv = storage.GetField(id_, "suspend_by_id");
+	mantra::StorageValue rv = cache.Get("suspend_by_id");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = ROOT->data.Get_StoredUser(boost::get<boost::uint32_t>(rv));
@@ -570,7 +566,7 @@ std::string StoredUser::Suspend_Reason() const
 	MT_FUNC("StoredUser::Suspend_Reason");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(id_, "suspend_reason");
+	mantra::StorageValue rv = cache.Get("suspend_reason");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -585,7 +581,7 @@ boost::posix_time::ptime StoredUser::Suspend_Time() const
 	MT_FUNC("StoredUser::Suspend_Time");
 
 	boost::posix_time::ptime ret(boost::date_time::not_a_date_time);
-	mantra::StorageValue rv = storage.GetField(id_, "suspend_time");
+	mantra::StorageValue rv = cache.Get("suspend_time");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<boost::posix_time::ptime>(rv);
@@ -602,59 +598,37 @@ bool StoredUser::Language(const std::string &in)
 	if (LOCK_Language())
 		MT_RET(false);
 
-	SYNC_WLOCK(cached_language_);
 	if (in.empty())
 	{
-		storage.PutField(id_, "language", mantra::NullValue::instance());
-		cached_language_ = ROOT->ConfigValue<std::string>("nickserv.defaults.language");
+		cache.Put("language", mantra::NullValue::instance());
 	}
 	else
 	{
-		storage.PutField(id_, "language", in);
-		cached_language_ = in;
+		cache.Put("language", in);
 	}
-	cached_language_update_ = mantra::GetCurrentDateTime();
 
 	MT_RET(true);
 	MT_EE
 }
 
-const std::string &StoredUser::Language() const
+std::string StoredUser::Language() const
 {
 	MT_EB
 	MT_FUNC("StoredUser::Language");
 
-	SYNC_RWLOCK(cached_language_);
+	std::string ret;
 	if (ROOT->ConfigValue<bool>("nickserv.lock.language"))
+		ret = ROOT->ConfigValue<std::string>("nickserv.defaults.language");
+	else
 	{
-		std::string ret = ROOT->ConfigValue<std::string>("nickserv.defaults.language");
-		if (ret != cached_language_)
-		{
-			SYNC_PROMOTE(cached_language_);
-			cached_language_ = ret;
-			cached_language_update_ = boost::date_time::not_a_date_time;
-		}
-	}
-	else if (cached_language_update_.is_special() || cached_language_update_ +
-			 ROOT->ConfigValue<mantra::duration>("nickserv.cache-expire") <
-			 mantra::GetCurrentDateTime())
-	{
-		// Double check it once promotion is done.
-		SYNC_PROMOTE(cached_language_);
-		if (cached_language_update_.is_special() || cached_language_update_ +
-			ROOT->ConfigValue<mantra::duration>("nickserv.cache-expire") <
-			mantra::GetCurrentDateTime())
-		{
-			mantra::StorageValue rv = storage.GetField(id_, "language");
-			if (rv.type() == typeid(mantra::NullValue))
-				cached_language_ = ROOT->ConfigValue<std::string>("nickserv.defaults.language");
-			else
-				cached_language_ = boost::get<std::string>(rv);
-			cached_language_update_ = mantra::GetCurrentDateTime();
-		}
+		mantra::StorageValue rv = cache.Get("language");
+		if (rv.type() == typeid(mantra::NullValue))
+			ret = ROOT->ConfigValue<std::string>("nickserv.defaults.language");
+		else
+			ret = boost::get<std::string>(rv);
 	}
 
-	MT_RET(cached_language_);
+	MT_RET(ret);
 	MT_EE
 }
 
@@ -667,9 +641,9 @@ bool StoredUser::Protect(const boost::logic::tribool &in)
 		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
-		storage.PutField(id_, "protect", mantra::NullValue::instance());
+		cache.Put("protect", mantra::NullValue::instance());
 	else
-		storage.PutField(id_, "protect", (bool) in);
+		cache.Put("protect", (bool) in);
 
 	MT_RET(true);
 	MT_EE
@@ -685,7 +659,7 @@ bool StoredUser::Protect() const
 		ret = ROOT->ConfigValue<bool>("nickserv.defaults.protect");
 	else
 	{
-		mantra::StorageValue rv = storage.GetField(id_, "protect");
+		mantra::StorageValue rv = cache.Get("protect");
 		if (rv.type() == typeid(mantra::NullValue))
 			ret = ROOT->ConfigValue<bool>("nickserv.defaults.protect");
 		else
@@ -705,9 +679,9 @@ bool StoredUser::Secure(const boost::logic::tribool &in)
 		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
-		storage.PutField(id_, "secure", mantra::NullValue::instance());
+		cache.Put("secure", mantra::NullValue::instance());
 	else
-		storage.PutField(id_, "secure", (bool) in);
+		cache.Put("secure", (bool) in);
 
 	MT_RET(true);
 	MT_EE
@@ -723,7 +697,7 @@ bool StoredUser::Secure() const
 		ret = ROOT->ConfigValue<bool>("nickserv.defaults.secure");
 	else
 	{
-		mantra::StorageValue rv = storage.GetField(id_, "secure");
+		mantra::StorageValue rv = cache.Get("secure");
 		if (rv.type() == typeid(mantra::NullValue))
 			ret = ROOT->ConfigValue<bool>("nickserv.defaults.secure");
 		else
@@ -743,9 +717,9 @@ bool StoredUser::NoMemo(const boost::logic::tribool &in)
 		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
-		storage.PutField(id_, "nomemo", mantra::NullValue::instance());
+		cache.Put("nomemo", mantra::NullValue::instance());
 	else
-		storage.PutField(id_, "nomemo", (bool) in);
+		cache.Put("nomemo", (bool) in);
 
 	MT_RET(true);
 	MT_EE
@@ -761,7 +735,7 @@ bool StoredUser::NoMemo() const
 		ret = ROOT->ConfigValue<bool>("nickserv.defaults.nomemo");
 	else
 	{
-		mantra::StorageValue rv = storage.GetField(id_, "nomemo");
+		mantra::StorageValue rv = cache.Get("nomemo");
 		if (rv.type() == typeid(mantra::NullValue))
 			ret = ROOT->ConfigValue<bool>("nickserv.defaults.nomemo");
 		else
@@ -781,9 +755,9 @@ bool StoredUser::Private(const boost::logic::tribool &in)
 		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
-		storage.PutField(id_, "private", mantra::NullValue::instance());
+		cache.Put("private", mantra::NullValue::instance());
 	else
-		storage.PutField(id_, "private", (bool) in);
+		cache.Put("private", (bool) in);
 
 	MT_RET(true);
 	MT_EE
@@ -799,7 +773,7 @@ bool StoredUser::Private() const
 		ret = ROOT->ConfigValue<bool>("nickserv.defaults.private");
 	else
 	{
-		mantra::StorageValue rv = storage.GetField(id_, "private");
+		mantra::StorageValue rv = cache.Get("private");
 		if (rv.type() == typeid(mantra::NullValue))
 			ret = ROOT->ConfigValue<bool>("nickserv.defaults.private");
 		else
@@ -818,18 +792,10 @@ bool StoredUser::PRIVMSG(const boost::logic::tribool &in)
 	if (LOCK_PRIVMSG())
 		MT_RET(false);
 
-	SYNC_WLOCK(cached_privmsg_);
 	if (boost::logic::indeterminate(in))
-	{
-		storage.PutField(id_, "privmsg", mantra::NullValue::instance());
-		cached_privmsg_ = ROOT->ConfigValue<bool>("nickserv.defaults.privmsg");
-	}
+		cache.Put("privmsg", mantra::NullValue::instance());
 	else
-	{
-		storage.PutField(id_, "privmsg", (bool) in);
-		cached_privmsg_ = in;
-	}
-	cached_privmsg_update_ = mantra::GetCurrentDateTime();
+		cache.Put("privmsg", (bool) in);
 
 	MT_RET(true);
 	MT_EE
@@ -840,37 +806,19 @@ bool StoredUser::PRIVMSG() const
 	MT_EB
 	MT_FUNC("StoredUser::PRIVMSG");
 
-	SYNC_RWLOCK(cached_privmsg_);
+	bool ret;
 	if (ROOT->ConfigValue<bool>("nickserv.lock.privmsg"))
+		ret = ROOT->ConfigValue<bool>("nickserv.defaults.privmsg");
+	else
 	{
-		bool ret = ROOT->ConfigValue<bool>("nickserv.defaults.privmsg");
-		if (ret != cached_privmsg_)
-		{
-			SYNC_PROMOTE(cached_privmsg_);
-			cached_privmsg_ = ret;
-			cached_privmsg_update_ = boost::date_time::not_a_date_time;
-		}
-	}
-	else if (cached_privmsg_update_.is_special() || cached_privmsg_update_ +
-			 ROOT->ConfigValue<mantra::duration>("nickserv.cache-expire") <
-			 mantra::GetCurrentDateTime())
-	{
-		// Double check it once promotion is done.
-		SYNC_PROMOTE(cached_privmsg_);
-		if (cached_privmsg_update_.is_special() || cached_privmsg_update_ +
-			ROOT->ConfigValue<mantra::duration>("nickserv.cache-expire") <
-			mantra::GetCurrentDateTime())
-		{
-			mantra::StorageValue rv = storage.GetField(id_, "privmsg");
-			if (rv.type() == typeid(mantra::NullValue))
-				cached_privmsg_ = ROOT->ConfigValue<bool>("nickserv.defaults.privmsg");
-			else
-				cached_privmsg_ = boost::get<bool>(rv);
-			cached_privmsg_update_ = mantra::GetCurrentDateTime();
-		}
+		mantra::StorageValue rv = cache.Get("privmsg");
+		if (rv.type() == typeid(mantra::NullValue))
+			ret = ROOT->ConfigValue<bool>("nickserv.defaults.privmsg");
+		else
+			ret = boost::get<bool>(rv);
 	}
 
-	MT_RET(cached_privmsg_);
+	MT_RET(ret);
 	MT_EE
 }
 
@@ -883,9 +831,9 @@ bool StoredUser::NoExpire(const boost::logic::tribool &in)
 		MT_RET(false);
 
 	if (boost::logic::indeterminate(in))
-		storage.PutField(id_, "noexpire", mantra::NullValue::instance());
+		cache.Put("noexpire", mantra::NullValue::instance());
 	else
-		storage.PutField(id_, "noexpire", (bool) in);
+		cache.Put("noexpire", (bool) in);
 
 	MT_RET(true);
 	MT_EE
@@ -901,7 +849,7 @@ bool StoredUser::NoExpire() const
 		ret = ROOT->ConfigValue<bool>("nickserv.defaults.noexpire");
 	else
 	{
-		mantra::StorageValue rv = storage.GetField(id_, "noexpire");
+		mantra::StorageValue rv = cache.Get("noexpire");
 		if (rv.type() == typeid(mantra::NullValue))
 			ret = ROOT->ConfigValue<bool>("nickserv.defaults.noexpire");
 		else
@@ -920,7 +868,7 @@ void StoredUser::ClearPicture()
 	mantra::Storage::RecordMap rec;
 	rec["picture"] = mantra::NullValue();
 	rec["picture_ext"] = mantra::NullValue();
-	storage.ChangeRow(rec, mantra::Comparison<mantra::C_EqualTo>::make("id", id_));
+	cache.Put(rec);
 
 	MT_EE
 }
@@ -931,7 +879,7 @@ std::string StoredUser::PictureExt() const
 	MT_FUNC("StoredUser::PictureExt");
 
 	std::string ret;
-	mantra::StorageValue rv = storage.GetField(id_, "picture_ext");
+	mantra::StorageValue rv = cache.Get("picture_ext");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(ret);
 	ret = boost::get<std::string>(rv);
@@ -948,7 +896,7 @@ bool StoredUser::LOCK_Language(const bool &in)
 	if (ROOT->ConfigValue<bool>("nickserv.lock.language"))
 		MT_RET(false);
 
-	storage.PutField(id_, "lock_language", in);
+	cache.Put("lock_language", in);
 
 	MT_RET(true);
 	MT_EE
@@ -962,7 +910,7 @@ bool StoredUser::LOCK_Language() const
 	if (ROOT->ConfigValue<bool>("nickserv.lock.language"))
 		MT_RET(true);
 
-	mantra::StorageValue rv = storage.GetField(id_, "lock_language");
+	mantra::StorageValue rv = cache.Get("lock_language");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(false);
 	bool ret = boost::get<bool>(rv);
@@ -979,7 +927,7 @@ bool StoredUser::LOCK_Protect(const bool &in)
 	if (ROOT->ConfigValue<bool>("nickserv.lock.protect"))
 		MT_RET(false);
 
-	storage.PutField(id_, "lock_protect", in);
+	cache.Put("lock_protect", in);
 
 	MT_RET(true);
 	MT_EE
@@ -993,7 +941,7 @@ bool StoredUser::LOCK_Protect() const
 	if (ROOT->ConfigValue<bool>("nickserv.lock.protect"))
 		MT_RET(true);
 
-	mantra::StorageValue rv = storage.GetField(id_, "lock_protect");
+	mantra::StorageValue rv = cache.Get("lock_protect");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(false);
 	bool ret = boost::get<bool>(rv);
@@ -1010,7 +958,7 @@ bool StoredUser::LOCK_Secure(const bool &in)
 	if (ROOT->ConfigValue<bool>("nickserv.lock.secure"))
 		MT_RET(false);
 
-	storage.PutField(id_, "lock_secure", in);
+	cache.Put("lock_secure", in);
 
 	MT_RET(true);
 	MT_EE
@@ -1024,7 +972,7 @@ bool StoredUser::LOCK_Secure() const
 	if (ROOT->ConfigValue<bool>("nickserv.lock.secure"))
 		MT_RET(true);
 
-	mantra::StorageValue rv = storage.GetField(id_, "lock_secure");
+	mantra::StorageValue rv = cache.Get("lock_secure");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(false);
 	bool ret = boost::get<bool>(rv);
@@ -1041,7 +989,7 @@ bool StoredUser::LOCK_NoMemo(const bool &in)
 	if (ROOT->ConfigValue<bool>("nickserv.lock.nomemo"))
 		MT_RET(false);
 
-	storage.PutField(id_, "lock_nomemo", in);
+	cache.Put("lock_nomemo", in);
 
 	MT_RET(true);
 	MT_EE
@@ -1055,7 +1003,7 @@ bool StoredUser::LOCK_NoMemo() const
 	if (ROOT->ConfigValue<bool>("nickserv.lock.nomemo"))
 		MT_RET(true);
 
-	mantra::StorageValue rv = storage.GetField(id_, "lock_nomemo");
+	mantra::StorageValue rv = cache.Get("lock_nomemo");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(false);
 	bool ret = boost::get<bool>(rv);
@@ -1072,7 +1020,7 @@ bool StoredUser::LOCK_Private(const bool &in)
 	if (ROOT->ConfigValue<bool>("nickserv.lock.private"))
 		MT_RET(false);
 
-	storage.PutField(id_, "lock_private", in);
+	cache.Put("lock_private", in);
 
 	MT_RET(true);
 	MT_EE
@@ -1086,7 +1034,7 @@ bool StoredUser::LOCK_Private() const
 	if (ROOT->ConfigValue<bool>("nickserv.lock.private"))
 		MT_RET(true);
 
-	mantra::StorageValue rv = storage.GetField(id_, "lock_private");
+	mantra::StorageValue rv = cache.Get("lock_private");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(false);
 	bool ret = boost::get<bool>(rv);
@@ -1103,7 +1051,7 @@ bool StoredUser::LOCK_PRIVMSG(const bool &in)
 	if (ROOT->ConfigValue<bool>("nickserv.lock.privmsg"))
 		MT_RET(false);
 
-	storage.PutField(id_, "lock_privmsg", in);
+	cache.Put("lock_privmsg", in);
 
 	MT_RET(true);
 	MT_EE
@@ -1117,7 +1065,7 @@ bool StoredUser::LOCK_PRIVMSG() const
 	if (ROOT->ConfigValue<bool>("nickserv.lock.privmsg"))
 		MT_RET(true);
 
-	mantra::StorageValue rv = storage.GetField(id_, "lock_privmsg");
+	mantra::StorageValue rv = cache.Get("lock_privmsg");
 	if (rv.type() == typeid(mantra::NullValue))
 		MT_RET(false);
 	bool ret = boost::get<bool>(rv);
@@ -1546,7 +1494,7 @@ void StoredUser::SendInfo(const boost::shared_ptr<LiveUser> &service,
 					user->InCommittee(ROOT->ConfigValue<std::string>("commserv.sop.name")));
 
 	mantra::Storage::RecordMap data;
-	storage.GetRow(id_, data);
+	cache.Get(data);
 
 	mantra::Storage::RecordMap::const_iterator i, j;
 	bool priv = false;

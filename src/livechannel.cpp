@@ -428,10 +428,10 @@ void LiveChannel::Bans(LiveChannel::bans_t &bans) const
 	MT_EE
 }
 
-void LiveChannel::RxBans(LiveChannel::rxbans_t &bans) const
+void LiveChannel::Bans(LiveChannel::rxbans_t &bans) const
 {
 	MT_EB
-	MT_FUNC("LiveChannel::RxBans" << bans);
+	MT_FUNC("LiveChannel::Bans" << bans);
 
 	SYNC_RLOCK(bans_);
 	bans = rxbans_;
@@ -472,6 +472,58 @@ bool LiveChannel::MatchBan(const boost::shared_ptr<LiveUser> &in) const
 	MT_EE
 }
 
+void LiveChannel::MatchBan(const std::string &in, LiveChannel::bans_t &bans) const
+{
+	MT_EB
+	MT_FUNC("LiveChannel::MatchBan" << in << bans);
+
+	SYNC_RLOCK(bans_);
+	bans_t::const_iterator i;
+	for (i = bans_.begin(); i != bans_.end(); ++i)
+	{
+		if (mantra::glob_match(i->first, in, true))
+			bans[i->first] = i->second;
+	}
+
+	MT_EE
+}
+
+void LiveChannel::MatchBan(const boost::shared_ptr<LiveUser> &in, LiveChannel::bans_t &bans) const
+{
+	MT_EB
+	MT_FUNC("LiveChannel::MatchBan" << in << bans);
+
+	MatchBan(in->Name() + "!" + in->User() + "@" + in->Host(), bans);
+
+	MT_EE
+}
+
+void LiveChannel::MatchBan(const std::string &in, LiveChannel::rxbans_t &bans) const
+{
+	MT_EB
+	MT_FUNC("LiveChannel::MatchBan" << in << bans);
+
+	SYNC_RLOCK(bans_);
+	rxbans_t::const_iterator j;
+	for (j = rxbans_.begin(); j != rxbans_.end(); ++j)
+	{
+		if (boost::regex_match(in, j->first))
+			bans[j->first] = j->second;
+	}
+
+	MT_EE
+}
+
+void LiveChannel::MatchBan(const boost::shared_ptr<LiveUser> &in, LiveChannel::rxbans_t &bans) const
+{
+	MT_EB
+	MT_FUNC("LiveChannel::MatchBan" << in << bans);
+
+	MatchBan(in->Name() + "!" + in->User() + "@" + in->Host(), bans);
+
+	MT_EE
+}
+
 void LiveChannel::Exempts(LiveChannel::exempts_t &exempts) const
 {
 	MT_EB
@@ -483,10 +535,10 @@ void LiveChannel::Exempts(LiveChannel::exempts_t &exempts) const
 	MT_EE
 }
 
-void LiveChannel::RxExempts(LiveChannel::rxexempts_t &exempts) const
+void LiveChannel::Exempts(LiveChannel::rxexempts_t &exempts) const
 {
 	MT_EB
-	MT_FUNC("LiveChannel::RxExempts" << exempts);
+	MT_FUNC("LiveChannel::Exempts" << exempts);
 
 	SYNC_RLOCK(exempts_);
 	exempts = rxexempts_;
@@ -525,6 +577,58 @@ bool LiveChannel::MatchExempt(const boost::shared_ptr<LiveUser> &in) const
 	bool rv = MatchExempt(in->Name() + "!" + in->User() + "@" + in->Host());
 
 	MT_RET(rv);
+	MT_EE
+}
+
+void LiveChannel::MatchExempt(const std::string &in, LiveChannel::exempts_t &exempt) const
+{
+	MT_EB
+	MT_FUNC("LiveChannel::MatchExempt" << in << exempt);
+
+	SYNC_RLOCK(exempts_);
+	exempts_t::const_iterator i;
+	for (i = exempts_.begin(); i != exempts_.end(); ++i)
+	{
+		if (mantra::glob_match(*i, in, true))
+			exempt.insert(*i);
+	}
+
+	MT_EE
+}
+
+void LiveChannel::MatchExempt(const boost::shared_ptr<LiveUser> &in, LiveChannel::exempts_t &exempt) const
+{
+	MT_EB
+	MT_FUNC("LiveChannel::MatchExempt" << in << exempt);
+
+	MatchExempt(in->Name() + "!" + in->User() + "@" + in->Host(), exempt);
+
+	MT_EE
+}
+
+void LiveChannel::MatchExempt(const std::string &in, LiveChannel::rxexempts_t &exempt) const
+{
+	MT_EB
+	MT_FUNC("LiveChannel::MatchExempt" << in << exempt);
+
+	SYNC_RLOCK(exempts_);
+	rxexempts_t::const_iterator j;
+	for (j = rxexempts_.begin(); j != rxexempts_.end(); ++j)
+	{
+		if (boost::regex_match(in, *j))
+			exempt.insert(*j);
+	}
+
+	MT_EE
+}
+
+void LiveChannel::MatchExempt(const boost::shared_ptr<LiveUser> &in, LiveChannel::rxexempts_t &exempt) const
+{
+	MT_EB
+	MT_FUNC("LiveChannel::MatchExempt" << in << exempt);
+
+	MatchExempt(in->Name() + "!" + in->User() + "@" + in->Host(), exempt);
+
 	MT_EE
 }
 

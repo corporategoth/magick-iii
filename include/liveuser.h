@@ -64,65 +64,8 @@ class StoredNick;
 // Used as:
 // SEND(service, user, format_string, format_args);
 // NSEND(service, user, format_string);
-#define SEND(w,x,y,z) \
-	do \
-	{ \
-		if ((w) && (x) && (y) && (w)->GetService() && !(x)->GetService()) \
-		{ \
-			boost::shared_ptr<StoredNick> __nick = (x)->Stored(); \
-			if (__nick) \
-			{ \
-				std::locale __loc(__nick->User()->Language().c_str()); \
-				boost::format __fmt(mantra::translate::get((y), __loc), __loc); \
-				__fmt.exceptions(__fmt.exceptions() & ~boost::io::too_many_args_bit); \
-				if (__nick->User()->PRIVMSG()) \
-					(w)->GetService()->PRIVMSG((w), (x), __fmt % z); \
-				else \
-					(w)->GetService()->NOTICE((w), (x), __fmt % z); \
-			} \
-			else \
-			{ \
-				std::locale __loc(ROOT->ConfigValue<std::string>("nickserv.defaults.language").c_str()); \
-				boost::format __fmt(mantra::translate::get((y), __loc), __loc); \
-				__fmt.exceptions(__fmt.exceptions() & ~boost::io::too_many_args_bit); \
-				if (ROOT->ConfigValue<bool>("nickserv.defaults.privmsg")) \
-					(w)->GetService()->PRIVMSG((w), (x), __fmt % z); \
-				else \
-					(w)->GetService()->NOTICE((w), (x), __fmt % z); \
-			} \
-		} \
-	} \
-	while (0)
-
-#define NSEND(w,x,y) \
-	do \
-	{ \
-		if ((w) && (x) && (y) && (w)->GetService() && !(x)->GetService()) \
-		{ \
-			boost::shared_ptr<StoredNick> __nick = (x)->Stored(); \
-			if (__nick) \
-			{ \
-				std::locale __loc(__nick->User()->Language().c_str()); \
-				boost::format __fmt(mantra::translate::get((y), __loc), __loc); \
-				__fmt.exceptions(__fmt.exceptions() & ~boost::io::too_many_args_bit); \
-				if (__nick->User()->PRIVMSG()) \
-					(w)->GetService()->PRIVMSG((w), (x), __fmt); \
-				else \
-					(w)->GetService()->NOTICE((w), (x), __fmt); \
-			} \
-			else \
-			{ \
-				std::locale __loc(ROOT->ConfigValue<std::string>("nickserv.defaults.language").c_str()); \
-				boost::format __fmt(mantra::translate::get((y), __loc), __loc); \
-				__fmt.exceptions(__fmt.exceptions() & ~boost::io::too_many_args_bit); \
-				if (ROOT->ConfigValue<bool>("nickserv.defaults.privmsg")) \
-					(w)->GetService()->PRIVMSG((w), (x), __fmt); \
-				else \
-					(w)->GetService()->NOTICE((w), (x), __fmt); \
-			} \
-		} \
-	} \
-	while (0)
+#define SEND(w,x,y,z) (x)->send((w), (x)->format(y) % z)
+#define NSEND(w,x,z) (x)->send((w), (x)->format(z))
 
 class LiveUser : private boost::noncopyable,
 				 public boost::totally_ordered1<LiveUser>,
@@ -353,6 +296,10 @@ public:
 	std::string translate(const std::string &single,
 						  const std::string &plural,
 						  unsigned long n) const;
+
+	boost::format format(const std::string &in) const;
+	void send(const boost::shared_ptr<LiveUser> &service,
+			  const boost::format &fmt) const;
 };
 
 // Special interface used by Storage.
