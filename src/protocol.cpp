@@ -666,7 +666,7 @@ boost::shared_ptr<LiveUser> Protocol::ParseUser(const Message &in) const
 			unformatter.ElementRegex(5, "[[:digit:]]+"); // signon time
 			unformatter.ElementRegex(6, "[[:digit:]]+"); // hops
 			unformatter.ElementRegex(7, "[^[:space:]]+"); // numeric
-			unformatter.ElementRegex(8, "[+]?[[:alpha:]]+"); // modes
+			unformatter.ElementRegex(8, "[+]?[[:alpha:]]*"); // modes
 			// unformatter.ElementRegex(9, ".*"); // real name
 			unformatter.ElementRegex(10, "[[:digit:]]+"); // service flag
 			unformatter.ElementRegex(11, "[-.[:alnum:]]+"); // alt. host (verify later)

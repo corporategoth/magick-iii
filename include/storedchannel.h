@@ -270,7 +270,7 @@ public:
 		enum Default_t {
 				LVL_AutoDeop = 1, LVL_AutoVoice, LVL_AutoHalfOp, LVL_AutoOp,
 				LVL_ReadMemo, LVL_WriteMemo, LVL_DelMemo, LVL_Greet,
-				LVL_OverGreet, LVL_Message, LVL_Akick, LVL_Super, LVL_Unban,
+				LVL_OverGreet, LVL_Message, LVL_AutoKick, LVL_Super, LVL_Unban,
 				LVL_Access, LVL_Set, LVL_View, LVL_CMD_Invite, LVL_CMD_Unban,
 				LVL_CMD_Voice, LVL_CMD_HalfOp, LVL_CMD_Op, LVL_CMD_Kick,
 				LVL_CMD_Mode, LVL_CMD_Clear, LVL_MAX
@@ -386,13 +386,16 @@ public:
 
 		AutoKick(const boost::shared_ptr<StoredChannel> &owner, boost::uint32_t num);
 		AutoKick(const boost::shared_ptr<StoredChannel> &owner, const std::string &entry,
-				 const std::string &reason, const boost::shared_ptr<StoredNick> &updater);
+				 const std::string &reason, const mantra::duration &length,
+				 const boost::shared_ptr<StoredNick> &updater);
 		AutoKick(const boost::shared_ptr<StoredChannel> &owner,
 				 const boost::shared_ptr<StoredUser> &entry,
-				 const std::string &reason, const boost::shared_ptr<StoredNick> &updater);
+				 const std::string &reason, const mantra::duration &length,
+				 const boost::shared_ptr<StoredNick> &updater);
 		AutoKick(const boost::shared_ptr<StoredChannel> &owner,
 				 const boost::shared_ptr<Committee> &entry,
-				 const std::string &reason, const boost::shared_ptr<StoredNick> &updater);
+				 const std::string &reason, const mantra::duration &length,
+				 const boost::shared_ptr<StoredNick> &updater);
 	public:
 		const boost::shared_ptr<StoredChannel> &Owner() const { return owner_; }
 		boost::uint32_t Number() const { return number_; }
@@ -401,10 +404,13 @@ public:
 		void ChangeEntry(const boost::shared_ptr<StoredUser> &entry, const boost::shared_ptr<StoredNick> &updater);
 		void ChangeEntry(const boost::shared_ptr<Committee> &entry, const boost::shared_ptr<StoredNick> &updater);
 		void ChangeReason(const std::string &value, const boost::shared_ptr<StoredNick> &updater);
+		void ChangeLength(const mantra::duration &length, const boost::shared_ptr<StoredNick> &updater);
 		std::string Mask() const;
 		boost::shared_ptr<StoredUser> User() const;
 		boost::shared_ptr<Committee> GetCommittee() const;
 		std::string Reason() const;
+		boost::posix_time::ptime Creation() const;
+		mantra::duration Length() const;
 		std::string Last_UpdaterName() const;
 		boost::shared_ptr<StoredUser> Last_Updater() const;
 		boost::posix_time::ptime Last_Update() const;
@@ -420,17 +426,25 @@ public:
 		}
 	};
 
-	AutoKick AKICK_Matches(const std::string &in) const;
-	AutoKick AKICK_Matches(const boost::shared_ptr<LiveUser> &in) const;
+	std::set<AutoKick> AKICK_Matches(const std::string &in) const;
+	std::set<AutoKick> AKICK_Matches(const boost::shared_ptr<LiveUser> &in) const;
+	std::set<AutoKick> AKICK_Matches(const boost::regex &in) const;
 	bool AKICK_Exists(boost::uint32_t num) const;
 	AutoKick AKICK_Add(const std::string &entry, const std::string &reason,
-					  const boost::shared_ptr<StoredNick> &updater);
-	AutoKick AKICK_Add(const boost::shared_ptr<StoredUser> &entry, const std::string &reason,
-					  const boost::shared_ptr<StoredNick> &updater);
-	AutoKick AKICK_Add(const boost::shared_ptr<Committee> &entry, const std::string &reason,
-					  const boost::shared_ptr<StoredNick> &updater);
+					   const mantra::duration &length,
+					   const boost::shared_ptr<StoredNick> &updater);
+	AutoKick AKICK_Add(const boost::shared_ptr<StoredUser> &entry,
+					   const std::string &reason, const mantra::duration &length,
+					   const boost::shared_ptr<StoredNick> &updater);
+	AutoKick AKICK_Add(const boost::shared_ptr<Committee> &entry,
+					   const std::string &reason, const mantra::duration &length,
+					   const boost::shared_ptr<StoredNick> &updater);
 	void AKICK_Del(boost::uint32_t num);
+	void AKICK_Reindex(boost::uint32_t num, boost::uint32_t newnum);
 	AutoKick AKICK_Get(boost::uint32_t num) const;
+	AutoKick AKICK_Get(const boost::shared_ptr<StoredUser> &in) const;
+	AutoKick AKICK_Get(const boost::shared_ptr<Committee> &in) const;
+	AutoKick AKICK_Get(const std::string &in) const;
 	void AKICK_Get(std::set<AutoKick> &fill) const;
 
 	class Greet : public boost::totally_ordered1<Greet>
@@ -512,6 +526,7 @@ public:
 	Message MESSAGE_Add(const std::string &message, 
 					  const boost::shared_ptr<StoredNick> &updater);
 	void MESSAGE_Del(boost::uint32_t num);
+	void MESSAGE_Reindex(boost::uint32_t num, boost::uint32_t newnum);
 	Message MESSAGE_Get(boost::uint32_t num) const;
 	void MESSAGE_Get(std::set<Message> &fill) const;
 

@@ -2227,7 +2227,13 @@ static bool biACCESS_ADD(const boost::shared_ptr<LiveUser> &service,
 	}
 	else if (boost::regex_match(params[2], mask_rx))
 	{
-		StoredChannel::Access acc(channel->ACCESS_Get(params[2]));
+		std::string entry;
+		if (params[2].find('!') == std::string::npos)
+			entry = "*!" + params[2];
+		else
+			entry = params[2];
+
+		StoredChannel::Access acc(channel->ACCESS_Get(entry));
 		if (acc.Number())
 		{
 			if (acc.Level() >= level)
@@ -2243,16 +2249,16 @@ static bool biACCESS_ADD(const boost::shared_ptr<LiveUser> &service,
 		}
 		else
 		{
-			StoredChannel::Access acc2(channel->ACCESS_Add(params[2], newlevel, nick));
+			StoredChannel::Access acc2(channel->ACCESS_Add(entry, newlevel, nick));
 			if (!acc2.Number())
 			{
 				SEND(service, user, N_("Could not add mask %1% to channel %2% access list."),
-					 params[2] % channel->Name());
+					 entry % channel->Name());
 				MT_RET(false);
 			}
 
 			SEND(service, user, N_("Mask %1% has been added at access level %2% to channel %3%."),
-				 params[2] % newlevel % channel->Name());
+				 entry % newlevel % channel->Name());
 		}
 	}
 	else
@@ -2274,6 +2280,12 @@ static bool biACCESS_ADD(const boost::shared_ptr<LiveUser> &service,
 				acc.ChangeValue(newlevel, nick);
 				SEND(service, user, N_("Entry #%1% has been changed to access level %2% on channel %3%."),
 					 entry % newlevel % channel->Name());
+			}
+			else
+			{
+				SEND(service, user, N_("Could not find entry #%1% on access list for channel %2%."),
+					  entry % channel->Name());
+				MT_RET(false);
 			}
 		}
 		catch (const boost::bad_lexical_cast &e)
@@ -2396,8 +2408,14 @@ static bool biACCESS_DEL(const boost::shared_ptr<LiveUser> &service,
 		}
 		else if (boost::regex_match(params[i], mask_rx))
 		{
+			std::string entry;
+			if (params[i].find('!') == std::string::npos)
+				entry = "*!" + params[i];
+			else
+				entry = params[i];
+
 			std::list<StoredChannel::Access> acc(channel->ACCESS_Matches(
-					mantra::make_globrx(params[i], boost::regex_constants::normal |
+					mantra::make_globrx(entry, boost::regex_constants::normal |
 												   boost::regex_constants::icase)));
 			if (!acc.empty())
 			{
@@ -2544,8 +2562,14 @@ static bool biACCESS_LIST(const boost::shared_ptr<LiveUser> &service,
 			}
 			else if (boost::regex_match(params[i], mask_rx))
 			{
+				std::string entry;
+				if (params[i].find('!') == std::string::npos)
+					entry = "*!" + params[i];
+				else
+					entry = params[i];
+
 				std::list<StoredChannel::Access> tmp(channel->ACCESS_Matches(
-						mantra::make_globrx(params[i], boost::regex_constants::normal |
+						mantra::make_globrx(entry, boost::regex_constants::normal |
 													   boost::regex_constants::icase)));
 				if (!tmp.empty())
 					acc.insert(tmp.begin(), tmp.end());
@@ -2588,7 +2612,7 @@ static bool biACCESS_LIST(const boost::shared_ptr<LiveUser> &service,
 	}
 	else
 	{
-		NSEND(service, user, N_("     SPECIFICATION               LEVEL"));
+		NSEND(service, user, N_("     SPECIFICATION                                      LEVEL"));
 		std::set<StoredChannel::Access>::iterator i;
 		for (i = acc.begin(); i != acc.end(); ++i)
 		{
@@ -2613,21 +2637,21 @@ static bool biACCESS_LIST(const boost::shared_ptr<LiveUser> &service,
 					str += (*j)->Name();
 				}
 
-				SEND(service, user, N_("%1$ 3d. %2$-65s %3$ 2d (last modified by %4$s %5$s ago)"),
+				SEND(service, user, N_("%1$ 3d. %2$-50s %3$ 2d (last modified by %4$s %5$s ago)"),
 					 i->Number() % str % i->Level() % i->Last_UpdaterName() %
 					 DurationToString(mantra::duration(i->Last_Update(),
 													   mantra::GetCurrentDateTime()), mantra::Second));
 			}
 			else if (i->GetCommittee())
 			{
-				SEND(service, user, N_("%1$ 3d. %2$-65s %3$ 2d (last modified by %4$s %5$s ago)"),
-					 i->Number() % i->GetCommittee()->Name() % i->Level() % i->Last_UpdaterName() %
+				SEND(service, user, N_("%1$ 3d. %2$-50s %3$ 2d (last modified by %4$s %5$s ago)"),
+					 i->Number() % ('@' + i->GetCommittee()->Name()) % i->Level() % i->Last_UpdaterName() %
 					 DurationToString(mantra::duration(i->Last_Update(),
 													   mantra::GetCurrentDateTime()), mantra::Second));
 			}
 			else
 			{
-				SEND(service, user, N_("%1$ 3d. %2$-65s %3$ 2d (last modified by %4$s %5$s ago)"),
+				SEND(service, user, N_("%1$ 3d. %2$-50s %3$ 2d (last modified by %4$s %5$s ago)"),
 					 i->Number() % i->Mask() % i->Level() % i->Last_UpdaterName() %
 					 DurationToString(mantra::duration(i->Last_Update(),
 													   mantra::GetCurrentDateTime()), mantra::Second));
@@ -2703,7 +2727,323 @@ static bool biAKICK_ADD(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biAKICK_ADD" << service << user << params);
 
-	MT_RET(false);
+	if (params.size() < 4)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(user->Name());
+	if (!nick)
+	{
+		NSEND(service, user, N_("Your nickname is not registered."));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredChannel> channel = ROOT->data.Get_StoredChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	boost::int32_t level = 0;
+	if (user->Identified(channel) || (!channel->Secure() && nick->User() == channel->Founder()))
+		level = ROOT->ConfigValue<boost::int32_t>("chanserv.max-level") + 1;
+	else
+	{
+		std::list<StoredChannel::Access> acc(channel->ACCESS_Matches(user));
+		if (!acc.empty())
+			level = acc.front().Level();
+	}
+
+	if (level < channel->LEVEL_Get(StoredChannel::Level::LVL_AutoKick).Value())
+	{
+		SEND(service, user, N_("You do not have sufficient access to modify the access list for channel %1%."),
+			 channel->Name());
+		MT_RET(false);
+	}
+
+	mantra::duration length("");
+
+	size_t offs = 3;
+	if (params[offs][0] == '+')
+	{
+		try
+		{
+			StringToDuration(params[3].substr(1), length);
+		}
+		catch (const mantra::mdatetime_format &e)
+		{
+			NSEND(service, user, N_("Invalid AKILL length specified."));
+			MT_RET(false);
+		}
+		++offs;
+	}
+	/* The following when I have some limits ...
+	else
+	{
+	}
+	*/
+
+	if (offs >= params.size())
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	std::string reason(params[offs]);
+	for (; offs < params.size(); ++offs)
+		reason += ' ' + params[offs];
+
+	static boost::regex nick_rx("^[[:alpha:]\\x5B-\\x60\\x7B-\\x7D][-[:alnum:]\\x5B-\\x60\\x7B-\\x7D]*$");
+	static boost::regex committee_rx("^@[[:print:]]+$");
+	static boost::regex mask_rx("^([[:alpha:]\\x5B-\\x60\\x7B-\\x7D*?][-[:alnum:]\\x5B-\\x60\\x7B-\\x7D*?]*!)?"
+								"[^[:space:][:cntrl:]@]+@(([[:alnum:]*?]([-[:alnum:]*?]{0,61}[[:alnum:]*?])?\\.)*"
+								"[[:alnum:]*?]([-[:alnum:]*?]{0,61}[[:alnum:]*?])?|[[:xdigit:]:*?]*)$");
+	if (boost::regex_match(params[2], nick_rx))
+	{
+		boost::shared_ptr<StoredNick> target = ROOT->data.Get_StoredNick(params[2]);
+		if (!target)
+		{
+			SEND(service, user, N_("Nickname %1% is not registered."), params[2]);	
+			MT_RET(false);
+		}
+
+		StoredChannel::Access acc(channel->ACCESS_Get(target->User()));
+		if (acc.Number() && acc.Level() >= level)
+		{
+			SEND(service, user, N_("Nickname %1% is higher than you or equal to you on the channel %2% access list."),
+				 target->Name() % channel->Name());
+			MT_RET(false);
+		}
+
+		StoredChannel::AutoKick akick(channel->AKICK_Get(target->User()));
+		if (akick.Number())
+		{
+			akick.ChangeReason(reason, nick);
+
+			mantra::duration oldlength = akick.Length();
+			if (length)
+			{
+				boost::posix_time::ptime creation = akick.Creation();
+				length += mantra::duration(creation, mantra::GetCurrentDateTime());
+				akick.ChangeLength(length, nick);
+
+				SEND(service, user, N_("Nickname %1% has had their akick extended by %2% on channel %3%."),
+					 target->Name() % mantra::DurationToString(length, mantra::Second) % channel->Name());
+			}
+			else if (oldlength)
+			{
+				// Make it permanent ...
+				akick.ChangeLength(length, nick);
+				SEND(service, user, N_("Nickname %1% has had their akick made permanent on channel %3%."),
+					 target->Name() % channel->Name());
+			}
+			else
+			{
+				SEND(service, user, N_("Nickname %1% has had their akick reason changed on channel %3%."),
+					 target->Name() % channel->Name());
+			}
+		}
+		else
+		{
+			StoredChannel::AutoKick akick2(channel->AKICK_Add(target->User(), reason, length, nick));
+			if (!akick2.Number())
+			{
+				SEND(service, user, N_("Could not add nickname %1% to channel %2% akick list."),
+					 target->Name() % channel->Name());
+				MT_RET(false);
+			}
+
+			if (length)
+				SEND(service, user, N_("Nickname %1% has been added to the akick list of channel %2% for %3%."),
+					 target->Name() % channel->Name() % mantra::DurationToString(length, mantra::Second));
+			else
+				SEND(service, user, N_("Nickname %1% has been added to the akick list of channel %2% permanently."),
+					 target->Name() % channel->Name());
+		}
+	}
+	else if (boost::regex_match(params[2], committee_rx))
+	{
+		boost::shared_ptr<Committee> target = ROOT->data.Get_Committee(params[2].substr(1));
+		if (!target)
+		{
+			SEND(service, user, N_("Committee %1% is not registered."), params[2].substr(1));	
+			MT_RET(false);
+		}
+
+		StoredChannel::Access acc(channel->ACCESS_Get(target));
+		if (acc.Number() && acc.Level() >= level)
+		{
+			SEND(service, user, N_("Committee %1% is higher than you or equal to you on the channel %2% access list."),
+				 target->Name() % channel->Name());
+			MT_RET(false);
+		}
+
+		StoredChannel::AutoKick akick(channel->AKICK_Get(target));
+		if (akick.Number())
+		{
+			akick.ChangeReason(reason, nick);
+
+			mantra::duration oldlength = akick.Length();
+			if (length)
+			{
+				boost::posix_time::ptime creation = akick.Creation();
+				length += mantra::duration(creation, mantra::GetCurrentDateTime());
+				akick.ChangeLength(length, nick);
+
+				SEND(service, user, N_("Committee %1% has had their akick extended by %2% on channel %3%."),
+					 target->Name() % mantra::DurationToString(length, mantra::Second) % channel->Name());
+			}
+			else if (oldlength)
+			{
+				// Make it permanent ...
+				akick.ChangeLength(length, nick);
+				SEND(service, user, N_("Committee %1% has had their akick made permanent on channel %3%."),
+					 target->Name() % channel->Name());
+			}
+			else
+			{
+				SEND(service, user, N_("Committee %1% has had their akick reason changed on channel %3%."),
+					 target->Name() % channel->Name());
+			}
+		}
+		else
+		{
+			StoredChannel::AutoKick akick2(channel->AKICK_Add(target, reason, length, nick));
+			if (!akick2.Number())
+			{
+				SEND(service, user, N_("Could not add committee %1% to channel %2% akick list."),
+					 target->Name() % channel->Name());
+				MT_RET(false);
+			}
+
+			if (length)
+				SEND(service, user, N_("Committee %1% has been added to the akick list of channel %2% for %3%."),
+					 target->Name() % channel->Name() % mantra::DurationToString(length, mantra::Second));
+			else
+				SEND(service, user, N_("Committee %1% has been added to the akick list of channel %2% permanently."),
+					 target->Name() % channel->Name());
+		}
+	}
+	else if (boost::regex_match(params[2], mask_rx))
+	{
+		std::string entry;
+		if (params[2].find('!') == std::string::npos)
+			entry = "*!" + params[2];
+		else
+			entry = params[2];
+
+		std::list<StoredChannel::Access> acc(channel->ACCESS_Matches(
+				mantra::make_globrx(entry, boost::regex_constants::normal |
+											   boost::regex_constants::icase)));
+		if (!acc.empty() && acc.front().Level() >= level)
+		{
+				SEND(service, user, N_("Mask %1% is higher than you or equal to you on the channel %2% access list."),
+					 acc.front().Mask() % channel->Name());
+				MT_RET(false);
+		}
+
+		StoredChannel::AutoKick akick(channel->AKICK_Get(entry));
+		if (akick.Number())
+		{
+			akick.ChangeReason(reason, nick);
+
+			mantra::duration oldlength = akick.Length();
+			if (length)
+			{
+				boost::posix_time::ptime creation = akick.Creation();
+				length += mantra::duration(creation, mantra::GetCurrentDateTime());
+				akick.ChangeLength(length, nick);
+
+				SEND(service, user, N_("Mask %1% has had their akick extended by %2% on channel %3%."),
+					 entry % mantra::DurationToString(length, mantra::Second) % channel->Name());
+			}
+			else if (oldlength)
+			{
+				// Make it permanent ...
+				akick.ChangeLength(length, nick);
+				SEND(service, user, N_("Mask %1% has had their akick made permanent on channel %3%."),
+					 entry % channel->Name());
+			}
+			else
+			{
+				SEND(service, user, N_("Mask %1% has had their akick reason changed on channel %3%."),
+					 entry % channel->Name());
+			}
+		}
+		else
+		{
+			StoredChannel::AutoKick akick2(channel->AKICK_Add(entry, reason, length, nick));
+			if (!akick2.Number())
+			{
+				SEND(service, user, N_("Could not add mask %1% to channel %2% akickess list."),
+					 entry % channel->Name());
+				MT_RET(false);
+			}
+
+			if (length)
+				SEND(service, user, N_("Mask %1% has been added to the akick list of channel %2% for %3%."),
+					 entry % channel->Name() % mantra::DurationToString(length, mantra::Second));
+			else
+				SEND(service, user, N_("Mask %1% has been added to the akick list of channel %2% permanently."),
+					 entry % channel->Name());
+		}
+	}
+	else
+	{
+		try
+		{
+			boost::uint32_t entry = boost::lexical_cast<boost::uint32_t>(params[2]);
+
+			StoredChannel::AutoKick akick(channel->AKICK_Get(entry));
+			if (akick.Number())
+			{
+				akick.ChangeReason(reason, nick);
+
+				mantra::duration oldlength = akick.Length();
+				if (length)
+				{
+					boost::posix_time::ptime creation = akick.Creation();
+					length += mantra::duration(creation, mantra::GetCurrentDateTime());
+					akick.ChangeLength(length, nick);
+
+					SEND(service, user, N_("Entry #%1% has had their akick extended by %2% on channel %3%."),
+						 entry % mantra::DurationToString(length, mantra::Second) % channel->Name());
+				}
+				else if (oldlength)
+				{
+					// Make it permanent ...
+					akick.ChangeLength(length, nick);
+					SEND(service, user, N_("Entry #%1% has had their akick made permanent on channel %3%."),
+						 entry % channel->Name());
+				}
+				else
+				{
+					SEND(service, user, N_("Entry #%1% has had their akick reason changed on channel %3%."),
+						 entry % channel->Name());
+				}
+			}
+			else
+			{
+				SEND(service, user, N_("Could not find entry #%1% on akick list for channel %2%."),
+					  entry % channel->Name());
+				MT_RET(false);
+			}
+		}
+		catch (const boost::bad_lexical_cast &e)
+		{
+			NSEND(service, user, N_("Invalid mask, nickname, committee or existing entry specified."));
+			MT_RET(false);
+		}
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -2714,7 +3054,141 @@ static bool biAKICK_DEL(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biAKICK_DEL" << service << user << params);
 
-	MT_RET(false);
+	if (params.size() < 3)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredChannel> channel = ROOT->data.Get_StoredChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!channel->ACCESS_Matches(user, StoredChannel::Level::LVL_AutoKick))
+	{
+		SEND(service, user, N_("You do not have sufficient akickess to view the akickess list for channel %1%."),
+			 channel->Name());
+		MT_RET(false);
+	}
+
+	size_t deleted = 0, notfound = 0;
+
+	static boost::regex nick_rx("^[[:alpha:]\\x5B-\\x60\\x7B-\\x7D][-[:alnum:]\\x5B-\\x60\\x7B-\\x7D]*$");
+	static boost::regex committee_rx("^@[[:print:]]+$");
+	static boost::regex mask_rx("^([[:alpha:]\\x5B-\\x60\\x7B-\\x7D*?][-[:alnum:]\\x5B-\\x60\\x7B-\\x7D*?]*!)?"
+								"[^[:space:][:cntrl:]@]+@(([[:alnum:]*?]([-[:alnum:]*?]{0,61}[[:alnum:]*?])?\\.)*"
+								"[[:alnum:]*?]([-[:alnum:]*?]{0,61}[[:alnum:]*?])?|[[:xdigit:]:*?]*)$");
+	for (size_t i = 2; i < params.size(); ++i)
+	{
+		if (boost::regex_match(params[i], nick_rx))
+		{
+			boost::shared_ptr<StoredNick> target = ROOT->data.Get_StoredNick(params[i]);
+			if (!target)
+			{
+				++notfound;
+				continue;
+			}
+
+			StoredChannel::AutoKick akick(channel->AKICK_Get(target->User()));
+			if (akick.Number())
+			{
+				channel->AKICK_Del(akick.Number());
+				++deleted;
+			}
+			else
+			{
+				++notfound;
+			}
+		}
+		else if (boost::regex_match(params[i], committee_rx))
+		{
+			boost::shared_ptr<Committee> target = ROOT->data.Get_Committee(params[i].substr(1));
+			if (!target)
+			{
+				++notfound;
+				continue;
+			}
+
+			StoredChannel::AutoKick akick(channel->AKICK_Get(target));
+			if (akick.Number())
+			{
+				channel->AKICK_Del(akick.Number());
+				++deleted;
+			}
+			else
+			{
+				++notfound;
+			}
+		}
+		else if (boost::regex_match(params[i], mask_rx))
+		{
+			std::string entry;
+			if (params[i].find('!') == std::string::npos)
+				entry = "*!" + params[i];
+			else
+				entry = params[i];
+
+			std::set<StoredChannel::AutoKick> akick(channel->AKICK_Matches(
+					mantra::make_globrx(entry, boost::regex_constants::normal |
+												   boost::regex_constants::icase)));
+			if (!akick.empty())
+			{
+				std::set<StoredChannel::AutoKick>::iterator j;
+				for (j = akick.begin(); j != akick.end(); ++j)
+				{
+					channel->AKICK_Del(j->Number());
+					++deleted;
+				}
+			}
+			else
+			{
+				++notfound;
+			}
+		}
+		else
+		{
+			std::vector<unsigned int> nums;
+			if (mantra::ParseNumbers(params[i], nums))
+			{
+				std::vector<unsigned int>::iterator j;
+				for (j = nums.begin(); j != nums.end(); ++j)
+				{
+					StoredChannel::AutoKick akick = channel->AKICK_Get(*j);
+					if (akick.Number())
+					{
+						channel->AKICK_Del(akick.Number());
+						++deleted;
+					}
+					else
+						++notfound;
+				}
+			}
+			else
+			{
+				++notfound;
+			}
+		}
+	}
+
+	if (deleted)
+	{
+		SEND(service, user,
+			 N_("%1% entries removed from the akick list for channel %2%."),
+			 deleted % channel->Name());
+	}
+	else
+	{
+		SEND(service, user,
+			  N_("No specified entries could be found on the akick list for channel %1%."),
+			  channel->Name());
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -2725,7 +3199,180 @@ static bool biAKICK_LIST(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biAKICK_LIST" << service << user << params);
 
-	MT_RET(false);
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredChannel> channel = ROOT->data.Get_StoredChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!channel->ACCESS_Matches(user, StoredChannel::Level::LVL_AutoKick))
+	{
+		SEND(service, user, N_("You do not have sufficient akickess to view the akickess list for channel %1%."),
+			 channel->Name());
+		MT_RET(false);
+	}
+
+	std::set<StoredChannel::AutoKick> akick;
+	if (params.size() > 2)
+	{
+		static boost::regex nick_rx("^[[:alpha:]\\x5B-\\x60\\x7B-\\x7D][-[:alnum:]\\x5B-\\x60\\x7B-\\x7D]*$");
+		static boost::regex committee_rx("^@[[:print:]]+$");
+		static boost::regex mask_rx("^([[:alpha:]\\x5B-\\x60\\x7B-\\x7D*?][-[:alnum:]\\x5B-\\x60\\x7B-\\x7D*?]*!)?"
+									"[^[:space:][:cntrl:]@]+@(([[:alnum:]*?]([-[:alnum:]*?]{0,61}[[:alnum:]*?])?\\.)*"
+									"[[:alnum:]*?]([-[:alnum:]*?]{0,61}[[:alnum:]*?])?|[[:xdigit:]:*?]*)$");
+		for (size_t i = 2; i < params.size(); ++i)
+		{
+			if (boost::regex_match(params[i], nick_rx))
+			{
+				boost::shared_ptr<StoredNick> target = ROOT->data.Get_StoredNick(params[i]);
+				if (!target)
+					continue;
+
+				StoredChannel::AutoKick tmp(channel->AKICK_Get(target->User()));
+				if (tmp.Number())
+					akick.insert(tmp);
+			}
+			else if (boost::regex_match(params[i], committee_rx))
+			{
+				boost::shared_ptr<Committee> target = ROOT->data.Get_Committee(params[i].substr(1));
+				if (!target)
+					continue;
+
+				StoredChannel::AutoKick tmp(channel->AKICK_Get(target));
+				if (tmp.Number())
+					akick.insert(tmp);
+			}
+			else if (boost::regex_match(params[i], mask_rx))
+			{
+				std::string entry;
+				if (params[i].find('!') == std::string::npos)
+					entry = "*!" + params[i];
+				else
+					entry = params[i];
+
+				std::set<StoredChannel::AutoKick> tmp(channel->AKICK_Matches(
+						mantra::make_globrx(entry, boost::regex_constants::normal |
+													   boost::regex_constants::icase)));
+				if (!tmp.empty())
+					akick.insert(tmp.begin(), tmp.end());
+			}
+			else
+			{
+				std::vector<unsigned int> nums;
+				if (mantra::ParseNumbers(params[i], nums))
+				{
+					std::vector<unsigned int>::iterator j;
+					for (j = nums.begin(); j != nums.end(); ++j)
+					{
+						StoredChannel::AutoKick tmp = channel->AKICK_Get(*j);
+						if (tmp.Number())
+							akick.insert(tmp);
+					}
+				}
+			}
+		}
+	}
+	else
+	{
+		channel->AKICK_Get(akick);
+	}
+
+	if (akick.empty())
+	{
+		if (params.size() > 2)
+		{
+			SEND(service, user, N_("No entries matching your specification on the akick list for channel %1%."),
+				 channel->Name());
+			MT_RET(false);
+		}
+		else
+		{
+			SEND(service, user, N_("The akick list for channel %1% is empty."),
+				 channel->Name());
+			MT_RET(false);
+		}
+	}
+	else
+	{
+//		NSEND(service, user, N_("     SPECIFICATION                                      LEVEL"));
+		std::set<StoredChannel::AutoKick>::iterator i;
+		for (i = akick.begin(); i != akick.end(); ++i)
+		{
+			if (!i->Number())
+				continue;
+
+			if (i->User())
+			{
+				StoredUser::my_nicks_t nicks = i->User()->Nicks();
+				if (nicks.empty())
+					continue;
+
+				std::string str;
+				StoredUser::my_nicks_t::const_iterator j;
+				for (j = nicks.begin(); j != nicks.end(); ++j)
+				{
+					if (!*j)
+						continue;
+
+					if (!str.empty())
+						str += ", ";
+					str += (*j)->Name();
+				}
+
+				SEND(service, user, N_("%1$ 3d. %2$s (last modified by %3$s %4$s ago)"),
+					 i->Number() % str % i->Last_UpdaterName() %
+					 DurationToString(mantra::duration(i->Last_Update(),
+													   mantra::GetCurrentDateTime()), mantra::Second));
+				if (i->Length())
+					SEND(service, user, N_("     [%1%, %2% left] %3%"),
+						 DurationToString(i->Length(), mantra::Second) %
+						 DurationToString(i->Length() - mantra::duration(i->Creation(),
+										  mantra::GetCurrentDateTime()), mantra::Second) % i->Reason());
+				else
+					SEND(service, user, N_("     [PERMANENT] %1%"), i->Reason());
+
+			}
+			else if (i->GetCommittee())
+			{
+				SEND(service, user, N_("%1$ 3d. %2$s (last modified by %3$s %4$s ago)"),
+					 i->Number() % ('@' + i->GetCommittee()->Name()) % i->Last_UpdaterName() %
+					 DurationToString(mantra::duration(i->Last_Update(),
+													   mantra::GetCurrentDateTime()), mantra::Second));
+				if (i->Length())
+					SEND(service, user, N_("     [%1%, %2% left] %3%"),
+						 DurationToString(i->Length(), mantra::Second) %
+						 DurationToString(i->Length() - mantra::duration(i->Creation(),
+										  mantra::GetCurrentDateTime()), mantra::Second) % i->Reason());
+				else
+					SEND(service, user, N_("     [PERMANENT] %1%"), i->Reason());
+			}
+			else
+			{
+				SEND(service, user, N_("%1$ 3d. %2$s (last modified by %3$s %4$s ago)"),
+					 i->Number() % i->Mask() % i->Last_UpdaterName() %
+					 DurationToString(mantra::duration(i->Last_Update(),
+													   mantra::GetCurrentDateTime()), mantra::Second));
+				if (i->Length())
+					SEND(service, user, N_("     [%1%, %2% left] %3%"),
+						 DurationToString(i->Length(), mantra::Second) %
+						 DurationToString(i->Length() - mantra::duration(i->Creation(),
+										  mantra::GetCurrentDateTime()), mantra::Second) % i->Reason());
+				else
+					SEND(service, user, N_("     [PERMANENT] %1%"), i->Reason());
+			}
+		}
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -2736,7 +3383,53 @@ static bool biAKICK_REINDEX(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biAKICK_REINDEX" << service << user << params);
 
-	MT_RET(false);
+	if (params.size() < 2)
+	{
+		SEND(service, user,
+			 N_("Insufficient parameters for %1% command."),
+			 boost::algorithm::to_upper_copy(params[0]));
+		MT_RET(false);
+	}
+
+	boost::shared_ptr<StoredChannel> channel = ROOT->data.Get_StoredChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
+
+	if (!channel->ACCESS_Matches(user, StoredChannel::Level::LVL_AutoKick))
+	{
+		SEND(service, user, N_("You do not have sufficient akickess to modify the akickess list for channel %1%."),
+			 channel->Name());
+		MT_RET(false);
+	}
+
+	std::set<StoredChannel::AutoKick> akick;
+	channel->AKICK_Get(akick);
+
+	if (akick.empty())
+	{
+		SEND(service, user, N_("The akickess list for channel %1% is empty."),
+			 channel->Name());
+		MT_RET(false);
+	}
+
+	size_t count = 0, changed = 0;
+	std::set<StoredChannel::AutoKick>::iterator i;
+	for (i = akick.begin(); i != akick.end(); ++i)
+	{
+		if (i->Number() != ++count)
+		{
+			channel->AKICK_Reindex(i->Number(), count);
+			++changed;
+		}
+	}
+
+	SEND(service, user, N_("Reindexing of akickess list for channel %1% complete, \002%2%\017 entries changed."),
+		 channel->Name() % changed);
+
+	MT_RET(true);
 	MT_EE
 }
 

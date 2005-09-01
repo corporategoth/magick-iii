@@ -843,8 +843,8 @@ bool Magick::set_config(const po::variables_map &vm)
 	StoredChannel::Level::Default(StoredChannel::Level::LVL_Message,
 								  vm["chanserv.levels.message"].as<int>(),
 								  boost::regex("MESSAGE"), N_("Create On-Join Message"));
-	StoredChannel::Level::Default(StoredChannel::Level::LVL_Akick,
-								  vm["chanserv.levels.akick"].as<int>(),
+	StoredChannel::Level::Default(StoredChannel::Level::LVL_AutoKick,
+								  vm["chanserv.levels.autokick"].as<int>(),
 								  boost::regex("AKICK"), N_("Manage AutoKicks"));
 	StoredChannel::Level::Default(StoredChannel::Level::LVL_Super,
 								  vm["chanserv.levels.super"].as<int>(),

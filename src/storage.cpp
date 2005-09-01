@@ -1651,7 +1651,6 @@ void Storage::init()
 	backend_.first->DefineColumn("channels", "mlock_key", cp);
 	cp.Assign<boost::uint32_t>(true);
 	backend_.first->DefineColumn("channels", "mlock_limit", cp);
-
 	cp.Assign<bool>(true);
 	backend_.first->DefineColumn("channels", "lock_keeptopic", cp);
 	backend_.first->DefineColumn("channels", "lock_topiclock", cp);
@@ -1719,6 +1718,10 @@ void Storage::init()
 	backend_.first->DefineColumn("channels_akick", "entry_committee", cp);
 	cp.Assign<std::string>(false);
 	backend_.first->DefineColumn("channels_akick", "reason", cp);
+	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
+	backend_.first->DefineColumn("channels_akick", "creation", cp);
+	cp.Assign<mantra::duration>(true);
+	backend_.first->DefineColumn("akills", "length", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
 	backend_.first->DefineColumn("channels_akick", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);

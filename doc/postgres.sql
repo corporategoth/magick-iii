@@ -252,6 +252,8 @@ CREATE TABLE channels_akick (
 		entry_user integer REFERENCES users(id) ON DELETE CASCADE,
 		entry_committee integer REFERENCES committees(id) ON DELETE CASCADE,
 		reason text NOT NULL,
+		creation timestamp NOT NULL DEFAULT current_timestamp,
+		length interval,
 		last_updater varchar(32) NOT NULL,
 		last_updater_id integer REFERENCES users(id) ON DELETE SET NULL,
 		last_update timestamp NOT NULL DEFAULT current_timestamp,
