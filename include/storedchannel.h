@@ -117,6 +117,9 @@ public:
 			R_MAX
 		};
 
+	static Revenge_t RevengeID(const std::string &in);
+	static std::string RevengeDesc(Revenge_t id);
+
 	static boost::shared_ptr<StoredChannel> create(const std::string &name,
 		  const std::string &password, const boost::shared_ptr<StoredUser> &founder);
 

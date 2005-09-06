@@ -43,19 +43,56 @@ RCSID(magick__storedchannel_cpp, "@(#)$Id$");
 
 StorageInterface StoredChannel::storage("channels", "id", "last_update");
 
-static const char *revenge_desc[StoredChannel::R_MAX] =
-	{
-		"No Action",
-		"Reverse Action",
-		"Mirror Action"
-		"DeOp User",
-		"Kick User",
-		"Nick Ban (nick!*@*)",
-		"User Port Ban (*!*user@port.host)",
-		"User Host Ban (*!*user@*.host)",
-		"Port Ban (*!*@port.host)",
-		"Host Ban (*!*@*.host)"
-	};
+StoredChannel::Revenge_t StoredChannel::RevengeID(const std::string &in)
+{
+	MT_EB
+	MT_FUNC("ChanServ::RevengeID" << in);
+
+	static boost::regex revenge_rx[StoredChannel::R_MAX] =
+		{
+			boost::regex("^(NONE)$", boost::regex_constants::icase),
+			boost::regex("^(REVERSE)$", boost::regex_constants::icase),
+			boost::regex("^(MIRROR)$", boost::regex_constants::icase),
+			boost::regex("^(DEOP)$", boost::regex_constants::icase),
+			boost::regex("^(KICK)$", boost::regex_constants::icase),
+			boost::regex("^(BAN1)$", boost::regex_constants::icase),
+			boost::regex("^(BAN2)$", boost::regex_constants::icase),
+			boost::regex("^(BAN3)$", boost::regex_constants::icase),
+			boost::regex("^(BAN4)$", boost::regex_constants::icase),
+			boost::regex("^(BAN5)$", boost::regex_constants::icase)
+		};
+
+	size_t i;
+	for (i=0; i < R_MAX; ++i)
+		if (boost::regex_match(in, revenge_rx[i]))
+			break;
+
+	MT_RET((Revenge_t) i);
+	MT_EE
+}
+
+std::string StoredChannel::RevengeDesc(StoredChannel::Revenge_t id)
+{
+	MT_EB
+	MT_FUNC("ChanServ::RevengeDesc" << id);
+
+	static const char *revenge_desc[StoredChannel::R_MAX] =
+		{
+			"No Action",
+			"Reverse Action",
+			"Mirror Action"
+			"DeOp User",
+			"Kick User",
+			"Nick Ban (nick!*@*)",
+			"User Port Ban (*!*user@port.host)",
+			"User Host Ban (*!*user@*.host)",
+			"Port Ban (*!*@port.host)",
+			"Host Ban (*!*@*.host)"
+		};
+
+	MT_RET(revenge_desc[id]);
+	MT_EE
+}
 
 boost::shared_ptr<StoredChannel> StoredChannel::create(const std::string &name,
 	  const std::string &password, const boost::shared_ptr<StoredUser> &founder)
@@ -331,7 +368,15 @@ void StoredChannel::Founder(const boost::shared_ptr<StoredUser> &in)
 	if (!in)
 		return;
 
-	cache.Put("founder", in->ID());
+	mantra::Storage::RecordMap rec;
+	rec["founder"] = in->ID();
+
+	mantra::StorageValue rv = cache.Get("successor");
+	if (rv.type() != typeid(mantra::NullValue) &&
+		boost::get<boost::uint32_t>(rv) == in->ID())
+		rec["successor"] = mantra::NullValue();
+
+	cache.Put(rec);
 
 	MT_EE
 }
@@ -1889,7 +1934,7 @@ void StoredChannel::SendInfo(const boost::shared_ptr<LiveUser> &service,
 		{
 			if (r > R_None && r < R_MAX)
 				SEND(service, user, N_("Revenge        : %1%"),
-					 ('\002' + std::string(revenge_desc[r]) + '\017'));
+					 ('\002' + RevengeDesc(r) + '\017'));
 		}
 		else
 		{
@@ -1902,15 +1947,15 @@ void StoredChannel::SendInfo(const boost::shared_ptr<LiveUser> &service,
 					j = data.find("lock_revenge");
 					if (j != data.end() && boost::get<bool>(j->second))
 						SEND(service, user, N_("Revenge        : %1%"),
-							 ('\002' + std::string(revenge_desc[r]) + '\017'));
+							 ('\002' + RevengeDesc(r) + '\017'));
 					else
 						SEND(service, user, N_("Revenge        : %1%"),
-							 revenge_desc[r]);
+							 RevengeDesc(r));
 				}
 			}
 			else if (r > R_None && r < R_MAX)
 				SEND(service, user, N_("Revenge        : %1%"),
-					 revenge_desc[r]);
+					 RevengeDesc(r));
 		}
 
 		mantra::duration d = ROOT->ConfigValue<mantra::duration>("chanserv.defaults.bantime");

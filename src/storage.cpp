@@ -1721,7 +1721,7 @@ void Storage::init()
 	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("channels_akick", "creation", cp);
 	cp.Assign<mantra::duration>(true);
-	backend_.first->DefineColumn("akills", "length", cp);
+	backend_.first->DefineColumn("channels_akick", "length", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
 	backend_.first->DefineColumn("channels_akick", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
