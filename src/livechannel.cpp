@@ -264,34 +264,66 @@ void LiveChannel::Join(const boost::shared_ptr<LiveUser> &user)
 	MT_EE
 }
 
+void LiveChannel::CommonPart(const boost::shared_ptr<LiveUser> &user)
+{
+	MT_EB
+	MT_FUNC("LiveChannel::CommonPart" << user);
+
+	bool empty;
+	{
+		SYNC_WLOCK(users_);
+		users_.erase(user);
+		empty = users_.empty();
+	}
+
+	if_LiveUser_LiveChannel(user).Part(self.lock());
+
+	if (empty)
+	{
+		{
+			SYNC_LOCK(recent_parts_);
+			recent_parts_t::iterator i;
+			for (i = recent_parts_.begin(); i != recent_parts_.end(); ++i)
+				ROOT->event->Cancel(i->second);
+			recent_parts_.clear();
+		}
+
+		{
+			SYNC_LOCK(pending_modes_);
+			pending_modes_t::iterator i;
+			for (i = pending_modes_.begin(); i != pending_modes_.end(); ++i)
+				i->second.Cancel();
+			pending_modes_.clear();
+		}
+
+		if_StorageDeleter<LiveChannel>(ROOT->data).Del(self.lock());
+	}
+	else
+	{
+		SYNC_RLOCK(stored_);
+		if (stored_)
+		{
+			mantra::duration d = stored_->PartTime();
+			if (d)
+			{
+				SYNC_LOCK(recent_parts_);
+				recent_parts_[user] = ROOT->event->Schedule(ClearPart(self.lock(), user), d);
+			}
+		}
+	}
+
+	MT_EE
+}
+
 void LiveChannel::Part(const boost::shared_ptr<LiveUser> &user,
 					   const std::string &reason)
 {
 	MT_EB
 	MT_FUNC("LiveChannel::Part" << user << reason);
 
-	{
-		SYNC_WLOCK(users_);
-		users_.erase(user);
-	}
-	if_LiveUser_LiveChannel(user).Part(self.lock());
+	CommonPart(user);
 	SYNC_RLOCK(stored_);
-	if (stored_)
-	{
-		mantra::duration d = stored_->PartTime();
-		if (d)
-		{
-			SYNC_LOCK(recent_parts_);
-			recent_parts_[user] = ROOT->event->Schedule(ClearPart(self.lock(), user), d);
-		}
-		if_StoredChannel_LiveChannel(stored_).Part(user);
-	}
-
-	{
-		SYNC_WLOCK(users_);
-		if (users_.empty())
-			if_StorageDeleter<LiveChannel>(ROOT->data).Del(self.lock());
-	}
+	if_StoredChannel_LiveChannel(stored_).Part(user);
 
 	MT_EE
 }
@@ -303,28 +335,9 @@ void LiveChannel::Kick(const boost::shared_ptr<LiveUser> &user,
 	MT_EB
 	MT_FUNC("LiveChannel::Kick" << user << kicker << reason);
 
-	{
-		SYNC_WLOCK(users_);
-		users_.erase(user);
-	}
-	if_LiveUser_LiveChannel(user).Part(self.lock());
+	CommonPart(user);
 	SYNC_RLOCK(stored_);
-	if (stored_)
-	{
-		mantra::duration d = stored_->PartTime();
-		if (d)
-		{
-			SYNC_LOCK(recent_parts_);
-			recent_parts_[user] = ROOT->event->Schedule(ClearPart(self.lock(), user), d);
-		}
-		if_StoredChannel_LiveChannel(stored_).Kick(user, kicker);
-	}
-
-	{
-		SYNC_WLOCK(users_);
-		if (users_.empty())
-			if_StorageDeleter<LiveChannel>(ROOT->data).Del(self.lock());
-	}
+	if_StoredChannel_LiveChannel(stored_).Kick(user, kicker);
 
 	MT_EE
 }

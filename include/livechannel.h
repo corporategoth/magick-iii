@@ -61,9 +61,11 @@ class LiveChannel : private boost::noncopyable,
 					public boost::totally_ordered2<LiveChannel, std::string>
 {
 	class ClearPart;
+	class PendingModes;
 	friend class if_LiveChannel_StoredChannel;
 	friend class if_LiveChannel_LiveUser;
 	friend class LiveChannel::ClearPart;
+	friend class LiveChannel::PendingModes;
 
 	class PendingModes
 	{
@@ -133,6 +135,8 @@ private:
 
 	pending_modes_t SYNC(pending_modes_);
 	recent_parts_t SYNC(recent_parts_);
+
+	void CommonPart(const boost::shared_ptr<LiveUser> &user);
 
 	// use if_LiveChannel_StoredChannel
 	void Stored(const boost::shared_ptr<StoredChannel> &stored);
