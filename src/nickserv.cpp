@@ -47,17 +47,6 @@ static bool biREGISTER(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biREGISTER" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(user->Name());
 	if (nick)
 	{
@@ -146,9 +135,6 @@ static bool biDROP(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biDROP" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
 	if (!user->Identified())
 	{
 		SEND(service, user, N_("You must be identified to use the %1% command."),
@@ -207,17 +193,6 @@ static bool biLINK(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biLINK" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(user->Name());
 	if (nick)
 	{
@@ -263,9 +238,6 @@ static bool biLINKS(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biIGNORE_LIST" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
 
 	boost::shared_ptr<StoredNick> nick;
 	if (params.size() < 2)
@@ -319,17 +291,6 @@ static bool biIDENTIFY(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biIDENTIFY" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(user->Name());
 	if (!nick)
 	{
@@ -364,17 +325,6 @@ static bool biINFO(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biINFO" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	if (ROOT->data.Matches_Forbidden(params[1], false))
 	{
 		SEND(service, user, N_("Nickname %1% is forbidden."), params[1]);
@@ -401,17 +351,6 @@ static bool biGHOST(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biGHOST" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	static mantra::iequal_to<std::string> cmp;
 	if (cmp(user->Name(), params[1]))
@@ -460,9 +399,6 @@ static bool biRECOVER(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biRECOVER" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
 	// TODO: To be implemented.
 	SEND(service, user,
 		 N_("The %1% command has not yet been implemented."),
@@ -479,9 +415,6 @@ static bool biSEND(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biSEND" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
 	// TODO: To be implemented.
 	SEND(service, user,
 		 N_("The %1% command has not yet been implemented."),
@@ -497,17 +430,6 @@ static bool biSUSPEND(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biSUSPEND" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	static mantra::iequal_to<std::string> cmp;
 	if (cmp(user->Name(), params[1]))
@@ -550,17 +472,6 @@ static bool biUNSUSPEND(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biUNSUSPEND" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	static mantra::iequal_to<std::string> cmp;
 	if (cmp(user->Name(), params[1]))
 	{
@@ -596,17 +507,6 @@ static bool biFORBID_ADD(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biFORBID_ADD" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
@@ -644,17 +544,6 @@ static bool biFORBID_DEL(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biFORBID_DEL" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	std::string numbers(params[1]);
 	for (size_t i=2; i<params.size(); ++i)
@@ -735,9 +624,6 @@ static bool biFORBID_LIST(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biFORBID_LIST" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
 	std::vector<Forbidden> ent;
 	ROOT->data.Get_Forbidden(ent, false);
 
@@ -767,17 +653,6 @@ static bool biSETPASS(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biSETPASS" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	static mantra::iequal_to<std::string> cmp;
 	if (params[2].size() < 5 || cmp(params[1], params[2]))
@@ -841,9 +716,6 @@ static bool biACCESS_CURRENT(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biACCESS_CURRENT" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
 	if (!user->Identified())
 	{
 		SEND(service, user, N_("You must identify before using the %1% command."),
@@ -900,17 +772,6 @@ static bool biACCESS_ADD(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biACCESS_ADD" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	if (!user->Identified())
 	{
 		SEND(service, user, N_("You must identify before using the %1% command."),
@@ -956,17 +817,6 @@ static bool biACCESS_DEL(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biACCESS_DEL" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	if (!user->Identified())
 	{
@@ -1054,9 +904,6 @@ static bool biACCESS_LIST(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biACCESS_LIST" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
 	{
@@ -1114,9 +961,6 @@ static bool biACCESS_REINDEX(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biACCESS_REINDEX" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
 	{
@@ -1157,17 +1001,6 @@ static bool biIGNORE_ADD(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biIGNORE_ADD" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
@@ -1212,17 +1045,6 @@ static bool biIGNORE_DEL(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biIGNORE_DEL" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
@@ -1301,9 +1123,6 @@ static bool biIGNORE_LIST(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biIGNORE_LIST" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
 	{
@@ -1369,9 +1188,6 @@ static bool biIGNORE_REINDEX(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biIGNORE_REINDEX" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
 	{
@@ -1413,17 +1229,6 @@ static bool biSET_PASSWORD(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biSET_PASSWORD" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	if (!user->Identified())
 	{
 		SEND(service, user, N_("You must identify before using the %1% command."),
@@ -1461,17 +1266,6 @@ static bool biSET_EMAIL(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biSET_EMAIL" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
 	{
@@ -1503,17 +1297,6 @@ static bool biSET_WEBSITE(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biSET_WEBSITE" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
@@ -1555,17 +1338,6 @@ static bool biSET_ICQ(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biSET_ICQ" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
 	{
@@ -1594,17 +1366,6 @@ static bool biSET_AIM(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biSET_AIM" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
@@ -1635,17 +1396,6 @@ static bool biSET_MSN(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biSET_MSN" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
@@ -1679,17 +1429,6 @@ static bool biSET_JABBER(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biSET_JABBER" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
 	{
@@ -1722,17 +1461,6 @@ static bool biSET_YAHOO(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biSET_YAHOO" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
 	{
@@ -1763,17 +1491,6 @@ static bool biSET_DESCRIPTION(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biSET_DESCRIPTION" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
 	{
@@ -1799,17 +1516,6 @@ static bool biSET_LANGUAGE(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biSET_LANGUAGE" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
@@ -1846,17 +1552,6 @@ static bool biSET_PROTECT(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biSET_PROTECT" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
 	{
@@ -1889,17 +1584,6 @@ static bool biSET_SECURE(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biSET_SECURE" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
@@ -1934,17 +1618,6 @@ static bool biSET_NOMEMO(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biSET_NOMEMO" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
 	{
@@ -1977,17 +1650,6 @@ static bool biSET_PRIVATE(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biSET_PRIVATE" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
@@ -2022,17 +1684,6 @@ static bool biSET_PRIVMSG(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biSET_PRIVMSG" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
 	{
@@ -2066,9 +1717,6 @@ static bool biSET_PICTURE(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biSET_PICTURE" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
 	// TODO: To be implemented.
 	SEND(service, user,
 		 N_("The %1% command has not yet been implemented."),
@@ -2084,9 +1732,6 @@ static bool biUNSET_EMAIL(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biUNSET_EMAIL" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
 
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
@@ -2110,9 +1755,6 @@ static bool biUNSET_WEBSITE(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biUNSET_WEBSITE" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
 	{
@@ -2134,9 +1776,6 @@ static bool biUNSET_ICQ(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biUNSET_ICQ" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
 
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
@@ -2160,9 +1799,6 @@ static bool biUNSET_AIM(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biUNSET_AIM" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
 	{
@@ -2184,9 +1820,6 @@ static bool biUNSET_MSN(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biUNSET_MSN" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
 
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
@@ -2210,9 +1843,6 @@ static bool biUNSET_JABBER(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biUNSET_JABBER" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
 	{
@@ -2234,9 +1864,6 @@ static bool biUNSET_YAHOO(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biUNSET_YAHOO" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
 
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
@@ -2260,9 +1887,6 @@ static bool biUNSET_DESCRIPTION(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biUNSET_DESCRIPTION" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
 	{
@@ -2284,9 +1908,6 @@ static bool biUNSET_LANGUAGE(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biUNSET_LANGUAGE" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
 
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
@@ -2312,9 +1933,6 @@ static bool biUNSET_PROTECT(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biUNSET_PROTECT" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
 	{
@@ -2338,9 +1956,6 @@ static bool biUNSET_SECURE(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biUNSET_SECURE" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
 
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
@@ -2366,9 +1981,6 @@ static bool biUNSET_NOMEMO(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biUNSET_NOMEMO" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
 	{
@@ -2392,9 +2004,6 @@ static bool biUNSET_PRIVATE(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biUNSET_PRIVATE" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
 
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
@@ -2420,9 +2029,6 @@ static bool biUNSET_PRIVMSG(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biUNSET_PRIVMSG" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
 	{
@@ -2447,9 +2053,6 @@ static bool biUNSET_PICTURE(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biUNSET_PICTURE" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
 	boost::shared_ptr<StoredNick> nick = user->Stored();
 	if (!nick)
 	{
@@ -2472,17 +2075,6 @@ static bool biSET_COMMENT(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biSET_COMMENT" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
 	if (!nick)
@@ -2509,17 +2101,6 @@ static bool biSET_NOEXPIRE(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biSET_NOEXPIRE" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
 	if (!nick)
@@ -2555,17 +2136,6 @@ static bool biUNSET_COMMENT(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biUNSET_COMMENT" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
 	if (!nick)
 	{
@@ -2588,17 +2158,6 @@ static bool biUNSET_NOEXPIRE(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biUNSET_NOEXPIRE" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
 	if (!nick)
@@ -2624,17 +2183,6 @@ static bool biLOCK_LANGUAGE(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biLOCK_LANGUAGE" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
 	if (!nick)
@@ -2673,17 +2221,6 @@ static bool biLOCK_PROTECT(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biLOCK_PROTECT" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
 	if (!nick)
 	{
@@ -2719,17 +2256,6 @@ static bool biLOCK_SECURE(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biLOCK_SECURE" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
 	if (!nick)
@@ -2767,17 +2293,6 @@ static bool biLOCK_NOMEMO(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biLOCK_NOMEMO" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
 	if (!nick)
 	{
@@ -2813,17 +2328,6 @@ static bool biLOCK_PRIVATE(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biLOCK_PRIVATE" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
 	if (!nick)
@@ -2861,17 +2365,6 @@ static bool biLOCK_PRIVMSG(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biLOCK_PRIVMSG" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
 	if (!nick)
 	{
@@ -2908,17 +2401,6 @@ static bool biUNLOCK_LANGUAGE(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biUNLOCK_LANGUAGE" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
 	if (!nick)
 	{
@@ -2943,17 +2425,6 @@ static bool biUNLOCK_PROTECT(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biUNLOCK_PROTECT" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
 	if (!nick)
@@ -2981,17 +2452,6 @@ static bool biUNLOCK_SECURE(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biUNLOCK_SECURE" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
 	if (!nick)
 	{
@@ -3016,17 +2476,6 @@ static bool biUNLOCK_NOMEMO(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biUNLOCK_NOMEMO" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
 	if (!nick)
@@ -3053,17 +2502,6 @@ static bool biUNLOCK_PRIVATE(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biUNLOCK_PRIVATE" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
 	if (!nick)
 	{
@@ -3088,17 +2526,6 @@ static bool biUNLOCK_PRIVMSG(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biUNLOCK_PRIVMSG" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(params[1]);
 	if (!nick)
@@ -3125,9 +2552,6 @@ static bool biSTOREDLIST(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biSTOREDLIST" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
 	// TODO: To be implemented.
 	SEND(service, user,
 		 N_("The %1% command has not yet been implemented."),
@@ -3143,9 +2567,6 @@ static bool biLIVELIST(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biLIVELIST" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
 
 	// TODO: To be implemented.
 	SEND(service, user,
@@ -3169,182 +2590,182 @@ void init_nickserv_functions(Service &serv)
 	comm_opersop.push_back(ROOT->ConfigValue<std::string>("commserv.sop.name"));
 
 	serv.PushCommand("^HELP$", boost::bind(&Service::Help, &serv,
-										   _1, _2, _3));
+										   _1, _2, _3), 1);
 
-	serv.PushCommand("^REGISTER$", &biREGISTER);
-	serv.PushCommand("^DROP$", &biDROP, comm_regd);
-	serv.PushCommand("^LINK$", &biLINK);
-	serv.PushCommand("^LINK(S|LIST)$", &biLINKS);
-	serv.PushCommand("^ID(ENT(IFY)?)?$", &biIDENTIFY);
-	serv.PushCommand("^INFO$", &biINFO);
-	serv.PushCommand("^GHOST$", &biGHOST);
-	serv.PushCommand("^REC(OVER)?$", &biRECOVER);
-	serv.PushCommand("^SEND$", &biSEND);
-	serv.PushCommand("^SUSPEND$", &biSUSPEND, comm_sop);
-	serv.PushCommand("^UN?SUSPEND$", &biUNSUSPEND, comm_sop);
-	serv.PushCommand("^SETPASS(WORD)?$", &biSETPASS, comm_sop);
+	serv.PushCommand("^REGISTER$", &biREGISTER, 2);
+	serv.PushCommand("^DROP$", &biDROP, 1, comm_regd);
+	serv.PushCommand("^LINK$", &biLINK, 3);
+	serv.PushCommand("^LINK(S|LIST)$", &biLINKS, 1);
+	serv.PushCommand("^ID(ENT(IFY)?)?$", &biIDENTIFY, 2);
+	serv.PushCommand("^INFO$", &biINFO, 2);
+	serv.PushCommand("^GHOST$", &biGHOST, 3);
+	serv.PushCommand("^REC(OVER)?$", &biRECOVER, 3);
+	serv.PushCommand("^SEND$", &biSEND, 2);
+	serv.PushCommand("^SUSPEND$", &biSUSPEND, 3, comm_sop);
+	serv.PushCommand("^UN?SUSPEND$", &biUNSUSPEND, 2, comm_sop);
+	serv.PushCommand("^SETPASS(WORD)?$", &biSETPASS, 3, comm_sop);
 
 	serv.PushCommand("^FORBID$",
-					 Service::CommandMerge(serv, 0, 1), comm_sop);
-	serv.PushCommand("^FORBID\\s+(ADD|NEW|CREATE)$", &biFORBID_ADD, comm_sop);
-	serv.PushCommand("^FORBID\\s+(ERASE|DEL(ETE)?|REM(OVE)?)$", &biFORBID_DEL, comm_sop);
-	serv.PushCommand("^FORBID\\s+(LIST|VIEW)$", &biFORBID_LIST, comm_sop);
+					 Service::CommandMerge(serv, 0, 1), 2, comm_sop);
+	serv.PushCommand("^FORBID\\s+(ADD|NEW|CREATE)$", &biFORBID_ADD, 3, comm_sop);
+	serv.PushCommand("^FORBID\\s+(ERASE|DEL(ETE)?|REM(OVE)?)$", &biFORBID_DEL, 2, comm_sop);
+	serv.PushCommand("^FORBID\\s+(LIST|VIEW)$", &biFORBID_LIST, 2, comm_sop);
 	serv.PushCommand("^FORBID\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3), comm_sop);
+								 _1, _2, _3), 1, comm_sop);
 
 	serv.PushCommand("^ACC(ESS)?$",
-					 Service::CommandMerge(serv, 0, 1), comm_regd);
+					 Service::CommandMerge(serv, 0, 1), 2, comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+CUR(R(ENT)?)?$",
-					 &biACCESS_CURRENT, comm_regd);
+					 &biACCESS_CURRENT, 1, comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+(ADD|NEW|CREATE)$",
-					 &biACCESS_ADD, comm_regd);
+					 &biACCESS_ADD, 2, comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+(ERASE|DEL(ETE)?|REM(OVE)?)$",
-					 &biACCESS_DEL, comm_regd);
+					 &biACCESS_DEL, 2, comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+(LIST|VIEW)$",
-					 &biACCESS_LIST, comm_regd);
+					 &biACCESS_LIST, 1, comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+RE(NUMBER|INDEX)$",
-					 &biACCESS_REINDEX, comm_regd);
+					 &biACCESS_REINDEX, 1, comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3), comm_regd);
+								 _1, _2, _3), 1, comm_regd);
 
 	serv.PushCommand("^IGNORE$",
-					 Service::CommandMerge(serv, 0, 1), comm_regd);
+					 Service::CommandMerge(serv, 0, 1), 2, comm_regd);
 	serv.PushCommand("^IGNORE\\s+(ADD|NEW|CREATE)$",
-					 &biIGNORE_ADD, comm_regd);
+					 &biIGNORE_ADD, 2, comm_regd);
 	serv.PushCommand("^IGNORE\\s+(ERASE|DEL(ETE)?|REM(OVE)?)$",
-					 &biIGNORE_DEL, comm_regd);
+					 &biIGNORE_DEL, 2, comm_regd);
 	serv.PushCommand("^IGNORE\\s+(LIST|VIEW)$",
-					 &biIGNORE_LIST, comm_regd);
+					 &biIGNORE_LIST, 1, comm_regd);
 	serv.PushCommand("^IGNORE\\s+RE(NUMBER|INDEX)$",
-					 &biIGNORE_REINDEX, comm_regd);
+					 &biIGNORE_REINDEX, 1, comm_regd);
 	serv.PushCommand("^IGNORE\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3), comm_regd);
+								 _1, _2, _3), 1, comm_regd);
 
 	serv.PushCommand("^SET$",
-					 Service::CommandMerge(serv, 0, 1), comm_regd);
+					 Service::CommandMerge(serv, 0, 1), 2, comm_regd);
 	serv.PushCommand("^SET\\s+PASS(W(OR)?D)?$",
-					 &biSET_PASSWORD, comm_regd);
+					 &biSET_PASSWORD, 2, comm_regd);
 	serv.PushCommand("^SET\\s+E-?MAIL$",
-					 &biSET_EMAIL, comm_regd);
+					 &biSET_EMAIL, 2, comm_regd);
 	serv.PushCommand("^SET\\s+(URL|WWW|WEB(PAGE|SITE)?|HTTPS?)$",
-					 &biSET_WEBSITE, comm_regd);
+					 &biSET_WEBSITE, 2, comm_regd);
 	serv.PushCommand("^SET\\s+(UIN|ICQ)$",
-					 &biSET_ICQ, comm_regd);
+					 &biSET_ICQ, 2, comm_regd);
 	serv.PushCommand("^SET\\s+(AIM)$",
-					 &biSET_AIM, comm_regd);
+					 &biSET_AIM, 2, comm_regd);
 	serv.PushCommand("^SET\\s+MSN$",
-					 &biSET_MSN, comm_regd);
+					 &biSET_MSN, 2, comm_regd);
 	serv.PushCommand("^SET\\s+JABBER$",
-					 &biSET_JABBER, comm_regd);
+					 &biSET_JABBER, 2, comm_regd);
 	serv.PushCommand("^SET\\s+YAHOO$",
-					 &biSET_YAHOO, comm_regd);
+					 &biSET_YAHOO, 2, comm_regd);
 	serv.PushCommand("^SET\\s+DESC(RIPT(ION)?)?$",
-					 &biSET_DESCRIPTION, comm_regd);
+					 &biSET_DESCRIPTION, 2, comm_regd);
 	serv.PushCommand("^SET\\s+LANG(UAGE)?$",
-					 &biSET_LANGUAGE, comm_regd);
+					 &biSET_LANGUAGE, 2, comm_regd);
 	serv.PushCommand("^SET\\s+PROT(ECT)?$",
-					 &biSET_PROTECT, comm_regd);
+					 &biSET_PROTECT, 2, comm_regd);
 	serv.PushCommand("^SET\\s+SECURE$",
-					 &biSET_SECURE, comm_regd);
+					 &biSET_SECURE, 2, comm_regd);
 	serv.PushCommand("^SET\\s+NOMEMOS?$",
-					 &biSET_NOMEMO, comm_regd);
+					 &biSET_NOMEMO, 2, comm_regd);
 	serv.PushCommand("^SET\\s+PRIV(ATE)?$",
-					 &biSET_PRIVATE, comm_regd);
+					 &biSET_PRIVATE, 2, comm_regd);
 	serv.PushCommand("^SET\\s+((PRIV)?MSG)$",
-					 &biSET_PRIVMSG, comm_regd);
+					 &biSET_PRIVMSG, 2, comm_regd);
 	serv.PushCommand("^SET\\s+PIC(TURE)?$",
-					 &biSET_PICTURE, comm_regd);
+					 &biSET_PICTURE, 2, comm_regd);
 	serv.PushCommand("^SET\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3), comm_regd);
+								 _1, _2, _3), 1, comm_regd);
 
 	serv.PushCommand("^(UN|RE)SET$",
-					 Service::CommandMerge(serv, 0, 1), comm_regd);
+					 Service::CommandMerge(serv, 0, 1), 2, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+E-?MAIL$",
-					 &biUNSET_EMAIL, comm_regd);
+					 &biUNSET_EMAIL, 1, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+(URL|WWW|WEB(PAGE|SITE)?|HTTPS?)$",
-					 &biUNSET_WEBSITE, comm_regd);
+					 &biUNSET_WEBSITE, 1, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+(UIN|ICQ)$",
-					 &biUNSET_ICQ, comm_regd);
+					 &biUNSET_ICQ, 1, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+(AIM)$",
-					 &biUNSET_AIM, comm_regd);
+					 &biUNSET_AIM, 1, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+MSN$",
-					 &biUNSET_MSN, comm_regd);
+					 &biUNSET_MSN, 1, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+JABBER$",
-					 &biUNSET_JABBER, comm_regd);
+					 &biUNSET_JABBER, 1, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+YAHOO$",
-					 &biUNSET_YAHOO, comm_regd);
+					 &biUNSET_YAHOO, 1, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+DESC(RIPT(ION)?)?$",
-					 &biUNSET_DESCRIPTION, comm_regd);
+					 &biUNSET_DESCRIPTION, 1, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+LANG(UAGE)?$",
-					 &biUNSET_LANGUAGE, comm_regd);
+					 &biUNSET_LANGUAGE, 1, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+PROT(ECT)?$",
-					 &biUNSET_PROTECT, comm_regd);
+					 &biUNSET_PROTECT, 1, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+SECURE$",
-					 &biUNSET_SECURE, comm_regd);
+					 &biUNSET_SECURE, 1, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+NOMEMOS?$",
-					 &biUNSET_NOMEMO, comm_regd);
+					 &biUNSET_NOMEMO, 1, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+PRIV(ATE)?$",
-					 &biUNSET_PRIVATE, comm_regd);
+					 &biUNSET_PRIVATE, 1, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+((PRIV)?MSG)$",
-					 &biUNSET_PRIVMSG, comm_regd);
+					 &biUNSET_PRIVMSG, 1, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+PIC(TURE)?$",
-					 &biUNSET_PICTURE, comm_regd);
+					 &biUNSET_PICTURE, 1, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3), comm_regd);
+								 _1, _2, _3), 1, comm_regd);
 
 	serv.PushCommand("^SET\\s+COMMENT$",
-					 &biSET_COMMENT, comm_opersop);
+					 &biSET_COMMENT, 3, comm_opersop);
 	serv.PushCommand("^SET\\s+NO?EX(PIRE)?$",
-					 &biSET_NOEXPIRE, comm_sop);
+					 &biSET_NOEXPIRE, 3, comm_sop);
 	serv.PushCommand("^(UN|RE)SET\\s+COMMENT$",
-					 &biUNSET_COMMENT, comm_opersop);
+					 &biUNSET_COMMENT, 2, comm_opersop);
 	serv.PushCommand("^(UN|RE)SET\\s+NO?EX(PIRE)?$",
-					 &biUNSET_NOEXPIRE, comm_sop);
+					 &biUNSET_NOEXPIRE, 2, comm_sop);
 
 	serv.PushCommand("^LOCK$",
-					 Service::CommandMerge(serv, 0, 1), comm_sop);
+					 Service::CommandMerge(serv, 0, 1), 2, comm_sop);
 	serv.PushCommand("^LOCK\\s+LANG(UAGE)?$",
-					 &biLOCK_LANGUAGE, comm_sop);
+					 &biLOCK_LANGUAGE, 3, comm_sop);
 	serv.PushCommand("^LOCK\\s+PROT(ECT)?$",
-					 &biLOCK_PROTECT, comm_sop);
+					 &biLOCK_PROTECT, 3, comm_sop);
 	serv.PushCommand("^LOCK\\s+SECURE$",
-					 &biLOCK_SECURE, comm_sop);
+					 &biLOCK_SECURE, 3, comm_sop);
 	serv.PushCommand("^LOCK\\s+NOMEMOS?$",
-					 &biLOCK_NOMEMO, comm_sop);
+					 &biLOCK_NOMEMO, 3, comm_sop);
 	serv.PushCommand("^LOCK\\s+PRIV(ATE)?$",
-					 &biLOCK_PRIVATE, comm_sop);
+					 &biLOCK_PRIVATE, 3, comm_sop);
 	serv.PushCommand("^LOCK\\s+((PRIV)?MSG)$",
-					 &biLOCK_PRIVMSG, comm_sop);
+					 &biLOCK_PRIVMSG, 3, comm_sop);
 	serv.PushCommand("^LOCK\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3), comm_sop);
+								 _1, _2, _3), 1, comm_sop);
 
 	serv.PushCommand("^UN?LOCK$",
-					 Service::CommandMerge(serv, 0, 1), comm_sop);
+					 Service::CommandMerge(serv, 0, 1), 2, comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+LANG(UAGE)?$",
-					 &biUNLOCK_LANGUAGE, comm_sop);
+					 &biUNLOCK_LANGUAGE, 2, comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+PROT(ECT)?$",
-					 &biUNLOCK_PROTECT, comm_sop);
+					 &biUNLOCK_PROTECT, 2, comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+SECURE$",
-					 &biUNLOCK_SECURE, comm_sop);
+					 &biUNLOCK_SECURE, 2, comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+NOMEMOS?$",
-					 &biUNLOCK_NOMEMO, comm_sop);
+					 &biUNLOCK_NOMEMO, 2, comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+PRIV(ATE)?$",
-					 &biUNLOCK_PRIVATE, comm_sop);
+					 &biUNLOCK_PRIVATE, 2, comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+((PRIV)?MSG)$",
-					 &biUNLOCK_PRIVMSG, comm_sop);
+					 &biUNLOCK_PRIVMSG, 2, comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3), comm_sop);
+								 _1, _2, _3), 1, comm_sop);
 
 	// These commands don't operate on any nickname.
-	serv.PushCommand("^(STORED)?LIST$", &biSTOREDLIST);
-	serv.PushCommand("^LIVE(LIST)?$", &biLIVELIST, comm_oper);
+	serv.PushCommand("^(STORED)?LIST$", &biSTOREDLIST, 1);
+	serv.PushCommand("^LIVE(LIST)?$", &biLIVELIST, 1, comm_oper);
 
 	MT_EE
 }

@@ -82,6 +82,7 @@ private:
 	struct Command_t
 	{
 		unsigned int id;
+		unsigned int min_param;
 		std::vector<std::string> perms;
 		boost::regex rx;
 		functor func;
@@ -115,11 +116,11 @@ public:
 	bool IsNick(const std::string &nick) const
 		{ return (nicks_.find(nick) != nicks_.end()); }
 
-	unsigned int PushCommand(const boost::regex &rx, const functor &func,
+	unsigned int PushCommand(const boost::regex &rx, const functor &func, unsigned int min_param,
 							 const std::vector<std::string> &perms = std::vector<std::string>());
-	unsigned int PushCommand(const std::string &rx, const functor &func,
+	unsigned int PushCommand(const std::string &rx, const functor &func, unsigned int min_param,
 							 const std::vector<std::string> &perms = std::vector<std::string>())
-		{ return PushCommand(boost::regex(rx, boost::regex_constants::icase), func, perms); }
+		{ return PushCommand(boost::regex(rx, boost::regex_constants::icase), func, min_param, perms); }
 	void DelCommand(unsigned int id);
 
 	void QUIT(const boost::shared_ptr<LiveUser> &source,

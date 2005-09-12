@@ -47,17 +47,6 @@ static bool biREGISTER(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biREGISTER" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	static boost::regex rx("^[[:alpha:]][[:alnum:]]*$");
 	if (!boost::regex_match(params[1], rx))
 	{
@@ -128,17 +117,6 @@ static bool biDROP(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biDROP" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
 	{
@@ -161,17 +139,6 @@ static bool biINFO(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biINFO" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
 	{
@@ -193,9 +160,6 @@ static bool biMEMO(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biMEMO" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
 	// TODO: To be implemented.
 	SEND(service, user,
 		 N_("The %1% command has not yet been implemented."),
@@ -211,17 +175,6 @@ static bool biMEMBER_ADD(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biMEMBER_ADD" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
@@ -276,17 +229,6 @@ static bool biMEMBER_DEL(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biMEMBER_DEL" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
@@ -369,17 +311,6 @@ static bool biMEMBER_LIST(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biMEMBER_LIST" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
 	{
@@ -451,17 +382,6 @@ static bool biMESSAGE_ADD(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biMESSAGE_ADD" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
 	{
@@ -505,17 +425,6 @@ static bool biMESSAGE_DEL(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biMESSAGE_DEL" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
@@ -591,17 +500,6 @@ static bool biMESSAGE_LIST(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biMESSAGE_LIST" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
 	{
@@ -658,17 +556,6 @@ static bool biSET_HEAD(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biSET_HEAD" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
@@ -734,17 +621,6 @@ static bool biSET_EMAIL(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biSET_EMAIL" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
 	{
@@ -783,17 +659,6 @@ static bool biSET_WEBSITE(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biSET_WEBSITE" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
@@ -842,17 +707,6 @@ static bool biSET_DESCRIPTION(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biSET_DESCRIPTION" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
 	{
@@ -885,17 +739,6 @@ static bool biSET_SECURE(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biSET_SECURE" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
@@ -939,17 +782,6 @@ static bool biSET_OPENMEMO(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biSET_OPENMEMO" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
 	{
@@ -991,17 +823,6 @@ static bool biSET_PRIVATE(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biSET_PRIVATE" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
@@ -1045,17 +866,6 @@ static bool biUNSET_EMAIL(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biUNSET_EMAIL" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
 	{
@@ -1085,17 +895,6 @@ static bool biUNSET_WEBSITE(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biUNSET_WEBSITE" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
@@ -1127,17 +926,6 @@ static bool biUNSET_DESCRIPTION(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biUNSET_DESCRIPTION" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
 	{
@@ -1167,17 +955,6 @@ static bool biUNSET_SECURE(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biUNSET_SECURE" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
@@ -1212,17 +989,6 @@ static bool biUNSET_OPENMEMO(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biUNSET_OPENMEMO" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
 	{
@@ -1255,17 +1021,6 @@ static bool biUNSET_PRIVATE(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biUNSET_PRIVATE" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
@@ -1300,17 +1055,6 @@ static bool biSET_COMMENT(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biSET_COMMENT" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
 	{
@@ -1337,17 +1081,6 @@ static bool biUNSET_COMMENT(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biUNSET_COMMENT" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
 	{
@@ -1370,17 +1103,6 @@ static bool biLOCK_SECURE(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biLOCK_SECURE" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
@@ -1418,17 +1140,6 @@ static bool biLOCK_OPENMEMO(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biLOCK_OPENMEMO" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
 	{
@@ -1464,17 +1175,6 @@ static bool biLOCK_PRIVATE(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biLOCK_PRIVATE" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 3)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
@@ -1512,17 +1212,6 @@ static bool biUNLOCK_SECURE(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biUNLOCK_SECURE" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
 	{
@@ -1547,17 +1236,6 @@ static bool biUNLOCK_OPENMEMO(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("biUNLOCK_OPENMEMO" << service << user << params);
-
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
@@ -1584,17 +1262,6 @@ static bool biUNLOCK_PRIVATE(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biUNLOCK_PRIVATE" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
-	if (params.size() < 2)
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
-
 	boost::shared_ptr<Committee> comm = ROOT->data.Get_Committee(params[1]);
 	if (!comm)
 	{
@@ -1620,9 +1287,6 @@ static bool biLIST(const boost::shared_ptr<LiveUser> &service,
 	MT_EB
 	MT_FUNC("biLIST" << service << user << params);
 
-	if (!service || !service->GetService())
-		MT_RET(false);
-
 	// TODO: To be implemented.
 	SEND(service, user,
 		 N_("The %1% command has not yet been implemented."),
@@ -1644,106 +1308,106 @@ void init_commserv_functions(Service &serv)
 	comm_opersop.push_back(ROOT->ConfigValue<std::string>("commserv.sop.name"));
 
 	serv.PushCommand("^HELP$", boost::bind(&Service::Help, &serv,
-										   _1, _2, _3));
+										   _1, _2, _3), 1);
 
-	serv.PushCommand("^REGISTER$", &biREGISTER, comm_sop);
-	serv.PushCommand("^DROP$", &biDROP, comm_sop);
-	serv.PushCommand("^INFO$", &biINFO);
-	serv.PushCommand("^(SEND)?MEMO$", &biMEMO, comm_regd);
+	serv.PushCommand("^REGISTER$", &biREGISTER, 3, comm_sop);
+	serv.PushCommand("^DROP$", &biDROP, 2, comm_sop);
+	serv.PushCommand("^INFO$", &biINFO, 2);
+	serv.PushCommand("^(SEND)?MEMO$", &biMEMO, 3, comm_regd);
 
 	serv.PushCommand("^MEM(BER)?$",
-					 Service::CommandMerge(serv, 0, 2), comm_regd);
+					 Service::CommandMerge(serv, 0, 2), 3, comm_regd);
 	serv.PushCommand("^MEM(BER)?\\s+(ADD|NEW|CREATE)$",
-					 &biMEMBER_ADD, comm_regd);
+					 &biMEMBER_ADD, 3, comm_regd);
 	serv.PushCommand("^MEM(BER)?\\s+(ERASE|DEL(ETE)?|REM(OVE)?)$",
-					 &biMEMBER_DEL, comm_regd);
+					 &biMEMBER_DEL, 3, comm_regd);
 	serv.PushCommand("^MEM(BER)?\\s+(LIST|VIEW)$",
-					 &biMEMBER_LIST, comm_regd);
+					 &biMEMBER_LIST, 2, comm_regd);
 	serv.PushCommand("^MEM(BER)?\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3), comm_regd);
+								 _1, _2, _3), 1, comm_regd);
 
 	serv.PushCommand("^((LOG|SIGN)ON)?(MESSAGE|MSG)$",
-					 Service::CommandMerge(serv, 0, 2), comm_regd);
+					 Service::CommandMerge(serv, 0, 2), 3, comm_regd);
 	serv.PushCommand("^((LOG|SIGN)ON)?(MESSAGE|MSG)\\s+(ADD|NEW|CREATE)$",
-					 &biMESSAGE_ADD, comm_regd);
+					 &biMESSAGE_ADD, 3, comm_regd);
 	serv.PushCommand("^((LOG|SIGN)ON)?(MESSAGE|MSG)\\s+(ERASE|DEL(ETE)?|REM(OVE)?)$",
-					 &biMESSAGE_DEL, comm_regd);
+					 &biMESSAGE_DEL, 3, comm_regd);
 	serv.PushCommand("^((LOG|SIGN)ON)?(MESSAGE|MSG)\\s+(LIST|VIEW)$",
-					 &biMESSAGE_LIST, comm_regd);
+					 &biMESSAGE_LIST, 2, comm_regd);
 	serv.PushCommand("^((LOG|SIGN)ON)?(MESSAGE|MSG)\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3), comm_regd);
+								 _1, _2, _3), 1, comm_regd);
 
 	serv.PushCommand("^SET$",
-					 Service::CommandMerge(serv, 0, 2), comm_regd);
+					 Service::CommandMerge(serv, 0, 2), 3, comm_regd);
 	serv.PushCommand("^SET\\s+HEAD$",
-					 &biSET_HEAD, comm_regd);
+					 &biSET_HEAD, 3, comm_regd);
 	serv.PushCommand("^SET\\s+E-?MAIL$",
-					 &biSET_EMAIL, comm_regd);
+					 &biSET_EMAIL, 3, comm_regd);
 	serv.PushCommand("^SET\\s+(URL|WWW|WEB(PAGE|SITE)?|HTTPS?)$",
-					 &biSET_WEBSITE, comm_regd);
+					 &biSET_WEBSITE, 3, comm_regd);
 	serv.PushCommand("^SET\\s+DESC(RIPT(ION)?)?$",
-					 &biSET_DESCRIPTION, comm_regd);
+					 &biSET_DESCRIPTION, 3, comm_regd);
 	serv.PushCommand("^SET\\s+SECURE$",
-					 &biSET_SECURE, comm_regd);
+					 &biSET_SECURE, 3, comm_regd);
 	serv.PushCommand("^SET\\s+OPENMEMOS?$",
-					 &biSET_OPENMEMO, comm_regd);
+					 &biSET_OPENMEMO, 3, comm_regd);
 	serv.PushCommand("^SET\\s+PRIV(ATE)?$",
-					 &biSET_PRIVATE, comm_regd);
+					 &biSET_PRIVATE, 3, comm_regd);
 	serv.PushCommand("^SET\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3), comm_regd);
+								 _1, _2, _3), 1, comm_regd);
 
 	serv.PushCommand("^(UN|RE)SET$",
-					 Service::CommandMerge(serv, 0, 2), comm_regd);
+					 Service::CommandMerge(serv, 0, 2), 3, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+E-?MAIL$",
-					 &biUNSET_EMAIL, comm_regd);
+					 &biUNSET_EMAIL, 2, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+(URL|WWW|WEB(PAGE|SITE)?|HTTPS?)$",
-					 &biUNSET_WEBSITE, comm_regd);
+					 &biUNSET_WEBSITE, 2, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+DESC(RIPT(ION)?)?$",
-					 &biUNSET_DESCRIPTION, comm_regd);
+					 &biUNSET_DESCRIPTION, 2, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+SECURE$",
-					 &biUNSET_SECURE, comm_regd);
+					 &biUNSET_SECURE, 2, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+OPENMEMOS?$",
-					 &biUNSET_OPENMEMO, comm_regd);
+					 &biUNSET_OPENMEMO, 2, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+PRIV(ATE)?$",
-					 &biUNSET_PRIVATE, comm_regd);
+					 &biUNSET_PRIVATE, 2, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3), comm_regd);
+								 _1, _2, _3), 1, comm_regd);
 
 	serv.PushCommand("^SET\\s+COMMENT$",
-					 &biSET_COMMENT, comm_opersop);
+					 &biSET_COMMENT, 3, comm_opersop);
 	serv.PushCommand("^(UN|RE)SET\\s+COMMENT$",
-					 &biUNSET_COMMENT, comm_opersop);
+					 &biUNSET_COMMENT, 2, comm_opersop);
 
 	serv.PushCommand("^LOCK$",
-					 Service::CommandMerge(serv, 0, 2), comm_sop);
+					 Service::CommandMerge(serv, 0, 2), 3, comm_sop);
 	serv.PushCommand("^LOCK\\s+SECURE$",
-					 &biLOCK_SECURE, comm_sop);
+					 &biLOCK_SECURE, 3, comm_sop);
 	serv.PushCommand("^LOCK\\s+OPENMEMOS?$",
-					 &biLOCK_OPENMEMO, comm_sop);
+					 &biLOCK_OPENMEMO, 3, comm_sop);
 	serv.PushCommand("^LOCK\\s+PRIV(ATE)?$",
-					 &biLOCK_PRIVATE, comm_sop);
+					 &biLOCK_PRIVATE, 3, comm_sop);
 	serv.PushCommand("^LOCK\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3), comm_sop);
+								 _1, _2, _3), 1, comm_sop);
 
 	serv.PushCommand("^UN?LOCK$",
-					 Service::CommandMerge(serv, 0, 2), comm_sop);
+					 Service::CommandMerge(serv, 0, 2), 3, comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+SECURE$",
-					 &biUNLOCK_SECURE, comm_sop);
+					 &biUNLOCK_SECURE, 2, comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+OPENMEMOS$",
-					 &biUNLOCK_OPENMEMO, comm_sop);
+					 &biUNLOCK_OPENMEMO, 2, comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+PRIV(ATE)?$",
-					 &biUNLOCK_PRIVATE, comm_sop);
+					 &biUNLOCK_PRIVATE, 2, comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3), comm_sop);
+								 _1, _2, _3), 1, comm_sop);
 
 	// These commands don't operate on any nickname.
-	serv.PushCommand("^LIST$", &biLIST);
+	serv.PushCommand("^LIST$", &biLIST, 1);
 
 	MT_EE
 }

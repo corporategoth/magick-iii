@@ -206,15 +206,17 @@ void Service::Check()
 
 unsigned int Service::PushCommand(const boost::regex &rx,
 								  const Service::functor &func,
+								  unsigned int min_param,
 								  const std::vector<std::string> &perms)
 {
 	MT_EB
-	MT_FUNC("Service::PushCommand" << rx << func);
+	MT_FUNC("Service::PushCommand" << rx << func << min_param << perms);
 
 	SYNC_WLOCK(func_map_);
 	static unsigned int id = 0;
 	func_map_.push_front(Command_t());
 	func_map_.front().id = ++id;
+	func_map_.front().min_param = min_param;
 	func_map_.front().perms = perms;
 	func_map_.front().rx = boost::regex(rx.str(),
 			rx.flags() | boost::regex_constants::icase);
@@ -766,8 +768,22 @@ bool Service::Execute(const boost::shared_ptr<LiveUser> &service,
 {
 	MT_EB
 	MT_FUNC("ServiceExecute" << service << user << params << key);
-	unsigned int codetype = MT_ASSIGN(trace_);
 
+	if (!user)
+	{
+		LOG(Error, _("Received %1% call, but I've no idea who it came from!"),
+			boost::algorithm::to_upper_copy(params[key]));
+		MT_RET(false);
+	}
+
+	if (!service || !service->GetService())
+	{
+		LOG(Error, _("Received %1% call from %2%, but it was not sent to a service!"),
+			boost::algorithm::to_upper_copy(params[key]) % user->Name());
+		MT_RET(false);
+	}
+
+	unsigned int codetype = MT_ASSIGN(trace_);
 	try
 	{
 		functor f;
@@ -802,11 +818,23 @@ bool Service::Execute(const boost::shared_ptr<LiveUser> &service,
 					break;
 				}
 			}
+			if (i != func_map_.end())
+			{
+				if (params.size() < i->min_param)
+				{
+					SEND(service, user,
+						 N_("Insufficient parameters for %1% command."),
+						 boost::algorithm::to_upper_copy(params[key]));
+					MT_ASSIGN(codetype);
+					MT_RET(false);
+				}
+			}
 		}
+		// This does NOT mean it wasn't found, just that it wasn't defined.
 		if (!f)
 		{
 			SEND(service, user, N_("No such command %1%."),
-				 boost::algorithm::to_upper_copy(params[0]));
+				 boost::algorithm::to_upper_copy(params[key]));
 
 			MT_ASSIGN(codetype);
 			MT_RET(true);
