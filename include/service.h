@@ -184,9 +184,16 @@ public:
 
 	void INVITE(const boost::shared_ptr<LiveUser> &source,
 				const boost::shared_ptr<LiveChannel> &channel,
-				const boost::shared_ptr<LiveUser> &target);
+				const boost::shared_ptr<LiveUser> &target) const;
 	void INVITE(const boost::shared_ptr<LiveChannel> &channel,
-				const boost::shared_ptr<LiveUser> &target);
+				const boost::shared_ptr<LiveUser> &target) const;
+
+	void MODE(const boost::shared_ptr<LiveUser> &source,
+			  const std::string &in) const;
+	void MODE(const boost::shared_ptr<LiveUser> &source,
+			  const boost::shared_ptr<LiveChannel> &channel,
+			  const std::string &in,
+			  const std::vector<std::string> &params = std::vector<std::string>()) const;
 
 	class CommandMerge
 	{

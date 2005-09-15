@@ -656,7 +656,7 @@ void Service::KICK(const boost::shared_ptr<LiveChannel> &channel,
 
 void Service::INVITE(const boost::shared_ptr<LiveUser> &source,
 					 const boost::shared_ptr<LiveChannel> &channel,
-					 const boost::shared_ptr<LiveUser> &target)
+					 const boost::shared_ptr<LiveUser> &target) const
 {
 	MT_EB
 	MT_FUNC("Service::INVITE" << source << channel << target);
@@ -673,7 +673,7 @@ void Service::INVITE(const boost::shared_ptr<LiveUser> &source,
 }
 
 void Service::INVITE(const boost::shared_ptr<LiveChannel> &channel,
-					 const boost::shared_ptr<LiveUser> &target)
+					 const boost::shared_ptr<LiveUser> &target) const
 {
 	MT_EB
 	MT_FUNC("Service::INVITE" << channel << target);
@@ -686,6 +686,90 @@ void Service::INVITE(const boost::shared_ptr<LiveChannel> &channel,
 		return;
 
 	INVITE(*j, channel, target);
+
+	MT_EE
+}
+
+void Service::MODE(const boost::shared_ptr<LiveUser> &source,
+				   const std::string &in) const
+{
+	MT_EB
+	MT_FUNC("Service::MODE" << source << in);
+
+	if (!source || source->GetService() != this)
+		return;
+
+	std::string out;
+	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("MODE") + ' ' + in);
+	ROOT->proto.send(out);
+	source->Modes(in);
+
+	MT_EE
+}
+
+void Service::MODE(const boost::shared_ptr<LiveUser> &source,
+				   const boost::shared_ptr<LiveChannel> &channel,
+				   const std::string &in,
+				   const std::vector<std::string> &params) const
+{
+	MT_EB
+	MT_FUNC("Service::MODE" << source << channel << in << params);
+
+	if (!source || source->GetService() != this)
+		return;
+
+	std::string out, omodes, oparams;
+
+	bool add = true;
+	size_t arg = 0, count = 0;
+	size_t maxmodes = ROOT->proto.ConfigValue<unsigned int>("max-channel-mode-params");
+	std::string modeparams = ROOT->proto.ConfigValue<std::string>("channel-mode-params");
+	for (std::string::const_iterator i = in.begin(); i < in.end(); ++i)
+	{
+		if (count >= maxmodes)
+		{
+			ROOT->proto.addline(*source, out, ROOT->proto.tokenise("MODE") + ' ' +
+								omodes + " :" + oparams);
+			omodes.clear();
+			oparams.clear();
+			count = 0;
+		}
+
+		omodes.append(1, *i);
+		switch (*i)
+		{
+		case '-':
+			add = false;
+			break;
+		case '+':
+			add = true;
+			break;
+		case 'l':
+			if (!add)
+				break;
+		default:
+			if (modeparams.find(*i) != std::string::npos)
+			{
+				if (!oparams.empty())
+					oparams.append(1, ' ');
+				oparams.append(params[arg++]);
+				++count;
+			}
+		}
+	}
+
+	if (!omodes.empty())
+	{
+		if (oparams.empty())
+			ROOT->proto.addline(*source, out, ROOT->proto.tokenise("MODE") + ' ' +
+								channel->Name() + ' ' + omodes);
+		else
+			ROOT->proto.addline(*source, out, ROOT->proto.tokenise("MODE") + ' ' +
+								channel->Name() + ' ' + omodes + " :" + oparams);
+	}
+
+	ROOT->proto.send(out);
+	channel->Modes(source, in, params);
 
 	MT_EE
 }

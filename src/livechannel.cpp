@@ -56,32 +56,255 @@ boost::shared_ptr<LiveChannel> LiveChannel::create(const std::string &name,
 
 LiveChannel::PendingModes::PendingModes(const boost::shared_ptr<LiveChannel> &channel,
 										const boost::shared_ptr<LiveUser> &user)
-	: channel_(channel), user_(user)
+	: event_(0), channel_(channel), user_(user)
 {
 	MT_EB
-	MT_FUNC("LiveChannel::PendingModes::PendingModes" << user);
-
-	event_ = ROOT->event->Schedule(boost::bind(&PendingModes::operator(), this),
-								   boost::posix_time::seconds(1));
+	MT_FUNC("LiveChannel::PendingModes::PendingModes" << channel << user);
 
 	MT_EE
 }
 
-void LiveChannel::PendingModes::operator()() const
+void LiveChannel::PendingModes::operator()()
 {
 	MT_EB
 	unsigned long codetype = MT_ASSIGN(MAGICK_TRACE_EVENT);
 	MT_FUNC("LiveChannel::PendingModes::operator()");
 
+	std::string modes;
+	std::vector<std::string> params;
+
+	SYNC_LOCK(lock);
+
+	event_ = 0;
+	if (!user_->GetService())
+	{
+		on_.clear();
+		on_params_.clear();
+		off_.clear();
+		off_params_.clear();
+		return;
+	}
+
+	if (!(off_.empty() && off_params_.empty()))
+	{
+		modes.append(1, '-');
+
+		if (!off_.empty())
+			modes.append(off_.begin(), off_.end());
+
+		if (!off_params_.empty())
+		{
+			modes_params_t::iterator i;
+			for (i = off_params_.begin(); i != off_params_.end(); ++i)
+			{
+				if (i->second.empty())
+					continue;
+				modes.append(i->second.size(), i->first);
+				params.insert(params.end(), i->second.begin(), i->second.end());
+			}
+		}
+		on_.clear();
+		on_params_.clear();
+	}
+
+	if (!(on_.empty() && on_params_.empty()))
+	{
+		modes.append(1, '+');
+
+		if (!on_.empty())
+			modes.append(on_.begin(), on_.end());
+
+		if (!on_params_.empty())
+		{
+			modes_params_t::iterator i;
+			for (i = on_params_.begin(); i != on_params_.end(); ++i)
+			{
+				if (i->second.empty())
+					continue;
+				modes.append(i->second.size(), i->first);
+				params.insert(params.end(), i->second.begin(), i->second.end());
+			}
+		}
+		off_.clear();
+		off_params_.clear();
+	}
+
+	SYNC_UNLOCK(lock);
+
+	user_->GetService()->MODE(user_, channel_, modes, params);
+
 	MT_ASSIGN(codetype);
 	MT_EE
 }
 
-void LiveChannel::PendingModes::Update(const std::string &in)
+void LiveChannel::PendingModes::Update(const std::string &in,
+									   const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("LiveChannel::PendingModes::Update" << in);
+	MT_FUNC("LiveChannel::PendingModes::Update" << in << params);
 
+	bool add = true;
+	std::string::const_iterator i;
+	size_t m = 0;
+
+	SYNC_LOCK(lock);
+	for (i = in.begin(); i != in.end(); ++i)
+	{
+		switch (*i)
+		{
+		case '+':
+			add = true;
+			break;
+		case '-':
+			add = false;
+			break;
+		case 'l':
+			if (!add)
+			{
+				on_params_.erase(*i);
+				off_.insert(*i);
+				break;
+			}
+			// Don't break, this should fall through if its 'add'.
+		default:
+			if (ROOT->proto.ConfigValue<std::string>("channel-mode-params").find(*i) != std::string::npos)
+			{
+				if (m >= params.size())
+				{
+					// LOG an error!
+					break;
+				}
+
+				switch (*i)
+				{
+				case 'k':
+					if (add)
+					{
+						// To turn on a key, it has to be turned off first.
+						if (!channel_->Modes_Key().empty())
+						{
+							modes_params_t::iterator mpi = off_params_.find(*i);
+							if (mpi != off_params_.end())
+								break;
+						}
+						std::pair<modes_params_t::iterator, bool> rv =
+							on_params_.insert(std::make_pair(*i, params_t()));
+						params_t tmp;
+						tmp.insert(params[m]);
+						rv.first->second.swap(tmp);
+					}
+					else
+					{
+						// To turn off a key, it must match the current key.
+						if (params[m] != channel_->Modes_Key())
+							break;
+						modes_params_t::iterator mpi = on_params_.find(*i);
+						if (mpi != on_params_.end())
+							on_params_.erase(mpi);
+						std::pair<modes_params_t::iterator, bool> rv =
+							off_params_.insert(std::make_pair(*i, params_t()));
+						params_t tmp;
+						tmp.insert(params[m]);
+						rv.first->second.swap(tmp);
+					}
+					break;
+
+				case 'l':
+					// Has to be add because of the previous check.
+					try
+					{
+						boost::lexical_cast<unsigned int>(params[m]);
+						off_.erase(*i);
+						params_t tmp;
+						tmp.insert(params[m]);
+						on_params_[*i].swap(tmp);
+					}
+					catch (boost::bad_lexical_cast &e)
+					{
+						// LOG an error!
+					}
+					break;
+
+				case 'o':
+				case 'h':
+				case 'v':
+				case 'q':
+				case 'u':
+				case 'a':
+				case 'b':
+				case 'd':
+				case 'e':
+					if (add)
+					{
+						modes_params_t::iterator mpi = off_params_.find(*i);
+						if (mpi != off_params_.end())
+						{
+							params_t::iterator pi = mpi->second.find(params[m]);
+							if (pi != mpi->second.end())
+								mpi->second.erase(pi);
+							if (mpi->second.empty())
+								off_params_.erase(mpi);
+						}
+						std::pair<modes_params_t::iterator, bool> rv =
+							on_params_.insert(std::make_pair(*i, params_t()));
+						rv.first->second.insert(params[m]);
+					}
+					else
+					{
+						modes_params_t::iterator mpi = on_params_.find(*i);
+						if (mpi != on_params_.end())
+						{
+							params_t::iterator pi = mpi->second.find(params[m]);
+							if (pi != mpi->second.end())
+								mpi->second.erase(pi);
+							if (mpi->second.empty())
+								on_params_.erase(mpi);
+						}
+						std::pair<modes_params_t::iterator, bool> rv =
+							off_params_.insert(std::make_pair(*i, params_t()));
+						rv.first->second.insert(params[m]);
+					}
+					break;
+
+				default:
+					if (add)
+					{
+						std::pair<modes_params_t::iterator, bool> rv =
+							on_params_.insert(std::make_pair(*i, params_t()));
+						rv.first->second.insert(params[m]);
+					}
+					else
+					{
+						std::pair<modes_params_t::iterator, bool> rv =
+							off_params_.insert(std::make_pair(*i, params_t()));
+						rv.first->second.insert(params[m]);
+					}
+					break;
+				}
+
+				++m;
+			}
+			else
+			{
+				if (add)
+				{
+					off_.erase(*i);
+					on_.insert(*i);
+				}
+				else
+				{
+					on_.erase(*i);
+					off_.erase(*i);
+				}
+			}
+		}
+	}
+
+	if (!event_)
+	{
+		event_ = ROOT->event->Schedule(boost::bind(&PendingModes::operator(), this),
+									   boost::posix_time::seconds(1));
+	}
 
 	MT_EE
 }
@@ -91,7 +314,9 @@ void LiveChannel::PendingModes::Cancel()
 	MT_EB
 	MT_FUNC("LiveChannel::PendingModes::Cancel");
 
+	SYNC_LOCK(lock);
 	ROOT->event->Cancel(event_);
+	event_ = 0;
 
 	MT_EE
 }
@@ -239,7 +464,7 @@ void LiveChannel::Quit(const boost::shared_ptr<LiveUser> &user)
 		pending_modes_t::iterator i = pending_modes_.find(user);
 		if (i != pending_modes_.end())
 		{
-			i->second.Cancel();
+			i->second->Cancel();
 			pending_modes_.erase(i);
 		}
 	}
@@ -292,7 +517,7 @@ void LiveChannel::CommonPart(const boost::shared_ptr<LiveUser> &user)
 			SYNC_LOCK(pending_modes_);
 			pending_modes_t::iterator i;
 			for (i = pending_modes_.begin(); i != pending_modes_.end(); ++i)
-				i->second.Cancel();
+				i->second->Cancel();
 			pending_modes_.clear();
 		}
 
@@ -952,6 +1177,12 @@ void LiveChannel::SendModes(const boost::shared_ptr<LiveUser> &user,
 	MT_EB
 	MT_FUNC("LiveChannel::SendModes" << user << in << params);
 
+	boost::char_separator<char> sep(" \t");
+	typedef boost::tokenizer<boost::char_separator<char>,
+		std::string::const_iterator, std::string> tokenizer;
+	tokenizer tokens(params, sep);
+	std::vector<std::string> v(tokens.begin(), tokens.end());
+	SendModes(user, in, v);
 
 	MT_EE
 }
@@ -962,6 +1193,13 @@ void LiveChannel::SendModes(const boost::shared_ptr<LiveUser> &user,
 	MT_EB
 	MT_FUNC("LiveChannel::SendModes" << user << in << params);
 
+	SYNC_LOCK(pending_modes_);
+	pending_modes_t::iterator i = pending_modes_.lower_bound(user);
+	if (i == pending_modes_.end() || i->first != user)
+		i = pending_modes_.insert(i, std::make_pair(user,
+								  new PendingModes(self.lock(), user)));
+
+	i->second->Update(in, params);
 
 	MT_EE
 }

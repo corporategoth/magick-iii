@@ -69,17 +69,23 @@ class LiveChannel : private boost::noncopyable,
 
 	class PendingModes
 	{
+		typedef std::set<char> modes_t;
+		typedef std::set<std::string, mantra::iless<std::string> > params_t;
+		typedef std::map<char, params_t> modes_params_t;
+
+		NSYNC(lock);
 		unsigned int event_;
 		boost::shared_ptr<LiveChannel> channel_;
 		boost::shared_ptr<LiveUser> user_;
-		std::string on_, off_;
-		std::set<std::string> on_params_, off_params_;
+		modes_t on_, off_;
+		modes_params_t on_params_, off_params_;
 
-		void operator()() const;
+		void operator()();
 	public:
 		PendingModes(const boost::shared_ptr<LiveChannel> &channel,
 					 const boost::shared_ptr<LiveUser> &user);
-		void Update(const std::string &in);
+		void Update(const std::string &in,
+					const std::vector<std::string> &params);
 		void Cancel();
 	};
 
@@ -103,7 +109,7 @@ public:
 					 rx_iless> rxbans_t;
 	typedef std::set<std::string, mantra::iless<std::string> > exempts_t;
 	typedef std::set<boost::regex, rx_iless> rxexempts_t;
-	typedef std::map<boost::shared_ptr<LiveUser>, PendingModes> pending_modes_t; 
+	typedef std::map<boost::shared_ptr<LiveUser>, boost::shared_ptr<PendingModes> > pending_modes_t; 
 	typedef std::map<boost::shared_ptr<LiveUser>, unsigned int> recent_parts_t;
 
 private:

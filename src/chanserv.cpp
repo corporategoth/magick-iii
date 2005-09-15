@@ -374,7 +374,7 @@ static bool biOP(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
-	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.op")))
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.overrides.op")))
 	{
 		if (!stored)
 		{
@@ -394,39 +394,60 @@ static bool biOP(const boost::shared_ptr<LiveUser> &service,
 
 	std::string modes;
 	std::vector<std::string> p;
-	for (size_t i=3; i < params.size(); ++i)
+	if (params.size() < 3)
 	{
-		boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
-		if (!lu)
+		if (!channel->IsUser(user))
 		{
-			SEND(service, user, N_("User %1% is not currently online."), params[i]);
-			continue;
+			SEND(service, user, N_("You are not in channel %1%."), channel->Name());
+			MT_RET(false);
 		}
 
-		if (!channel->IsUser(lu))
+		if (channel->User(user, 'o'))
 		{
-			SEND(service, user, N_("User %1% is not in channel %2%."),
-				 lu->Name() % channel->Name());
-			continue;
-		}
-
-		if (channel->User(lu, 'o'))
-		{
-			SEND(service, user, N_("User %1% is already oped in channel %2%."),
-				 lu->Name() % channel->Name());
-			continue;
-		}
-
-		if (secureops && !(stored->ACCESS_Matches(lu, StoredChannel::Level::LVL_AutoOp) ||
-						   stored->ACCESS_Matches(lu, StoredChannel::Level::LVL_CMD_Op)))
-		{
-			SEND(service, user, N_("User %1% does not have op access on channel %2% and Secure Ops is enabled."),
-				 lu->Name() % channel->Name());
-			continue;
+			SEND(service, user, N_("You are already oped in channel %1%."),
+				 channel->Name());
+			MT_RET(false);
 		}
 
 		modes += 'o';
-		p.push_back(lu->Name());
+		p.push_back(user->Name());
+	}
+	else
+	{
+		for (size_t i=2; i < params.size(); ++i)
+		{
+			boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
+			if (!lu)
+			{
+				SEND(service, user, N_("User %1% is not currently online."), params[i]);
+				continue;
+			}
+
+			if (!channel->IsUser(lu))
+			{
+				SEND(service, user, N_("User %1% is not in channel %2%."),
+					 lu->Name() % channel->Name());
+				continue;
+			}
+
+			if (channel->User(lu, 'o'))
+			{
+				SEND(service, user, N_("User %1% is already oped in channel %2%."),
+					 lu->Name() % channel->Name());
+				continue;
+			}
+
+			if (secureops && !(stored->ACCESS_Matches(lu, StoredChannel::Level::LVL_AutoOp) ||
+							   stored->ACCESS_Matches(lu, StoredChannel::Level::LVL_CMD_Op)))
+			{
+				SEND(service, user, N_("User %1% does not have op access on channel %2% and Secure Ops is enabled."),
+					 lu->Name() % channel->Name());
+				continue;
+			}
+
+			modes += 'o';
+			p.push_back(lu->Name());
+		}
 	}
 
 	if (modes.empty())
@@ -435,7 +456,7 @@ static bool biOP(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	channel->SendModes(service, "+" + modes, p);
+	channel->SendModes(service, '+' + modes, p);
 
 	MT_RET(true);
 	MT_EE
@@ -456,7 +477,7 @@ static bool biDEOP(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
-	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.op")))
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.overrides.op")))
 	{
 		if (!stored)
 		{
@@ -474,31 +495,52 @@ static bool biDEOP(const boost::shared_ptr<LiveUser> &service,
 
 	std::string modes;
 	std::vector<std::string> p;
-	for (size_t i=3; i < params.size(); ++i)
+	if (params.size() < 3)
 	{
-		boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
-		if (!lu)
+		if (!channel->IsUser(user))
 		{
-			SEND(service, user, N_("User %1% is not currently online."), params[i]);
-			continue;
+			SEND(service, user, N_("You are not in channel %1%."), channel->Name());
+			MT_RET(false);
 		}
 
-		if (!channel->IsUser(lu))
+		if (!channel->User(user, 'o'))
 		{
-			SEND(service, user, N_("User %1% is not in channel %2%."),
-				 lu->Name() % channel->Name());
-			continue;
-		}
-
-		if (!channel->User(lu, 'o'))
-		{
-			SEND(service, user, N_("User %1% is not oped in channel %2%."),
-				 lu->Name() % channel->Name());
-			continue;
+			SEND(service, user, N_("You are not oped in channel %1%."),
+				 channel->Name());
+			MT_RET(false);
 		}
 
 		modes += 'o';
-		p.push_back(lu->Name());
+		p.push_back(user->Name());
+	}
+	else
+	{
+		for (size_t i=2; i < params.size(); ++i)
+		{
+			boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
+			if (!lu)
+			{
+				SEND(service, user, N_("User %1% is not currently online."), params[i]);
+				continue;
+			}
+
+			if (!channel->IsUser(lu))
+			{
+				SEND(service, user, N_("User %1% is not in channel %2%."),
+					 lu->Name() % channel->Name());
+				continue;
+			}
+
+			if (!channel->User(lu, 'o'))
+			{
+				SEND(service, user, N_("User %1% is not oped in channel %2%."),
+					 lu->Name() % channel->Name());
+				continue;
+			}
+
+			modes += 'o';
+			p.push_back(lu->Name());
+		}
 	}
 
 	if (modes.empty())
@@ -507,7 +549,7 @@ static bool biDEOP(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	channel->SendModes(service, "-" + modes, p);
+	channel->SendModes(service, '-' + modes, p);
 
 	MT_RET(true);
 	MT_EE
@@ -537,7 +579,7 @@ static bool biHOP(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
-	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.halfop")))
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.overrides.halfop")))
 	{
 		if (!stored)
 		{
@@ -557,39 +599,60 @@ static bool biHOP(const boost::shared_ptr<LiveUser> &service,
 
 	std::string modes;
 	std::vector<std::string> p;
-	for (size_t i=3; i < params.size(); ++i)
+	if (params.size() < 3)
 	{
-		boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
-		if (!lu)
+		if (!channel->IsUser(user))
 		{
-			SEND(service, user, N_("User %1% is not currently online."), params[i]);
-			continue;
+			SEND(service, user, N_("You are not in channel %1%."), channel->Name());
+			MT_RET(false);
 		}
 
-		if (!channel->IsUser(lu))
+		if (channel->User(user, 'h'))
 		{
-			SEND(service, user, N_("User %1% is not in channel %2%."),
-				 lu->Name() % channel->Name());
-			continue;
-		}
-
-		if (channel->User(lu, 'h'))
-		{
-			SEND(service, user, N_("User %1% is already half oped in channel %2%."),
-				 lu->Name() % channel->Name());
-			continue;
-		}
-
-		if (secureops && !(stored->ACCESS_Matches(lu, StoredChannel::Level::LVL_AutoHalfOp) ||
-						   stored->ACCESS_Matches(lu, StoredChannel::Level::LVL_CMD_HalfOp)))
-		{
-			SEND(service, user, N_("User %1% does not have half op access on channel %2% and Secure Ops is enabled."),
-				 lu->Name() % channel->Name());
-			continue;
+			SEND(service, user, N_("You are already half oped in channel %1%."),
+				 channel->Name());
+			MT_RET(false);
 		}
 
 		modes += 'h';
-		p.push_back(lu->Name());
+		p.push_back(user->Name());
+	}
+	else
+	{
+		for (size_t i=2; i < params.size(); ++i)
+		{
+			boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
+			if (!lu)
+			{
+				SEND(service, user, N_("User %1% is not currently online."), params[i]);
+				continue;
+			}
+
+			if (!channel->IsUser(lu))
+			{
+				SEND(service, user, N_("User %1% is not in channel %2%."),
+					 lu->Name() % channel->Name());
+				continue;
+			}
+
+			if (channel->User(lu, 'h'))
+			{
+				SEND(service, user, N_("User %1% is already half oped in channel %2%."),
+					 lu->Name() % channel->Name());
+				continue;
+			}
+
+			if (secureops && !(stored->ACCESS_Matches(lu, StoredChannel::Level::LVL_AutoHalfOp) ||
+							   stored->ACCESS_Matches(lu, StoredChannel::Level::LVL_CMD_HalfOp)))
+			{
+				SEND(service, user, N_("User %1% does not have half op access on channel %2% and Secure Ops is enabled."),
+					 lu->Name() % channel->Name());
+				continue;
+			}
+
+			modes += 'h';
+			p.push_back(lu->Name());
+		}
 	}
 
 	if (modes.empty())
@@ -598,7 +661,7 @@ static bool biHOP(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	channel->SendModes(service, "+" + modes, p);
+	channel->SendModes(service, '+' + modes, p);
 
 	MT_RET(true);
 	MT_EE
@@ -628,7 +691,7 @@ static bool biDEHOP(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
-	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.halfop")))
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.overrides.halfop")))
 	{
 		if (!stored)
 		{
@@ -646,31 +709,52 @@ static bool biDEHOP(const boost::shared_ptr<LiveUser> &service,
 
 	std::string modes;
 	std::vector<std::string> p;
-	for (size_t i=3; i < params.size(); ++i)
+	if (params.size() < 3)
 	{
-		boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
-		if (!lu)
+		if (!channel->IsUser(user))
 		{
-			SEND(service, user, N_("User %1% is not currently online."), params[i]);
-			continue;
+			SEND(service, user, N_("You are not in channel %1%."), channel->Name());
+			MT_RET(false);
 		}
 
-		if (!channel->IsUser(lu))
+		if (!channel->User(user, 'h'))
 		{
-			SEND(service, user, N_("User %1% is not in channel %2%."),
-				 lu->Name() % channel->Name());
-			continue;
-		}
-
-		if (!channel->User(lu, 'h'))
-		{
-			SEND(service, user, N_("User %1% is not half oped in channel %2%."),
-				 lu->Name() % channel->Name());
-			continue;
+			SEND(service, user, N_("You are not half oped in channel %1%."),
+				 channel->Name());
+			MT_RET(false);
 		}
 
 		modes += 'h';
-		p.push_back(lu->Name());
+		p.push_back(user->Name());
+	}
+	else
+	{
+		for (size_t i=2; i < params.size(); ++i)
+		{
+			boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
+			if (!lu)
+			{
+				SEND(service, user, N_("User %1% is not currently online."), params[i]);
+				continue;
+			}
+
+			if (!channel->IsUser(lu))
+			{
+				SEND(service, user, N_("User %1% is not in channel %2%."),
+					 lu->Name() % channel->Name());
+				continue;
+			}
+
+			if (!channel->User(lu, 'h'))
+			{
+				SEND(service, user, N_("User %1% is not half oped in channel %2%."),
+					 lu->Name() % channel->Name());
+				continue;
+			}
+
+			modes += 'h';
+			p.push_back(lu->Name());
+		}
 	}
 
 	if (modes.empty())
@@ -679,7 +763,7 @@ static bool biDEHOP(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	channel->SendModes(service, "-" + modes, p);
+	channel->SendModes(service, '-' + modes, p);
 
 	MT_RET(true);
 	MT_EE
@@ -700,7 +784,7 @@ static bool biVOICE(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
-	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.voice")))
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.overrides.voice")))
 	{
 		if (!stored)
 		{
@@ -720,39 +804,60 @@ static bool biVOICE(const boost::shared_ptr<LiveUser> &service,
 
 	std::string modes;
 	std::vector<std::string> p;
-	for (size_t i=3; i < params.size(); ++i)
+	if (params.size() < 3)
 	{
-		boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
-		if (!lu)
+		if (!channel->IsUser(user))
 		{
-			SEND(service, user, N_("User %1% is not currently online."), params[i]);
-			continue;
+			SEND(service, user, N_("You are not in channel %1%."), channel->Name());
+			MT_RET(false);
 		}
 
-		if (!channel->IsUser(lu))
+		if (channel->User(user, 'v'))
 		{
-			SEND(service, user, N_("User %1% is not in channel %2%."),
-				 lu->Name() % channel->Name());
-			continue;
-		}
-
-		if (channel->User(lu, 'v'))
-		{
-			SEND(service, user, N_("User %1% is already voiced in channel %2%."),
-				 lu->Name() % channel->Name());
-			continue;
-		}
-
-		if (secureops && !(stored->ACCESS_Matches(lu, StoredChannel::Level::LVL_AutoVoice) ||
-						   stored->ACCESS_Matches(lu, StoredChannel::Level::LVL_CMD_Voice)))
-		{
-			SEND(service, user, N_("User %1% does not have voice access on channel %2% and Secure Ops is enabled."),
-				 lu->Name() % channel->Name());
-			continue;
+			SEND(service, user, N_("You are already voiced in channel %1%."),
+				 channel->Name());
+			MT_RET(false);
 		}
 
 		modes += 'v';
-		p.push_back(lu->Name());
+		p.push_back(user->Name());
+	}
+	else
+	{
+		for (size_t i=2; i < params.size(); ++i)
+		{
+			boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
+			if (!lu)
+			{
+				SEND(service, user, N_("User %1% is not currently online."), params[i]);
+				continue;
+			}
+
+			if (!channel->IsUser(lu))
+			{
+				SEND(service, user, N_("User %1% is not in channel %2%."),
+					 lu->Name() % channel->Name());
+				continue;
+			}
+
+			if (channel->User(lu, 'v'))
+			{
+				SEND(service, user, N_("User %1% is already voiced in channel %2%."),
+					 lu->Name() % channel->Name());
+				continue;
+			}
+
+			if (secureops && !(stored->ACCESS_Matches(lu, StoredChannel::Level::LVL_AutoVoice) ||
+							   stored->ACCESS_Matches(lu, StoredChannel::Level::LVL_CMD_Voice)))
+			{
+				SEND(service, user, N_("User %1% does not have voice access on channel %2% and Secure Ops is enabled."),
+					 lu->Name() % channel->Name());
+				continue;
+			}
+
+			modes += 'v';
+			p.push_back(lu->Name());
+		}
 	}
 
 	if (modes.empty())
@@ -761,7 +866,7 @@ static bool biVOICE(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	channel->SendModes(service, "+" + modes, p);
+	channel->SendModes(service, '+' + modes, p);
 
 	MT_RET(true);
 	MT_EE
@@ -782,7 +887,7 @@ static bool biDEVOICE(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
-	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.voice")))
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.overrides.voice")))
 	{
 		if (!stored)
 		{
@@ -800,31 +905,52 @@ static bool biDEVOICE(const boost::shared_ptr<LiveUser> &service,
 
 	std::string modes;
 	std::vector<std::string> p;
-	for (size_t i=3; i < params.size(); ++i)
+	if (params.size() < 3)
 	{
-		boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
-		if (!lu)
+		if (!channel->IsUser(user))
 		{
-			SEND(service, user, N_("User %1% is not currently online."), params[i]);
-			continue;
+			SEND(service, user, N_("You are not in channel %1%."), channel->Name());
+			MT_RET(false);
 		}
 
-		if (!channel->IsUser(lu))
+		if (!channel->User(user, 'v'))
 		{
-			SEND(service, user, N_("User %1% is not in channel %2%."),
-				 lu->Name() % channel->Name());
-			continue;
-		}
-
-		if (!channel->User(lu, 'v'))
-		{
-			SEND(service, user, N_("User %1% is not voiced in channel %2%."),
-				 lu->Name() % channel->Name());
-			continue;
+			SEND(service, user, N_("You are not voiced in channel %1%."),
+				 channel->Name());
+			MT_RET(false);
 		}
 
 		modes += 'v';
-		p.push_back(lu->Name());
+		p.push_back(user->Name());
+	}
+	else
+	{
+		for (size_t i=2; i < params.size(); ++i)
+		{
+			boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
+			if (!lu)
+			{
+				SEND(service, user, N_("User %1% is not currently online."), params[i]);
+				continue;
+			}
+
+			if (!channel->IsUser(lu))
+			{
+				SEND(service, user, N_("User %1% is not in channel %2%."),
+					 lu->Name() % channel->Name());
+				continue;
+			}
+
+			if (!channel->User(lu, 'v'))
+			{
+				SEND(service, user, N_("User %1% is not voiced in channel %2%."),
+					 lu->Name() % channel->Name());
+				continue;
+			}
+
+			modes += 'v';
+			p.push_back(lu->Name());
+		}
 	}
 
 	if (modes.empty())
@@ -833,7 +959,7 @@ static bool biDEVOICE(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	channel->SendModes(service, "-" + modes, p);
+	channel->SendModes(service, '-' + modes, p);
 
 	MT_RET(true);
 	MT_EE
@@ -853,7 +979,7 @@ static bool biUSERS(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.view")))
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.overrides.view")))
 	{
 		boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
 		if (!stored)
@@ -920,7 +1046,7 @@ static bool biMODE(const boost::shared_ptr<LiveUser> &service,
 
 	if (params.size() < 3)
 	{
-		if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.view")))
+		if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.overrides.view")))
 		{
 			boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
 			if (!stored)
@@ -955,7 +1081,7 @@ static bool biMODE(const boost::shared_ptr<LiveUser> &service,
 	else
 	{
 		boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
-		if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.mode")))
+		if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.overrides.mode")))
 		{
 			if (!stored)
 			{
@@ -1009,7 +1135,7 @@ static bool biTOPIC(const boost::shared_ptr<LiveUser> &service,
 			MT_RET(false);
 		}
 
-		if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.view")))
+		if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.overrides.view")))
 		{
 			boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
 			if (!stored)
@@ -1047,7 +1173,7 @@ static bool biTOPIC(const boost::shared_ptr<LiveUser> &service,
 	else
 	{
 		boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(params[1]);
-		if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.mode")))
+		if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.overrides.mode")))
 		{
 			if (!stored)
 			{
@@ -1106,7 +1232,7 @@ static bool biKICK(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.kick")))
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.overrides.kick")))
 	{
 		boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
 		if (!stored)
@@ -1182,7 +1308,7 @@ static bool biANONKICK(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.kick")))
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.overrides.kick")))
 	{
 		boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
 		if (!stored)
@@ -1239,7 +1365,7 @@ static bool biINVITE(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
-	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.invite")))
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.overrides.invite")))
 	{
 		if (!stored)
 		{
@@ -1257,32 +1383,45 @@ static bool biINVITE(const boost::shared_ptr<LiveUser> &service,
 
 	bool restricted = (stored && stored->Restricted());
 
-	for (size_t i=3; i < params.size(); ++i)
+	if (params.size() < 3)
 	{
-		boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
-		if (!lu)
+		if (channel->IsUser(user))
 		{
-			SEND(service, user, N_("User %1% is not currently online."), params[i]);
-			continue;
+			SEND(service, user, N_("You are already in channel %1%."), channel->Name());
+			MT_RET(false);
 		}
 
-		if (channel->IsUser(lu))
+		service->GetService()->INVITE(channel, user);
+	}
+	else
+	{
+		for (size_t i=2; i < params.size(); ++i)
 		{
-			SEND(service, user, N_("User %1% is already in channel %2%."),
-				 lu->Name() % channel->Name());
-			continue;
-		}
+			boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
+			if (!lu)
+			{
+				SEND(service, user, N_("User %1% is not currently online."), params[i]);
+				continue;
+			}
 
-		// They must have a positive entry on the access list, regardless of what
-		// it is.
-		if (restricted && !stored->ACCESS_Matches(lu, 1))
-		{
-			SEND(service, user, N_("User %1% is not on the access list for channel %2% and Restricted is enabled."),
-				 lu->Name() % channel->Name());
-			continue;
-		}
+			if (channel->IsUser(lu))
+			{
+				SEND(service, user, N_("User %1% is already in channel %2%."),
+					 lu->Name() % channel->Name());
+				continue;
+			}
 
-		service->GetService()->INVITE(channel, lu);
+			// They must have a positive entry on the access list, regardless of what
+			// it is.
+			if (restricted && !stored->ACCESS_Matches(lu, 1))
+			{
+				SEND(service, user, N_("User %1% is not on the access list for channel %2% and Restricted is enabled."),
+					 lu->Name() % channel->Name());
+				continue;
+			}
+
+			service->GetService()->INVITE(channel, lu);
+		}
 	}
 
 	MT_RET(false);
@@ -1304,7 +1443,7 @@ static bool biUNBAN(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
-	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.unban")))
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.overrides.unban")))
 	{
 		if (!stored)
 		{
@@ -1322,25 +1461,19 @@ static bool biUNBAN(const boost::shared_ptr<LiveUser> &service,
 
 	std::string modes;
 	std::vector<std::string> p;
-	for (size_t i=3; i < params.size(); ++i)
-	{
-		boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
-		if (!lu)
-		{
-			SEND(service, user, N_("User %1% is not currently online."), params[i]);
-			continue;
-		}
 
+	if (params.size() < 3)
+	{
 		LiveChannel::bans_t bans;
 		LiveChannel::rxbans_t rxbans;
-		channel->MatchBan(lu, bans);
-		channel->MatchBan(lu, rxbans);
+		channel->MatchBan(user, bans);
+		channel->MatchBan(user, rxbans);
 
 		if (bans.empty() && rxbans.empty())
 		{
-			SEND(service, user, N_("User %1% is not banned from channel %2%."),
-				 lu->Name() % channel->Name());
-			continue;
+			SEND(service, user, N_("You are not banned from channel %1%."),
+				 channel->Name());
+			MT_RET(false);
 		}
 
 		LiveChannel::bans_t::const_iterator j;
@@ -1355,6 +1488,49 @@ static bool biUNBAN(const boost::shared_ptr<LiveUser> &service,
 			modes += 'd';
 			p.push_back(k->first.str());
 		}
+	}
+	else
+	{
+		for (size_t i=2; i < params.size(); ++i)
+		{
+			boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(params[i]);
+			if (!lu)
+			{
+				SEND(service, user, N_("User %1% is not currently online."), params[i]);
+				continue;
+			}
+
+			LiveChannel::bans_t bans;
+			LiveChannel::rxbans_t rxbans;
+			channel->MatchBan(lu, bans);
+			channel->MatchBan(lu, rxbans);
+
+			if (bans.empty() && rxbans.empty())
+			{
+				SEND(service, user, N_("User %1% is not banned from channel %2%."),
+					 lu->Name() % channel->Name());
+				continue;
+			}
+
+			LiveChannel::bans_t::const_iterator j;
+			for (j = bans.begin(); j != bans.end(); ++j)
+			{
+				modes += 'b';
+				p.push_back(j->first);
+			}
+			LiveChannel::rxbans_t::const_iterator k;
+			for (k = rxbans.begin(); k != rxbans.end(); ++k)
+			{
+				modes += 'd';
+				p.push_back(k->first.str());
+			}
+		}
+	}
+
+	if (modes.empty())
+	{
+		SEND(service, user, N_("No bans to be removed from channel %1%."), channel->Name());
+		MT_RET(false);
 	}
 
 	channel->SendModes(service, '-' + modes, p);
@@ -1379,7 +1555,7 @@ static bool biCLEAR_USERS(const boost::shared_ptr<LiveUser> &service,
 
 	boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
 	boost::int32_t user_level = 0;
-	if (user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.clear")))
+	if (user->InCommittee(ROOT->ConfigValue<std::string>("commserv.overrides.clear")))
 		user_level = ROOT->ConfigValue<boost::int32_t>("chanserv.max-level") + 2;
 	else
 	{
@@ -1445,7 +1621,7 @@ static bool biCLEAR_OPS(const boost::shared_ptr<LiveUser> &service,
 
 	boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
 	boost::int32_t user_level = 0;
-	if (user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.clear")))
+	if (user->InCommittee(ROOT->ConfigValue<std::string>("commserv.overrides.clear")))
 		user_level = ROOT->ConfigValue<boost::int32_t>("chanserv.max-level") + 2;
 	else
 	{
@@ -1526,7 +1702,7 @@ static bool biCLEAR_HOPS(const boost::shared_ptr<LiveUser> &service,
 
 	boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
 	boost::int32_t user_level = 0;
-	if (user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.clear")))
+	if (user->InCommittee(ROOT->ConfigValue<std::string>("commserv.overrides.clear")))
 		user_level = ROOT->ConfigValue<boost::int32_t>("chanserv.max-level") + 2;
 	else
 	{
@@ -1598,7 +1774,7 @@ static bool biCLEAR_VOICES(const boost::shared_ptr<LiveUser> &service,
 
 	boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
 	boost::int32_t user_level = 0;
-	if (user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.clear")))
+	if (user->InCommittee(ROOT->ConfigValue<std::string>("commserv.overrides.clear")))
 		user_level = ROOT->ConfigValue<boost::int32_t>("chanserv.max-level") + 2;
 	else
 	{
@@ -1669,7 +1845,7 @@ static bool biCLEAR_MODES(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
-	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.clear")))
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.overrides.clear")))
 	{
 		if (!stored)
 		{
@@ -1713,7 +1889,7 @@ static bool biCLEAR_BANS(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
-	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.clear")))
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.overrides.clear")))
 	{
 		if (!stored)
 		{
@@ -1784,7 +1960,7 @@ static bool biCLEAR_EXEMPTS(const boost::shared_ptr<LiveUser> &service,
 	}
 
 	boost::shared_ptr<StoredChannel> stored = ROOT->data.Get_StoredChannel(channel->Name());
-	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.override.clear")))
+	if (!user->InCommittee(ROOT->ConfigValue<std::string>("commserv.overrides.clear")))
 	{
 		if (!stored)
 		{
@@ -6454,19 +6630,19 @@ void init_chanserv_functions(Service &serv)
 
 	// Everything from here to FORBID acts on a LIVE channel.
 	serv.PushCommand("^MODES?$", &biMODE, 2, comm_regd);
-	serv.PushCommand("^OP$", &biOP, 3, comm_regd);
-	serv.PushCommand("^DE?-?OP$", &biDEOP, 3, comm_regd);
-	serv.PushCommand("^H(ALF)?OP$", &biHOP, 3, comm_regd);
-	serv.PushCommand("^DE?-?H(ALF)?OP$", &biDEHOP, 3, comm_regd);
-	serv.PushCommand("^VOICE$", &biVOICE, 3, comm_regd);
-	serv.PushCommand("^DE?-?VOICE$", &biDEVOICE, 3, comm_regd);
+	serv.PushCommand("^OP$", &biOP, 2, comm_regd);
+	serv.PushCommand("^DE?-?OP$", &biDEOP, 2, comm_regd);
+	serv.PushCommand("^H(ALF)?OP$", &biHOP, 2, comm_regd);
+	serv.PushCommand("^DE?-?H(ALF)?OP$", &biDEHOP, 2, comm_regd);
+	serv.PushCommand("^VOICE$", &biVOICE, 2, comm_regd);
+	serv.PushCommand("^DE?-?VOICE$", &biDEVOICE, 2, comm_regd);
 	serv.PushCommand("^(SET)?TOPIC$", &biTOPIC, 2, comm_regd);
 	serv.PushCommand("^KICK(USER)?$", &biKICK, 3, comm_regd);
 	serv.PushCommand("^(REM(OVE)?|ANON(YMOUS)?KICK(USER)?)$",
 					 &biANONKICK, 4, comm_regd);
 	serv.PushCommand("^USERS?$", &biUSERS, 2, comm_regd);
-	serv.PushCommand("^INVITE$", &biINVITE, 3, comm_regd);
-	serv.PushCommand("^UN?BAN$", &biUNBAN, 3, comm_regd);
+	serv.PushCommand("^INVITE$", &biINVITE, 2, comm_regd);
+	serv.PushCommand("^UN?BAN$", &biUNBAN, 2, comm_regd);
 
 	serv.PushCommand("^CL(EA)?R$",
 					 Service::CommandMerge(serv, 0, 2), 3, comm_regd);

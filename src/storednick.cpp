@@ -221,29 +221,42 @@ void StoredNick::expire()
 	mantra::Storage::DataSet data;
 	mantra::Storage::FieldSet fields;
 	fields.insert("name");
+	fields.insert("id");
 
 	mantra::ComparisonSet cs = mantra::Comparison<mantra::C_LessThan>::make("last_seen", exptime);
-	if (!locked)
-		cs.And(mantra::Comparison<mantra::C_EqualTo>::make("noexpire", true, true));
 	storage.RetrieveRow(data, cs, fields);
 
 	if (data.empty())
 		return;
 
-	mantra::Storage::DataSet::const_iterator i = data.begin();
+	std::map<boost::uint32_t, std::vector<std::string> > toexp;
+	mantra::Storage::DataSet::iterator i = data.begin();
 	for (i = data.begin(); i != data.end(); ++i)
 	{
-		mantra::Storage::RecordMap::const_iterator j = i->find("name");
-		if (j == i->end() || j->second.type() == typeid(mantra::NullValue))
+		toexp[boost::get<boost::uint32_t>((*i)["id"])].push_back(
+				boost::get<std::string>((*i)["name"]));
+	}
+
+	std::map<boost::uint32_t, std::vector<std::string> >::iterator j;
+	for (j = toexp.begin(); j != toexp.end(); ++j)
+	{
+		boost::shared_ptr<StoredUser> user = ROOT->data.Get_StoredUser(j->first);
+		if (!user)
 			continue;
 
-		boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(
-									boost::get<std::string>(j->second));
-		if (!nick)
+		if (!locked && user->NoExpire())
 			continue;
 
-		LOG(Notice, "Expiring nickname %1%.", nick->Name());
-		nick->Drop();
+		std::vector<std::string>::iterator k;
+		for (k = j->second.begin(); k != j->second.end(); ++k)
+		{
+			boost::shared_ptr<StoredNick> nick = ROOT->data.Get_StoredNick(*k);
+			if (!nick)
+				continue;
+
+			LOG(Notice, "Expiring nickname %1%.", nick->Name());
+			nick->Drop();
+		}
 	}
 
 	MT_EE
