@@ -1197,7 +1197,7 @@ static bool biTOPIC(const boost::shared_ptr<LiveUser> &service,
 
 		boost::shared_ptr<LiveChannel> channel = ROOT->data.Get_LiveChannel(params[1]);
 		if (channel)
-			service->GetService()->TOPIC(channel, topic);
+			service->GetService()->TOPIC(service, channel, topic);
 	}
 
 	MT_RET(true);
@@ -1241,22 +1241,15 @@ static bool biKICK(const boost::shared_ptr<LiveUser> &service,
 			MT_RET(false);
 		}
 
-		boost::int32_t user_level = 0, lu_level = 0;
-		std::list<StoredChannel::Access> access = stored->ACCESS_Matches(user);
-		if (!access.empty())
-			user_level = access.front().Level();
-
-		if (!stored->ACCESS_Matches(user, StoredChannel::Level::LVL_CMD_Kick))
+		boost::int32_t user_level = stored->ACCESS_Max(user);
+		if (user_level < stored->LEVEL_Get(StoredChannel::Level::LVL_CMD_Kick).Value())
 		{
 			SEND(service, user, N_("You don't have access to kick users in channel %1%."),
 				 channel->Name());
 			MT_RET(false);
 		}
 
-		std::list<StoredChannel::Access> target = stored->ACCESS_Matches(lu);
-		if (!target.empty())
-			lu_level = target.front().Level();
-
+		boost::int32_t lu_level = stored->ACCESS_Max(lu);
 		if (user_level < lu_level)
 		{
 			SEND(service, user, N_("%1% is higher than you in the access list for channel %2%."),
@@ -1317,21 +1310,15 @@ static bool biANONKICK(const boost::shared_ptr<LiveUser> &service,
 			MT_RET(false);
 		}
 
-		if (!stored->ACCESS_Matches(user, StoredChannel::Level::LVL_Super))
+		boost::int32_t user_level = stored->ACCESS_Max(user);
+		if (user_level < stored->LEVEL_Get(StoredChannel::Level::LVL_Super).Value())
 		{
 			SEND(service, user, N_("You don't have access to anonymously kick users in channel %1%."),
 				 channel->Name());
 			MT_RET(false);
 		}
 
-		boost::int32_t user_level = 0, lu_level = 0;
-		std::list<StoredChannel::Access> access = stored->ACCESS_Matches(user);
-		if (!access.empty())
-			user_level = access.front().Level();
-		std::list<StoredChannel::Access> target = stored->ACCESS_Matches(lu);
-		if (!target.empty())
-			lu_level = target.front().Level();
-
+		boost::int32_t lu_level = stored->ACCESS_Max(lu);
 		if (user_level < lu_level)
 		{
 			SEND(service, user, N_("%1% is higher than you in the access list for channel %2%."),
@@ -1565,10 +1552,7 @@ static bool biCLEAR_USERS(const boost::shared_ptr<LiveUser> &service,
 			MT_RET(false);
 		}
 
-		std::list<StoredChannel::Access> access = stored->ACCESS_Matches(user);
-		if (!access.empty())
-			user_level = access.front().Level();
-
+		user_level = stored->ACCESS_Max(user);
 		if (user_level < stored->LEVEL_Get(StoredChannel::Level::LVL_CMD_Clear).Value())
 		{
 			SEND(service, user, N_("You don't have access to use the %1% command in channel %2%."),
@@ -1586,11 +1570,7 @@ static bool biCLEAR_USERS(const boost::shared_ptr<LiveUser> &service,
 			continue;
 		else if (stored)
 		{
-			boost::int32_t level = 0;
-			std::list<StoredChannel::Access> target = stored->ACCESS_Matches(i->first);
-			if (!target.empty())
-				level = target.front().Level();
-
+			boost::int32_t level = stored->ACCESS_Max(i->first);
 			if (level >= user_level)
 				continue;
 		}
@@ -1631,10 +1611,7 @@ static bool biCLEAR_OPS(const boost::shared_ptr<LiveUser> &service,
 			MT_RET(false);
 		}
 
-		std::list<StoredChannel::Access> access = stored->ACCESS_Matches(user);
-		if (!access.empty())
-			user_level = access.front().Level();
-
+		user_level = stored->ACCESS_Max(user);
 		if (user_level < stored->LEVEL_Get(StoredChannel::Level::LVL_CMD_Clear).Value())
 		{
 			SEND(service, user, N_("You don't have access to use the %1% command in channel %2%."),
@@ -1657,11 +1634,7 @@ static bool biCLEAR_OPS(const boost::shared_ptr<LiveUser> &service,
 			continue;
 		else if (stored)
 		{
-			boost::int32_t level = 0;
-			std::list<StoredChannel::Access> target = stored->ACCESS_Matches(i->first);
-			if (!target.empty())
-				level = target.front().Level();
-
+			boost::int32_t level = stored->ACCESS_Max(i->first);
 			if (level >= user_level)
 				continue;
 		}
@@ -1712,10 +1685,7 @@ static bool biCLEAR_HOPS(const boost::shared_ptr<LiveUser> &service,
 			MT_RET(false);
 		}
 
-		std::list<StoredChannel::Access> access = stored->ACCESS_Matches(user);
-		if (!access.empty())
-			user_level = access.front().Level();
-
+		user_level = stored->ACCESS_Max(user);
 		if (user_level < stored->LEVEL_Get(StoredChannel::Level::LVL_CMD_Clear).Value())
 		{
 			SEND(service, user, N_("You don't have access to use the %1% command in channel %2%."),
@@ -1738,11 +1708,7 @@ static bool biCLEAR_HOPS(const boost::shared_ptr<LiveUser> &service,
 			continue;
 		else if (stored)
 		{
-			boost::int32_t level = 0;
-			std::list<StoredChannel::Access> target = stored->ACCESS_Matches(i->first);
-			if (!target.empty())
-				level = target.front().Level();
-
+			boost::int32_t level = stored->ACCESS_Max(i->first);
 			if (level >= user_level)
 				continue;
 		}
@@ -1784,10 +1750,7 @@ static bool biCLEAR_VOICES(const boost::shared_ptr<LiveUser> &service,
 			MT_RET(false);
 		}
 
-		std::list<StoredChannel::Access> access = stored->ACCESS_Matches(user);
-		if (!access.empty())
-			user_level = access.front().Level();
-
+		user_level = stored->ACCESS_Max(user);
 		if (user_level < stored->LEVEL_Get(StoredChannel::Level::LVL_CMD_Clear).Value())
 		{
 			SEND(service, user, N_("You don't have access to use the %1% command in channel %2%."),
@@ -1810,11 +1773,7 @@ static bool biCLEAR_VOICES(const boost::shared_ptr<LiveUser> &service,
 			continue;
 		else if (stored)
 		{
-			boost::int32_t level = 0;
-			std::list<StoredChannel::Access> target = stored->ACCESS_Matches(i->first);
-			if (!target.empty())
-				level = target.front().Level();
-
+			boost::int32_t level = stored->ACCESS_Max(i->first);
 			if (level >= user_level)
 				continue;
 		}
@@ -2403,10 +2362,7 @@ static bool biLEVEL_LIST(const boost::shared_ptr<LiveUser> &service,
 	}
 	else
 	{
-		std::list<StoredChannel::Access> acc(channel->ACCESS_Matches(user));
-		boost::int32_t level = 0;
-		if (!acc.empty())
-			level = acc.front().Level();
+		boost::int32_t level = channel->ACCESS_Max(user);
 		if (level <= 0)
 		{
 			SEND(service, user, N_("You do not have any access on channel %1%."),
@@ -2453,17 +2409,7 @@ static bool biACCESS_ADD(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	boost::int32_t level = 0;
-	if (user->Identified(channel) || (nick->User() == channel->Founder() &&
-		(!channel->Secure() || user->Identified())))
-		level = ROOT->ConfigValue<boost::int32_t>("chanserv.max-level") + 1;
-	else
-	{
-		std::list<StoredChannel::Access> acc(channel->ACCESS_Matches(user));
-		if (!acc.empty())
-			level = acc.front().Level();
-	}
-
+	boost::int32_t level = channel->ACCESS_Max(user);
 	if (level < channel->LEVEL_Get(StoredChannel::Level::LVL_Access).Value())
 	{
 		SEND(service, user, N_("You do not have sufficient access to modify the access list for channel %1%."),
@@ -2676,17 +2622,7 @@ static bool biACCESS_DEL(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	boost::int32_t level = 0;
-	if (user->Identified(channel) || (nick->User() == channel->Founder() &&
-		(!channel->Secure() || user->Identified())))
-		level = ROOT->ConfigValue<boost::int32_t>("chanserv.max-level") + 1;
-	else
-	{
-		std::list<StoredChannel::Access> acc(channel->ACCESS_Matches(user));
-		if (!acc.empty())
-			level = acc.front().Level();
-	}
-
+	boost::int32_t level = channel->ACCESS_Max(user);
 	if (level < channel->LEVEL_Get(StoredChannel::Level::LVL_Access).Value())
 	{
 		SEND(service, user, N_("You do not have sufficient access to modify the access list for channel %1%."),
@@ -3074,17 +3010,7 @@ static bool biAKICK_ADD(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	boost::int32_t level = 0;
-	if (user->Identified(channel) || (nick->User() == channel->Founder() &&
-		(!channel->Secure() || user->Identified())))
-		level = ROOT->ConfigValue<boost::int32_t>("chanserv.max-level") + 1;
-	else
-	{
-		std::list<StoredChannel::Access> acc(channel->ACCESS_Matches(user));
-		if (!acc.empty())
-			level = acc.front().Level();
-	}
-
+	boost::int32_t level = channel->ACCESS_Max(user);
 	if (level < channel->LEVEL_Get(StoredChannel::Level::LVL_AutoKick).Value())
 	{
 		SEND(service, user, N_("You do not have sufficient access to modify the access list for channel %1%."),

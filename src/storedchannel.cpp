@@ -195,12 +195,225 @@ void StoredChannel::expire()
 StoredChannel::StoredChannel(boost::uint32_t id, const std::string &name)
 	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire"),
 			mantra::Comparison<mantra::C_EqualTo>::make("id", id)),
-	  id_(id), name_(name)
+	  id_(id), name_(name), SYNC_NRWINIT(live_, reader_priority)
 {
 	MT_EB
 	MT_FUNC("StoredChannel::StoredChannel" << id << name);
 
-	live_ = ROOT->data.Get_LiveChannel(name);
+	MT_EE
+}
+
+void StoredChannel::DoRevenge(RevengeType_t action,
+							  const boost::shared_ptr<LiveUser> &target,
+							  const boost::shared_ptr<LiveUser> &victim) const
+{
+	MT_EB
+	MT_FUNC("StoredChannel::DoRevenge" << action << target << victim);
+
+	boost::shared_ptr<LiveChannel> live;
+	{
+		SYNC_RLOCK(live_);
+		live = live_;
+	}
+
+	if (!live)
+		return;
+
+	boost::shared_ptr<LiveUser> service = ROOT->data.Get_LiveUser(ROOT->chanserv.Primary());
+	if (!service)
+		return;
+
+	Revenge_t rlevel = Revenge();
+	if (rlevel > R_None && ACCESS_Max(target) < ACCESS_Max(victim))
+	{
+		// Not much to do in this specific case ...
+		if (rlevel == R_Reverse && action == RT_Kick)
+			return;
+
+		// Reverse existing damage ...
+		switch (action)
+		{
+		case RT_DeOp:
+			live->SendModes(service, "+o", victim->Name());
+			if (rlevel == R_Mirror)
+				rlevel = R_DeOp;
+			break;
+		case RT_DeHalfOp:
+			live->SendModes(service, "+h", victim->Name());
+			if (rlevel == R_Mirror)
+				rlevel = R_DeOp;
+			break;
+		case RT_DeVoice:
+			live->SendModes(service, "+v", victim->Name());
+			if (rlevel == R_Mirror)
+				rlevel = R_DeOp;
+			break;
+		case RT_Kick:
+			if (rlevel == R_Reverse)
+				return;
+			else if (rlevel == R_Mirror)
+				rlevel = R_Kick;
+			break;
+		case RT_Ban:
+		  {
+			std::string modes(1, '-');
+			std::vector<std::string> params;
+
+			Revenge_t newrlevel = R_None;
+			std::string mask[5];
+			if (rlevel == R_Mirror)
+			{
+				for (size_t i = 0; i < 5; ++i)
+				{
+					switch (i)
+					{
+					case 0:
+						mask[i] = victim->Name() + "!*@*";
+						break;
+					case 1:
+					case 2:
+						mask[i] = "*!" + victim->User() + "@";
+						break;
+					case 3:
+					case 4:
+						mask[i] = "*!*@";
+						break;
+					}
+
+					switch (i)
+					{
+					case 1:
+					case 3:
+						mask[i] += victim->Host();
+						break;
+					case 2:
+					case 4:
+						if (mantra::is_inet_address(victim->Host()))
+							mask[i] += victim->Host().substr(0, victim->Host().rfind('.')+1) + '*';
+						else if (mantra::is_inet6_address(victim->Host()))
+							mask[i] += victim->Host().substr(0, victim->Host().rfind(':')+1) + '*';
+						else
+						{
+							std::string::size_type pos = victim->Host().find('.');
+							if (pos == std::string::npos)
+								mask[i] += victim->Host();
+							else
+								mask[i] += '*' + victim->Host().substr(pos);
+						}
+						break;
+					}
+				}
+			}
+
+			LiveChannel::bans_t bans;
+			live->MatchBan(victim, bans);
+			if (!bans.empty())
+			{
+				LiveChannel::bans_t::iterator j;
+				for (j = bans.begin(); j != bans.end(); ++j)
+				{
+					params.push_back(j->first);
+					// Detect the highest matching ban ...
+					if (rlevel == R_Mirror && newrlevel < R_Ban5)
+					{
+						for (size_t i = 5; i > 0; --i)
+						{
+							if (newrlevel < R_Ban1 + i - 1 &&
+								mantra::glob_match(j->first, mask[i-1], true))
+								newrlevel = (Revenge_t) (R_Ban1 + i - 1);
+						}
+					}
+				}
+				modes.append(bans.size(), 'b');
+			}
+
+			LiveChannel::rxbans_t rxbans;
+			live->MatchBan(victim, rxbans);
+			if (!rxbans.empty())
+			{
+				LiveChannel::rxbans_t::iterator j;
+				for (j = rxbans.begin(); j != rxbans.end(); ++j)
+				{
+					params.push_back(j->first.str());
+					// Detect the highest matching ban ...
+					if (rlevel == R_Mirror && newrlevel < R_Ban5)
+					{
+						for (size_t i = 5; i > 0; --i)
+						{
+							if (newrlevel < R_Ban1 + i - 1 &&
+								boost::regex_match(mask[i-1], j->first))
+								newrlevel = (Revenge_t) (R_Ban1 + i - 1);
+						}
+					}
+				}
+				modes.append(rxbans.size(), 'd');
+			}
+
+			if (rlevel == R_Mirror)
+				rlevel = newrlevel;
+
+			live->SendModes(service, modes, params);
+		  }
+		}
+
+		// Now we should no longer have 'Mirror', and 'Revert'
+		// is also already taken care of.
+		if (rlevel == R_DeOp)
+		{
+			live->SendModes(service, "-o", target->Name());
+		}
+		else
+		{
+			service->GetService()->KICK(service, live, target,
+				format(_("REVENGE: Do not kick %1%")) % victim->Name());
+
+			if (rlevel >= R_Ban1 && rlevel <= R_Ban5)
+			{
+				std::string mask;
+
+				switch (rlevel - R_Ban1)
+				{
+				case 0:
+					mask = target->Name() + "!*@*";
+					break;
+				case 1:
+				case 2:
+					mask = "*!" + target->User() + "@";
+					break;
+				case 3:
+				case 4:
+					mask = "*!*@";
+					break;
+				}
+
+				switch (rlevel - R_Ban1)
+				{
+				case 1:
+				case 3:
+					mask += target->Host();
+					break;
+				case 2:
+				case 4:
+					if (mantra::is_inet_address(target->Host()))
+						mask += target->Host().substr(0, target->Host().rfind('.')+1) + '*';
+					else if (mantra::is_inet6_address(target->Host()))
+						mask += target->Host().substr(0, target->Host().rfind(':')+1) + '*';
+					else
+					{
+						std::string::size_type pos = target->Host().find('.');
+						if (pos == std::string::npos)
+							mask += target->Host();
+						else
+							mask += '*' + target->Host().substr(pos);
+					}
+					break;
+				}
+
+				if (!mask.empty())
+					live->SendModes(service, "+b", mask);
+			}
+		}
+	}
 
 	MT_EE
 }
@@ -247,8 +460,17 @@ void StoredChannel::Topic(const std::string &topic, const std::string &setter,
 	fields.insert("topiclock");
 	cache.Get(data, fields);
 
+	std::string cur_topic;
+	mantra::Storage::RecordMap::const_iterator i = data.find("topic");
+	if (i != data.end() && i->second.type() != typeid(mantra::NullValue))
+		cur_topic = boost::get<std::string>(i->second);
+
+	// If its the same topic, who cares?
+	if (cur_topic == topic)
+		return;
+	
 	bool topiclock;
-	mantra::Storage::RecordMap::const_iterator i = data.find("topiclock");
+	i = data.find("topiclock");
 	if (i == data.end() || i->second.type() == typeid(mantra::NullValue))
 		topiclock = ROOT->ConfigValue<bool>("chanserv.defaults.topiclock");
 	else
@@ -256,12 +478,10 @@ void StoredChannel::Topic(const std::string &topic, const std::string &setter,
 
 	if (topiclock)
 	{
-		i = data.find("topic");
-		if (i == data.end() || i->second.type() == typeid(mantra::NullValue) ||
-			boost::get<std::string>(i->second) != topic)
-		{
-			// TODO: Revert it back, we're locked!
-		}
+		// TODO: Revert it back, we're locked!
+		SYNC_RLOCK(live_);
+		if (live_)
+			ROOT->chanserv.TOPIC(live_, cur_topic);
 	}
 	else
 	{
@@ -287,32 +507,39 @@ void StoredChannel::Modes(const boost::shared_ptr<LiveUser> &user,
 	MT_EE
 }
 
-void StoredChannel::Join(const boost::shared_ptr<LiveUser> &user)
+void StoredChannel::Join(const boost::shared_ptr<LiveChannel> &live,
+						 const boost::shared_ptr<LiveUser> &user)
 {
 	MT_EB
-	MT_FUNC("StoredChannel::Join" << user);
+	MT_FUNC("StoredChannel::Join" << live << user);
 
-	boost::int32_t level = 0;
-	if (user->Identified(self.lock()))
-		level = ROOT->ConfigValue<boost::int32_t>("chanserv.max-level");
-	else if (user->Identified() || !Secure())
 	{
-		boost::shared_ptr<StoredNick> nick = user->Stored();
-		if (nick && nick->User() == Founder())
-		{
-			level = ROOT->ConfigValue<boost::int32_t>("chanserv.max-level");
-		}
-		else
-		{
-			std::list<Access> acc(ACCESS_Matches(user));
-			if (!acc.empty())
-				level = acc.front().Level();
-		}
+		SYNC_WLOCK(live_);
+		live_ = live;
 	}
 
+	boost::int32_t level = ACCESS_Max(user);
 	if (level > 0)
 		cache.Put("last_used", mantra::GetCurrentDateTime());
 
+	// Get ChanServ.
+	boost::shared_ptr<LiveUser> service = ROOT->data.Get_LiveUser(ROOT->chanserv.Primary());
+
+	std::string chanmodeparams = ROOT->proto.ConfigValue<std::string>("channel-mode-params");
+	if (level >= LEVEL_Get(Level::LVL_AutoOp).Value())
+	{
+		live->SendModes(service, "+o", user->Name());
+	}
+	else if (chanmodeparams.find("h") == std::string::npos &&
+			 level >= LEVEL_Get(Level::LVL_AutoHalfOp).Value())
+	{
+		live->SendModes(service, "+h", user->Name());
+	}
+	else if (level >= LEVEL_Get(Level::LVL_AutoVoice).Value())
+	{
+		live->SendModes(service, "+v", user->Name());
+	}
+	
 	MT_EE
 }
 
@@ -321,6 +548,16 @@ void StoredChannel::Part(const boost::shared_ptr<LiveUser> &user)
 	MT_EB
 	MT_FUNC("StoredChannel::Part" << user);
 
+	SYNC_RWLOCK(live_);
+	{
+		LiveChannel::users_t users;
+		live_->Users(users);
+		if (users.empty())
+		{
+			SYNC_PROMOTE(live_);
+			live_ = boost::shared_ptr<LiveChannel>();
+		}
+	}
 
 	MT_EE
 }
@@ -331,6 +568,18 @@ void StoredChannel::Kick(const boost::shared_ptr<LiveUser> &user,
 	MT_EB
 	MT_FUNC("StoredChannel::Kick" << user << kicker);
 
+	DoRevenge(RT_Kick, kicker, user);
+
+	SYNC_RWLOCK(live_);
+	{
+		LiveChannel::users_t users;
+		live_->Users(users);
+		if (users.empty())
+		{
+			SYNC_PROMOTE(live_);
+			live_ = boost::shared_ptr<LiveChannel>();
+		}
+	}
 
 	MT_EE
 }
@@ -340,8 +589,7 @@ void StoredChannel::Password(const std::string &password)
 	MT_EB
 	MT_FUNC("StoredChannel::Password" << password);
 
-	cache.Put("password",
-					 ROOT->data.CryptPassword(password));
+	cache.Put("password", ROOT->data.CryptPassword(password));
 
 	MT_EE
 }
@@ -1098,6 +1346,35 @@ std::string StoredChannel::ModeLock(const std::string &in)
 	MT_EE
 }
 
+static std::string SplitModeLock(const std::string &in, bool on)
+{
+	MT_EB
+	MT_FUNC("SplitModeLock" << in);
+
+	bool add = true;
+	std::string ret;
+
+	std::string::const_iterator i;
+	for (i = in.begin(); i != in.end(); ++i)
+	{
+		switch (*i)
+		{
+		case '+':
+			add = true;
+			break;
+		case '-':
+			add = false;
+			break;
+		default:
+			if (on ? add : !add)
+				ret.append(1, *i);
+		}
+	}
+
+	MT_RET(ret);
+	MT_EE
+}
+
 std::string StoredChannel::ModeLock_On() const
 {
 	MT_EB
@@ -1106,7 +1383,7 @@ std::string StoredChannel::ModeLock_On() const
 	std::string ret;
 	mantra::StorageValue rv = cache.Get("mlock_on");
 	if (rv.type() == typeid(mantra::NullValue))
-		ret = ROOT->ConfigValue<mantra::duration>("chanserv.defaults.mlock_on");
+		ret = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.defaults.mlock"), true);
 	else
 		ret = boost::get<std::string>(rv);
 
@@ -1122,7 +1399,7 @@ std::string StoredChannel::ModeLock_Off() const
 	std::string ret;
 	mantra::StorageValue rv = cache.Get("mlock_off");
 	if (rv.type() == typeid(mantra::NullValue))
-		ret = ROOT->ConfigValue<mantra::duration>("chanserv.defaults.mlock_off");
+		ret = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.defaults.mlock"), false);
 	else
 		ret = boost::get<std::string>(rv);
 
@@ -1658,10 +1935,13 @@ void StoredChannel::DropInternal()
 	MT_EB
 	MT_FUNC("StoredChannel::DropInternal");
 
-	boost::mutex::scoped_lock sl(lock_);
-	if (live_)
-		if_LiveChannel_StoredChannel(live_).Stored(boost::shared_ptr<StoredChannel>());
+	{
+		SYNC_RLOCK(live_);
+		if (live_)
+			if_LiveChannel_StoredChannel(live_).Stored(boost::shared_ptr<StoredChannel>());
+	}
 
+	boost::mutex::scoped_lock sl(lock_);
 	identified_users_t::const_iterator i;
 	for (i=identified_users_.begin(); i!=identified_users_.end(); ++i)
 		(*i)->UnIdentify(self.lock());
@@ -1771,12 +2051,6 @@ void StoredChannel::SendInfo(const boost::shared_ptr<LiveUser> &service,
 		priv = boost::get<bool>(i->second);
 	}
 
-	boost::shared_ptr<LiveChannel> live;
-	{
-		// SYNC_LOCK(live_);
-		live = live_;
-	}
-
 	SEND(service, user, N_("Information on channel \002%1%\017:"), name_);
 
 	i = data.find("description");
@@ -1852,6 +2126,11 @@ void StoredChannel::SendInfo(const boost::shared_ptr<LiveUser> &service,
 
 	if (!priv)
 	{
+		boost::shared_ptr<LiveChannel> live;
+		{
+			SYNC_RLOCK(live_);
+			live = live_;
+		}
 		if (live)
 		{
 			LiveChannel::users_t users;
@@ -2050,8 +2329,74 @@ std::string StoredChannel::FilterModes(const boost::shared_ptr<LiveUser> &user,
 	MT_EB
 	MT_FUNC("FilterModes" << user << modes << params);
 
-	std::string ret = modes;
-	// TODO: actually filter modes (duh)!
+	std::string chanmodeargs = ROOT->proto.ConfigValue<std::string>("channel-mode-params");
+	bool add = true;
+	std::string ret;
+	ret.reserve(modes.size());
+	std::vector<std::string>::iterator p = params.begin();
+
+	std::string mlock_on = ModeLock_On();
+	std::string mlock_off = ModeLock_Off();
+	if (ModeLock_Limit())
+		mlock_on.append(1, 'l');
+	if (!ModeLock_Key().empty())
+		mlock_on.append(1, 'k');
+
+	std::string::const_iterator i;
+	for (i = modes.begin(); i != modes.end(); ++i)
+	{
+		switch (*i)
+		{
+		case '+':
+			add = true;
+			ret.append(1, *i);
+			break;
+		case '-':
+			add = false;
+			ret.append(1, *i);
+			break;
+		case 'l':
+			if (!add)
+			{
+				if (mlock_on.find(*i) == std::string::npos)
+					ret.append(1, *i);
+				break;
+			}
+		default:
+			if (chanmodeargs.find(*i) != std::string::npos)
+			{
+				switch (*i)
+				{
+				case 'o':
+				case 'h':
+				case 'v':
+				case 'q':
+				case 'u':
+				case 'a':
+					p = params.erase(p);
+					break;
+				default:
+					// If it IS in the mlock ...
+					if (add ? mlock_off.find(*i) != std::string::npos
+						    : mlock_on.find(*i) != std::string::npos)
+					{
+						p = params.erase(p);
+						break;
+					}
+					ret.append(1, *i);
+					++p;
+				}
+			}
+			// If its NOT in the mlock ...
+			else if (add ? mlock_off.find(*i) == std::string::npos
+						 : mlock_on.find(*i) == std::string::npos)
+				ret.append(1, *i);
+		}
+	}
+	
+	// Bloody useless ...
+	if (ret.find_first_not_of("+-") == std::string::npos)
+		ret.clear();
 
 	MT_RET(ret);
 	MT_EE

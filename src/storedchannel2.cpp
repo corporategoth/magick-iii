@@ -720,6 +720,49 @@ std::list<StoredChannel::Access> StoredChannel::ACCESS_Matches(const boost::rege
 	MT_EE
 }
 
+boost::int32_t StoredChannel::ACCESS_Max(const std::string &in) const
+{
+	MT_EB
+	MT_FUNC("StoredChannel::ACCESS_Max" << in);
+
+	std::list<Access> acc(ACCESS_Matches(in));
+	if (acc.empty())
+		MT_RET(0);
+
+	boost::int32_t rv = acc.front().Level();
+
+	MT_RET(rv);
+	MT_EE
+}
+
+boost::int32_t StoredChannel::ACCESS_Max(const boost::shared_ptr<LiveUser> &in) const
+{
+	MT_EB
+	MT_FUNC("StoredChannel::ACCESS_Max" << in);
+
+	boost::int32_t rv = 0;
+	if (in->Identified(self.lock()))
+		rv = ROOT->ConfigValue<boost::int32_t>("chanserv.max-level") + 1;
+	else
+	{
+		boost::shared_ptr<StoredNick> nick = in->Stored();
+		if (nick && nick->User() == Founder() &&
+			(in->Identified() || (!Secure() && !nick->User()->Secure())))
+		{
+			rv = ROOT->ConfigValue<boost::int32_t>("chanserv.max-level") + 1;
+		}
+		else
+		{
+			std::list<Access> acc(ACCESS_Matches(in));
+			if (!acc.empty())
+				rv = acc.front().Level();
+		}
+	}
+
+	MT_RET(rv);
+	MT_EE
+}
+
 bool StoredChannel::ACCESS_Matches(const std::string &in, boost::uint32_t level) const
 {
 	MT_EB
@@ -735,15 +778,11 @@ bool StoredChannel::ACCESS_Matches(const std::string &in, boost::uint32_t level)
 	if (lvl.Value() > ROOT->ConfigValue<boost::int32_t>("chanserv.max-level") + 1)
 		MT_RET(false);
 
-	std::list<Access> acc(ACCESS_Matches(in));
-	if (acc.empty())
-		MT_RET(false);
-
 	bool rv;
 	if (lvl.Value() > 0)
-		rv = (acc.front().Level() >= lvl.Value());
+		rv = (ACCESS_Max(in) >= lvl.Value());
 	else
-		rv = (acc.back().Level() <= lvl.Value());
+		rv = (ACCESS_Max(in) <= lvl.Value());
 
 	MT_RET(rv);
 	MT_EE
@@ -764,19 +803,11 @@ bool StoredChannel::ACCESS_Matches(const boost::shared_ptr<LiveUser> &in, boost:
 	if (lvl.Value() > ROOT->ConfigValue<boost::int32_t>("chanserv.max-level") + 1)
 		MT_RET(false);
 
-	boost::shared_ptr<StoredNick> nick = in->Stored();
-	if (in->Identified(self.lock()) || (!Secure() && nick->User() == Founder()))
-		MT_RET(true);
-
-	std::list<Access> acc(ACCESS_Matches(in));
-	if (acc.empty())
-		MT_RET(false);
-
 	bool rv;
 	if (lvl.Value() > 0)
-		rv = (acc.front().Level() >= lvl.Value());
+		rv = (ACCESS_Max(in) >= lvl.Value());
 	else
-		rv = (acc.back().Level() <= lvl.Value());
+		rv = (ACCESS_Max(in) <= lvl.Value());
 
 	MT_RET(rv);
 	MT_EE

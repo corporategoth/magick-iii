@@ -74,9 +74,23 @@ void LiveChannel::PendingModes::operator()()
 	std::vector<std::string> params;
 
 	SYNC_LOCK(lock);
+	MT_CP("Changing Modes: -%1%+%2%",
+		  std::string(off_.begin(), off_.end()) %
+		  std::string(on_.begin(), on_.end()));
+
+	if (!user_)
+	{
+		user_ = ROOT->data.Get_LiveUser(ROOT->chanserv.Primary());
+		if (!user_)
+		{
+			event_ = ROOT->event->Schedule(boost::bind(&PendingModes::operator(), this),
+										   boost::posix_time::seconds(1));
+			return;
+		}
+	}
 
 	event_ = 0;
-	if (!user_->GetService())
+	if (!channel_ || !user_->GetService())
 	{
 		on_.clear();
 		on_params_.clear();
@@ -143,6 +157,7 @@ void LiveChannel::PendingModes::Update(const std::string &in,
 	MT_EB
 	MT_FUNC("LiveChannel::PendingModes::Update" << in << params);
 
+	std::string chanmodeargs = ROOT->proto.ConfigValue<std::string>("channel-mode-params");
 	bool add = true;
 	std::string::const_iterator i;
 	size_t m = 0;
@@ -167,7 +182,7 @@ void LiveChannel::PendingModes::Update(const std::string &in,
 			}
 			// Don't break, this should fall through if its 'add'.
 		default:
-			if (ROOT->proto.ConfigValue<std::string>("channel-mode-params").find(*i) != std::string::npos)
+			if (chanmodeargs.find(*i) != std::string::npos)
 			{
 				if (m >= params.size())
 				{
@@ -294,7 +309,7 @@ void LiveChannel::PendingModes::Update(const std::string &in,
 				else
 				{
 					on_.erase(*i);
-					off_.erase(*i);
+					off_.insert(*i);
 				}
 			}
 		}
@@ -391,7 +406,7 @@ void LiveChannel::Stored(const boost::shared_ptr<StoredChannel> &stored)
 		users_t::const_iterator i;
 		for (i = users_.begin(); i != users_.end(); ++i)
 		{
-			if_StoredChannel_LiveChannel(stored).Join(i->first);
+			if_StoredChannel_LiveChannel(stored).Join(self.lock(), i->first);
 			std::set<char>::const_iterator j;
 			for (j = i->second.begin(); j != i->second.end(); ++j)
 			{
@@ -484,7 +499,7 @@ void LiveChannel::Join(const boost::shared_ptr<LiveUser> &user)
 	if_LiveUser_LiveChannel(user).Join(self.lock());
 	SYNC_RLOCK(stored_);
 	if (stored_)
-		if_StoredChannel_LiveChannel(stored_).Join(user);
+		if_StoredChannel_LiveChannel(stored_).Join(self.lock(), user);
 
 	MT_EE
 }
@@ -1192,6 +1207,10 @@ void LiveChannel::SendModes(const boost::shared_ptr<LiveUser> &user,
 {
 	MT_EB
 	MT_FUNC("LiveChannel::SendModes" << user << in << params);
+
+	// Bloody useless ...
+	if (in.find_first_not_of("+-") == std::string::npos)
+		return;
 
 	SYNC_LOCK(pending_modes_);
 	pending_modes_t::iterator i = pending_modes_.lower_bound(user);

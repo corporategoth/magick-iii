@@ -73,13 +73,22 @@ class StoredChannel : private boost::noncopyable,
 	boost::uint32_t id_;
 	std::string name_; // Too damn convenient :)
 
+	boost::shared_ptr<LiveChannel> RWSYNC(live_);
+
 	boost::mutex lock_;
-	boost::shared_ptr<LiveChannel> live_;
 	identified_users_t identified_users_;
 
 	boost::mutex id_lock_access;
 	boost::mutex id_lock_autokick;
 	boost::mutex id_lock_message;
+
+	enum RevengeType_t { RT_DeOp, RT_DeHalfOp, RT_DeVoice,
+						 RT_Kick, RT_Ban };
+	// Figure out if a 'wrong' has occured, and if so, take
+	// revenge against target for wrongs done to victim.
+	void DoRevenge(RevengeType_t action,
+				   const boost::shared_ptr<LiveUser> &target,
+				   const boost::shared_ptr<LiveUser> &victim) const;
 
 	// use if_StoredChannel_LiveUser
 	bool Identify(const boost::shared_ptr<LiveUser> &user,
@@ -91,7 +100,8 @@ class StoredChannel : private boost::noncopyable,
 			   const boost::posix_time::ptime &set_time);
 	void Modes(const boost::shared_ptr<LiveUser> &user,
 			   const std::string &in, const std::vector<std::string> &params);
-	void Join(const boost::shared_ptr<LiveUser> &user);
+	void Join(const boost::shared_ptr<LiveChannel> &channel,
+			  const boost::shared_ptr<LiveUser> &user);
 	void Part(const boost::shared_ptr<LiveUser> &user);
 	void Kick(const boost::shared_ptr<LiveUser> &user,
 			  const boost::shared_ptr<LiveUser> &kicker);
@@ -361,6 +371,8 @@ public:
 	std::list<Access> ACCESS_Matches(const std::string &in) const;
 	std::list<Access> ACCESS_Matches(const boost::shared_ptr<LiveUser> &in) const;
 	std::list<Access> ACCESS_Matches(const boost::regex &in) const;
+	boost::int32_t ACCESS_Max(const std::string &in) const;
+	boost::int32_t ACCESS_Max(const boost::shared_ptr<LiveUser> &in) const;
 	bool ACCESS_Matches(const std::string &in, boost::uint32_t level) const;
 	bool ACCESS_Matches(const boost::shared_ptr<LiveUser> &in, boost::uint32_t level) const;
 	bool ACCESS_Exists(boost::uint32_t num) const;
@@ -580,8 +592,9 @@ class if_StoredChannel_LiveChannel
 	inline void Modes(const boost::shared_ptr<LiveUser> &user,
 					  const std::string &in, const std::vector<std::string> &params)
 		{ base.Modes(user, in, params); }
-	inline void Join(const boost::shared_ptr<LiveUser> &user)
-		{ base.Join(user); }
+	inline void Join(const boost::shared_ptr<LiveChannel> &live,
+					 const boost::shared_ptr<LiveUser> &user)
+		{ base.Join(live, user); }
 	inline void Part(const boost::shared_ptr<LiveUser> &user)
 		{ base.Part(user); }
 	inline void Kick(const boost::shared_ptr<LiveUser> &user,
