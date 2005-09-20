@@ -121,7 +121,7 @@ std::string StoredChannel::Level::DefaultDesc(boost::uint32_t level,
 
 StoredChannel::Level::Level(const boost::shared_ptr<StoredChannel> &owner,
 							boost::uint32_t id)
-	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire"),
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("storage.cache-expire"),
 			mantra::Comparison<mantra::C_EqualTo>::make("id", owner->ID()) &&
 			mantra::Comparison<mantra::C_EqualTo>::make("level", id)),
 	  owner_(owner), id_(id)
@@ -276,7 +276,7 @@ void StoredChannel::LEVEL_Get(std::set<StoredChannel::Level> &fill) const
 
 StoredChannel::Access::Access(const boost::shared_ptr<StoredChannel> &owner,
 							  boost::uint32_t num)
-	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire"),
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("storage.cache-expire"),
 			mantra::Comparison<mantra::C_EqualTo>::make("id", owner->ID()) &&
 			mantra::Comparison<mantra::C_EqualTo>::make("number", num)),
 	  owner_(owner), number_(num)
@@ -291,7 +291,7 @@ StoredChannel::Access::Access(const boost::shared_ptr<StoredChannel> &owner,
 StoredChannel::Access::Access(const boost::shared_ptr<StoredChannel> &owner,
 							  const std::string &entry, boost::int32_t level,
 							  const boost::shared_ptr<StoredNick> &updater)
-	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire")),
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("storage.cache-expire")),
 	  owner_(owner)
 {
 	MT_EB
@@ -329,7 +329,7 @@ StoredChannel::Access::Access(const boost::shared_ptr<StoredChannel> &owner,
 							  const boost::shared_ptr<StoredUser> &entry,
 							  boost::int32_t level,
 							  const boost::shared_ptr<StoredNick> &updater)
-	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire")),
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("storage.cache-expire")),
 	  owner_(owner)
 {
 	MT_EB
@@ -367,7 +367,7 @@ StoredChannel::Access::Access(const boost::shared_ptr<StoredChannel> &owner,
 							  const boost::shared_ptr<Committee> &entry,
 							  boost::int32_t level,
 							  const boost::shared_ptr<StoredNick> &updater)
-	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire")),
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("storage.cache-expire")),
 	  owner_(owner)
 {
 	MT_EB
@@ -1000,7 +1000,7 @@ void StoredChannel::ACCESS_Get(std::set<Access> &fill) const
 
 StoredChannel::AutoKick::AutoKick(const boost::shared_ptr<StoredChannel> &owner,
 							  boost::uint32_t num)
-	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire"),
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("storage.cache-expire"),
 			mantra::Comparison<mantra::C_EqualTo>::make("id", owner->ID()) &&
 			mantra::Comparison<mantra::C_EqualTo>::make("number", num)),
 	  owner_(owner), number_(num)
@@ -1016,7 +1016,7 @@ StoredChannel::AutoKick::AutoKick(const boost::shared_ptr<StoredChannel> &owner,
 							  const std::string &entry, const std::string &reason,
 							  const mantra::duration &length,
 							  const boost::shared_ptr<StoredNick> &updater)
-	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire")),
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("storage.cache-expire")),
 	  owner_(owner)
 {
 	MT_EB
@@ -1057,7 +1057,7 @@ StoredChannel::AutoKick::AutoKick(const boost::shared_ptr<StoredChannel> &owner,
 							  const boost::shared_ptr<StoredUser> &entry,
 							  const std::string &reason, const mantra::duration &length,
 							  const boost::shared_ptr<StoredNick> &updater)
-	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire")),
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("storage.cache-expire")),
 	  owner_(owner)
 {
 	MT_EB
@@ -1098,7 +1098,7 @@ StoredChannel::AutoKick::AutoKick(const boost::shared_ptr<StoredChannel> &owner,
 							  const boost::shared_ptr<Committee> &entry,
 							  const std::string &reason, const mantra::duration &length,
 							  const boost::shared_ptr<StoredNick> &updater)
-	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire")),
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("storage.cache-expire")),
 	  owner_(owner)
 {
 	MT_EB
@@ -1670,7 +1670,7 @@ void StoredChannel::AKICK_Get(std::set<AutoKick> &fill) const
 }
 
 StoredChannel::Greet::Greet(const boost::shared_ptr<StoredChannel> &owner, const boost::shared_ptr<StoredUser> &entry)
-	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire"),
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("storage.cache-expire"),
 			mantra::Comparison<mantra::C_EqualTo>::make("id", owner->ID()) &&
 			mantra::Comparison<mantra::C_EqualTo>::make("entry", entry->ID())),
 	  owner_(owner), entry_(entry)
@@ -1684,7 +1684,7 @@ StoredChannel::Greet::Greet(const boost::shared_ptr<StoredChannel> &owner, const
 
 StoredChannel::Greet::Greet(const boost::shared_ptr<StoredChannel> &owner, const boost::shared_ptr<StoredUser> &entry,
 							const std::string &greeting, const boost::shared_ptr<StoredNick> &updater)
-	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire"),
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("storage.cache-expire"),
 			mantra::Comparison<mantra::C_EqualTo>::make("id", owner->ID()) &&
 			mantra::Comparison<mantra::C_EqualTo>::make("entry", entry->ID())),
 	  owner_(owner), entry_(entry)
@@ -1884,7 +1884,7 @@ void StoredChannel::GREET_Get(std::set<Greet> &fill) const
 
 StoredChannel::Message::Message(const boost::shared_ptr<StoredChannel> &owner,
 							  boost::uint32_t num)
-	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire"),
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("storage.cache-expire"),
 			mantra::Comparison<mantra::C_EqualTo>::make("id", owner->ID()) &&
 			mantra::Comparison<mantra::C_EqualTo>::make("number", num)),
 	  owner_(owner), number_(num)
@@ -1899,7 +1899,7 @@ StoredChannel::Message::Message(const boost::shared_ptr<StoredChannel> &owner,
 StoredChannel::Message::Message(const boost::shared_ptr<StoredChannel> &owner,
 								const std::string &message,
 								const boost::shared_ptr<StoredNick> &updater)
-	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire")),
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("storage.cache-expire")),
 	  owner_(owner)
 {
 	MT_EB

@@ -45,7 +45,7 @@ StorageInterface Committee::Member::storage("committees_member", std::string(), 
 StorageInterface Committee::Message::storage("committees_message", std::string(), "last_update");
 
 Committee::Committee(boost::uint32_t id, const std::string &name)
-	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire"),
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("storage.cache-expire"),
 			mantra::Comparison<mantra::C_EqualTo>::make("id", id)),
 	  id_(id), name_(name), SYNC_NRWINIT(online_members_, reader_priority)
 {
@@ -1216,7 +1216,7 @@ void Committee::SendInfo(const boost::shared_ptr<LiveUser> &service,
 }
 
 Committee::Member::Member()
-	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire")),
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("storage.cache-expire")),
 	  number_(0u)
 {
 	MT_EB
@@ -1228,7 +1228,7 @@ Committee::Member::Member()
 
 Committee::Member::Member(const boost::shared_ptr<Committee> &owner,
 						  boost::uint32_t number)
-	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire"),
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("storage.cache-expire"),
 			mantra::Comparison<mantra::C_EqualTo>::make("id", owner->ID()) &&
 			mantra::Comparison<mantra::C_EqualTo>::make("number", number)),
 	  owner_(owner), number_(number)
@@ -1261,7 +1261,7 @@ Committee::Member::Member(const boost::shared_ptr<Committee> &owner,
 
 Committee::Member::Member(const boost::shared_ptr<Committee> &owner,
 						  const boost::shared_ptr<StoredUser> &entry)
-	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire")),
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("storage.cache-expire")),
 	  owner_(owner), entry_(entry)
 {
 	MT_EB
@@ -1338,7 +1338,7 @@ boost::posix_time::ptime Committee::Member::Last_Update() const
 }
 
 Committee::Message::Message()
-	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire")),
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("storage.cache-expire")),
 	  number_(0)
 {
 	MT_EB
@@ -1350,7 +1350,7 @@ Committee::Message::Message()
 
 Committee::Message::Message(const boost::shared_ptr<Committee> &owner,
 							boost::uint32_t number)
-	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire"),
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("storage.cache-expire"),
 			mantra::Comparison<mantra::C_EqualTo>::make("id", owner->ID()) &&
 			mantra::Comparison<mantra::C_EqualTo>::make("number", number)),
 	  owner_(owner), number_(number)

@@ -4,7 +4,7 @@
 
 /* Magick IRC Services
 **
-** (c) 2004 The Neuromancy Society <info@neuromancy.net>
+** (c) 2005 The Neuromancy Society <info@neuromancy.net>
 **
 ** The above copywright may not be removed under any circumstances,
 ** however it may be added to if any modifications are made to this

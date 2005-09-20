@@ -362,8 +362,17 @@ static void add_stage_options(po::options_description &opts, const std::string &
 					"will we ignore a failure to verify")
 
 #ifdef MANTRA_STORAGE_STAGE_COMPRESS_SUPPORT
-		((prefix + ".stage.compress.level").c_str(), mantra::value<int>()->default_value(Z_DEFAULT_COMPRESSION)->parser(mantra::validate_range<int>(0, 9)),
-					"compression level (0-9)")
+		((prefix + ".stage.compress.type").c_str(), mantra::value<unsigned int>()->parser(
+					mantra::validate_mapped<std::string, unsigned int, mantra::iless<std::string> >("LZW", mantra::CompressStage::LZW)
+#ifdef HAVE_ZLIB_H
+						+ std::make_pair("ZLIB", mantra::CompressStage::ZLIB)
+#endif
+#ifdef HAVE_BZLIB_H
+						+ std::make_pair("BZIP2", mantra::CompressStage::BZIP2)
+#endif
+					), "type of compression to use")
+		((prefix + ".stage.compress.level").c_str(), mantra::value<int>()->default_value(6)->parser(mantra::validate_range<int>(1, 9)),
+					"compression level (1-9)")
 #endif
 
 		((prefix + ".stage.crypt.type").c_str(), mantra::value<unsigned int>()->parser(
@@ -464,6 +473,8 @@ static void add_storage_options(po::options_description &opts)
 		 			"will we try to do a DB lookup if a map lookup fails")
 		("storage.load-after-save", mantra::value<bool>()->default_value(false),
 		 			"reload the database after the 'save' is done")
+		("storage.cache-expire", mantra::value<mantra::duration>()->default_value(mantra::duration("5n")),
+					"how long to remember cached preferenes before going back to the DB.")
 	;
 	
 	opts.add_options()
@@ -794,8 +805,6 @@ static void add_general_options(po::options_description &opts)
 					"maximum time to delay a message with a dependancy")
 		("general.expire-check", mantra::value<mantra::duration>()->default_value(mantra::duration("5n")),
 					"how often to check if anything needs to be expired")
-		("general.cache-expire", mantra::value<mantra::duration>()->default_value(mantra::duration("5n")),
-					"how long to remember cached preferenes before going back to the DB.")
 	;
 
 	MT_EE

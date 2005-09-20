@@ -1,7 +1,38 @@
--- Setup the Magick III Schema (PostgreSQL Edition).
--- PostgreSQL supports foreign keys, so they are used.
--- PostgreSQL supports 'on delete' (for cascading deletes), so it is used.
--- PostgreSQL has a good indexing system, so it is used.
+-- Magick IRC Services
+--
+-- (c) 2005 The Neuromancy Society <info@neuromancy.net>
+--
+-- The above copywright may not be removed under any circumstances,
+-- however it may be added to if any modifications are made to this
+-- file.  All modified code must be clearly documented and labelled.
+--
+-- This code is released under the GNU General Public License v2.0 or better.
+-- The full text of this license should be contained in a file called
+-- COPYING distributed with this code.  If this file does not exist,
+-- it may be viewed here: http://www.neuromancy.net/license/gpl.html
+--
+-- =======================================================================
+-- $Id$
+-- =======================================================================
+--
+-- For official changes (by The Neuromancy Society), please
+-- check the ChangeLog* files that come with this distribution.
+--
+-- Third Party Changes (please include e-mail address):
+--
+-- N/A
+--
+-- =======================================================================
+
+-- This file will create the schema for Magick III in a PostgreSQL database.
+-- Although this file MAY work with other databases, it is designed with
+-- PostgreSQL in mind, so please do not bother to report a bug if you are
+-- using this with a different database.
+
+-- PostgreSQL supports many SQL features that are taken advantage of:
+--   - Foreign Keys
+--   - Cascading Deletes
+--   - Robust Indexing
 
 DROP TABLE killchans;
 DROP TABLE ignores;

@@ -788,14 +788,15 @@ bool Storage::init(const po::variables_map &vm,
 							MT_RET(false);
 						}
 					}
-					mantra::CompressStage *(*create)(boost::int8_t) = 
-						(mantra::CompressStage *(*)(boost::int8_t))
+					mantra::CompressStage *(*create)(mantra::CompressStage::Type_t, boost::int8_t) = 
+						(mantra::CompressStage *(*)(mantra::CompressStage::Type_t, boost::int8_t))
 							dlsym(compress_handle_, "create_CompressStage");
 					void (*destroy)(mantra::Stage *) = (void (*)(mantra::Stage *))
 							dlsym(compress_handle_, "destroy_CompressStage");
 
 					stages_.push_back(std::make_pair(
-						create(vm["storage.inifile.stage.compress.level"].as<unsigned int>()),
+						create((mantra::CompressStage::Type_t) vm["storage.inifile.stage.compress.type"].as<unsigned int>(),
+							   vm["storage.inifile.stage.compress.level"].as<int>()),
 						destroy));
 				}
 #endif
@@ -1138,14 +1139,15 @@ bool Storage::init(const po::variables_map &vm,
 							MT_RET(false);
 						}
 					}
-					mantra::CompressStage *(*create)(boost::int8_t) = 
-						(mantra::CompressStage *(*)(boost::int8_t))
+					mantra::CompressStage *(*create)(mantra::CompressStage::Type_t, boost::int8_t) = 
+						(mantra::CompressStage *(*)(mantra::CompressStage::Type_t, boost::int8_t))
 							dlsym(compress_handle_, "create_CompressStage");
 					void (*destroy)(mantra::Stage *) = (void (*)(mantra::Stage *))
 							dlsym(compress_handle_, "destroy_CompressStage");
 
 					stages_.push_back(std::make_pair(
-						create(vm["storage.xml.stage.compress.level"].as<unsigned int>()),
+						create((mantra::CompressStage::Type_t) vm["storage.xml.stage.compress.type"].as<unsigned int>(),
+							   vm["storage.xml.stage.compress.level"].as<int>()),
 						destroy));
 				}
 #endif

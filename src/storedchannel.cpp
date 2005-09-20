@@ -193,7 +193,7 @@ void StoredChannel::expire()
 }
 
 StoredChannel::StoredChannel(boost::uint32_t id, const std::string &name)
-	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire"),
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("storage.cache-expire"),
 			mantra::Comparison<mantra::C_EqualTo>::make("id", id)),
 	  id_(id), name_(name), SYNC_NRWINIT(live_, reader_priority)
 {

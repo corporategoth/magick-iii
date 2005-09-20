@@ -43,7 +43,7 @@ StorageInterface StoredNick::storage("nicks", "name");
 
 StoredNick::StoredNick(const std::string &name,
 					   const boost::shared_ptr<StoredUser> &user)
-	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire"),
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("storage.cache-expire"),
 			mantra::Comparison<mantra::C_EqualToNC>::make("name", name)),
 	  name_(name), user_(user)
 {

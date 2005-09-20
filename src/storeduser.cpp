@@ -46,7 +46,7 @@ StorageInterface StoredUser::storage_access("users_access", std::string(), "last
 StorageInterface StoredUser::storage_ignore("users_ignore", std::string(), "last_update");
 
 StoredUser::StoredUser(boost::uint32_t id)
-	: cache(storage, ROOT->ConfigValue<mantra::duration>("general.cache-expire"),
+	: cache(storage, ROOT->ConfigValue<mantra::duration>("storage.cache-expire"),
 			mantra::Comparison<mantra::C_EqualTo>::make("id", id)),
 	  id_(id), SYNC_NRWINIT(online_users_, reader_priority)
 {

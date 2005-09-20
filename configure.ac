@@ -1,6 +1,6 @@
 dnl Magick IRC Services
 dnl
-dnl (c) 2004 The Neuromancy Society <info@neuromancy.net>
+dnl (c) 2005 The Neuromancy Society <info@neuromancy.net>
 dnl
 dnl The above copywright may not be removed under any circumstances,
 dnl however it may be added to if any modifications are made to this
@@ -13,7 +13,6 @@ dnl it may be viewed here: http://www.neuromancy.net/license/gpl.html
 dnl
 dnl =======================================================================
 dnl $Id$
-
 dnl =======================================================================
 dnl
 dnl For official changes (by The Neuromancy Society), please
