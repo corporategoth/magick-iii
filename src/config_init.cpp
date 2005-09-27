@@ -328,6 +328,8 @@ void Magick::init_config()
 					"entry describing a connection to a remote host")
 		("allow,a", mantra::value<std::vector<std::string> >()->composing()->parser(validate_allow()),
 					"entry defining who is allowed on the network")
+		("include", mantra::value<std::vector<std::string> >()->composing(),
+					"supplemental configuration files to include")
 	;
 
 	opt_config_file_only.add_options()
@@ -473,6 +475,8 @@ static void add_storage_options(po::options_description &opts)
 		 			"will we try to do a DB lookup if a map lookup fails")
 		("storage.load-after-save", mantra::value<bool>()->default_value(false),
 		 			"reload the database after the 'save' is done")
+		("storage.tollerant", mantra::value<bool>()->default_value(false),
+					"will we allow config values we are not expecting")
 		("storage.cache-expire", mantra::value<mantra::duration>()->default_value(mantra::duration("5n")),
 					"how long to remember cached preferenes before going back to the DB.")
 	;
@@ -485,8 +489,6 @@ static void add_storage_options(po::options_description &opts)
 #endif
 					+ "crypt"
 					), "stages this storage mechanism will invoke")
-		("storage.inifile.tollerant", mantra::value<bool>()->default_value(false),
-					"will we allow config values we are not expecting")
 	;
 	add_stage_options(opts, "storage.inifile");
 
@@ -499,8 +501,6 @@ static void add_storage_options(po::options_description &opts)
 #endif
 					+ "crypt"
 					), "stages this storage mechanism will invoke")
-		("storage.xml.tollerant", mantra::value<bool>()->default_value(false),
-					"will we allow config values we are not expecting")
 		("storage.xml.encode", mantra::value<std::string>()->default_value("UTF-8"),
 					"encoding for XML data")
 	;
@@ -519,14 +519,14 @@ static void add_storage_options(po::options_description &opts)
 					"host we will connect to")
 		("storage.postgresql.port", mantra::value<unsigned short>(),
 					"port we will connect to")
-		("storage.postgresql.tollerant", mantra::value<bool>()->default_value(false),
-					"will we allow config values we are not expecting")
 		("storage.postgresql.timeout", mantra::value<unsigned int>()->default_value(0),
 					"maximum time to wait for an available connection")
 		("storage.postgresql.ssl-only", mantra::value<bool>()->default_value(false),
 					"require an SSL connection to the database")
 		("storage.postgresql.max-conn-count", mantra::value<unsigned int>()->default_value(0),
-					"maximum number of connections to the database to keep")
+					"maximum number of connections to the database we may have")
+		("storage.postgresql.max-spare-count", mantra::value<unsigned int>()->default_value(4),
+					"maximum number of spare connections to the database to keep")
 #endif
 
 #ifdef MANTRA_STORAGE_MYSQL_SUPPORT
@@ -540,30 +540,28 @@ static void add_storage_options(po::options_description &opts)
 					"host we will connect to")
 		("storage.mysql.port", mantra::value<unsigned short>(),
 					"port we will connect to")
-		("storage.mysql.tollerant", mantra::value<bool>()->default_value(false),
-					"will we allow config values we are not expecting")
 		("storage.mysql.timeout", mantra::value<unsigned int>()->default_value(0),
 					"maximum time to wait for an available connection")
 		("storage.mysql.compression", mantra::value<bool>()->default_value(false),
 					"compress communications to/from the database")
 		("storage.mysql.max-conn-count", mantra::value<unsigned int>()->default_value(0),
 					"maximum number of connections to the database to keep")
+		("storage.mysql.max-spare-count", mantra::value<unsigned int>()->default_value(4),
+					"maximum number of spare connections to the database to keep")
 #endif
 
 #ifdef MANTRA_STORAGE_SQLITE_SUPPORT
 		("storage.sqlite.db-name", mantra::value<std::string>(),
 					"database name we will connect to")
-		("storage.sqlite.tollerant", mantra::value<bool>()->default_value(false),
-					"will we allow config values we are not expecting")
 		("storage.sqlite.max-conn-count", mantra::value<unsigned int>()->default_value(0),
 					"maximum number of connections to the database to keep")
+		("storage.sqlite.max-spare-count", mantra::value<unsigned int>()->default_value(4),
+					"maximum number of spare connections to the database to keep")
 #endif
 
 #ifdef MANTRA_STORAGE_BERKELEYDB_SUPPORT
 		("storage.berkeleydb.db-dir", mantra::value<std::string>(),
 					"directory where databases reside.")
-		("storage.berkeleydb.tollerant", mantra::value<bool>()->default_value(false),
-					"will we allow config values we are not expecting")
 		("storage.berkeleydb.private", mantra::value<bool>()->default_value(true),
 					"are the DB's shared with other processes")
 		("storage.berkeleydb.password", mantra::value<std::string>(),
@@ -754,13 +752,15 @@ static void add_filesystem_options(po::options_description &opts)
 					"Minimum speed of DCC for it to be sustained")
 		("filesystem.max-speed", mantra::value<boost::uint64_t>()->default_value(0u)->parser(mantra::validate_space()),
 					"Maximum speed a DCC may be sent")
+		("filesystem.global-max-speed", mantra::value<boost::uint64_t>()->default_value(0u)->parser(mantra::validate_space()),
+					"Maximum speed all DCCs combined may be use")
 		("filesystem.sample-time", mantra::value<mantra::duration>()->default_value(mantra::duration("30s")),
 					"Size of rotating window used for speed sampling")
 		("filesystem.flack-dir", mantra::value<std::string>()->default_value("flack"),
 					"directory where disk-backup of outbound data is")
-		("filesystem.flack-memory", mantra::value<unsigned int>()->default_value(65536),
+		("filesystem.flack-memory", mantra::value<boost::uint64_t>()->default_value(65536)->parser(mantra::validate_space()),
 					"memory to use for flack before falling back to disk")
-		("filesystem.flack-file-max", mantra::value<boost::uint64_t>()->default_value(1048576),
+		("filesystem.flack-file-max", mantra::value<boost::uint64_t>()->default_value(1048576)->parser(mantra::validate_space()),
 					"maximum size of a flack file before rolling it over")
 	;
 
@@ -824,6 +824,10 @@ static void add_nickserv_options(po::options_description &opts)
 					"suffix characters to try when rename mode is used")
 		("nickserv.expire", mantra::value<mantra::duration>()->default_value(mantra::duration("4w")),
 					"how long before a nickname is expired for non-use")
+		("nickserv.max-links", mantra::value<unsigned int>()->default_value(10),
+					"maximum number of nicknames allowd to be linked")
+		("chanserv.ovr-max-links", mantra::value<std::vector<std::string> >()->composing(),
+					"committees that can bypass the linked nickname limit")
 		("nickserv.delay", mantra::value<mantra::duration>()->default_value(mantra::duration("30s")),
 					"minimum time between nickname registrations/links")
 		("nickserv.ident", mantra::value<mantra::duration>()->default_value(mantra::duration("2n")),
@@ -879,14 +883,12 @@ static void add_chanserv_options(po::options_description &opts)
 					"length of the token to generate for dropping channels")
 		("chanserv.max-per-nick", mantra::value<unsigned int>()->default_value(15),
 					"maximum channels to be registered for a nickname")
-		("chanserv.ovr-per-nick", mantra::value<std::string>(),
+		("chanserv.ovr-per-nick", mantra::value<std::vector<std::string> >()->composing(),
 					"committees that can bypass the registration limit")
 		("chanserv.max-messages", mantra::value<unsigned int>()->default_value(15),
 					"maximum number of on-join messages a channel may have")
-		("chanserv.ovr-messages", mantra::value<std::string>(),
+		("chanserv.ovr-messages", mantra::value<std::vector<std::string> >()->composing(),
 					"committees that can bypass the message limit")
-		("chanserv.default-akick-reason", mantra::value<std::string>()->default_value("You have been banned from channel"),
-					"kick reason when none is specified")
 		("chanserv.password-fail", mantra::value<unsigned int>()->default_value(5),
 					"number password failures before the user is killed")
 		("chanserv.channel-keep", mantra::value<mantra::duration>()->default_value(mantra::duration("15s")),
@@ -977,8 +979,14 @@ static void add_memoserv_options(po::options_description &opts)
 					"how long before a memo is actually sent")
 		("memoserv.delay", mantra::value<mantra::duration>()->default_value(mantra::duration("10s")),
 					"minimum time between memos")
-		("memoserv.files", mantra::value<unsigned int>()->default_value(0),
-					"maximum amount of file attachments")
+		("memoserv.memos", mantra::value<unsigned int>()->default_value(0),
+					"maximum amount of memos")
+		("memoserv.news", mantra::value<unsigned int>()->default_value(0),
+					"maximum amount of news items")
+		("memoserv.ovr-memos", mantra::value<std::vector<std::string> >()->composing(),
+					"committees that can bypass the memo limit")
+		("memoserv.attachments", mantra::value<bool>()->default_value(true),
+					"do we allow users to attach files to memos")
 		("memoserv.max-file-size", mantra::value<boost::uint64_t>()->default_value(0)->parser(mantra::validate_space()),
 					"maximum size of any one file attachment")
 	;
@@ -1073,7 +1081,7 @@ static void add_commserv_options(po::options_description &opts)
 	opts.add_options()
 		("commserv.max-logon", mantra::value<unsigned int>()->default_value(5),
 					"maximum number of logon messages a committee may have")
-		("commserv.ovr-logon", mantra::value<std::string>(),
+		("commserv.ovr-logon", mantra::value<std::vector<std::string> >()->composing(),
 					"committees allowed to override the maximum logon messages")
 
 		("commserv.defaults.secure", mantra::value<bool>()->default_value(false), "")
@@ -1194,6 +1202,29 @@ bool Magick::parse_config(const std::vector<std::string> &args)
 			po::store(po::parse_config_file(fs, cfgfile), vm);
 			fs.close();
 		}
+
+printf("DEBUG 1\n");
+		if (vm.count("include"))
+		{
+			std::vector<std::string> supp = vm["include"].as<std::vector<std::string> >();
+printf("DEBUG 2 %d\n", supp.size());
+			for (size_t i = 0; i < supp.size(); ++i)
+			{
+printf("DEBUG 3 %s\n", supp[i].c_str());
+				fs.open(supp[i].c_str());
+				if (!fs.is_open())
+				{
+					LOG(Error, _("Could not open supplemental configuration file %1%."), supp[i]);
+					MT_RET(false);
+				}
+				else
+				{
+					po::store(po::parse_config_file(fs, cfgfile), vm);
+					fs.close();
+				}
+			}
+		}
+
 		po::notify(vm); 
 	}
 	catch (po::error &e)

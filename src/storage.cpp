@@ -584,6 +584,10 @@ bool Storage::init(const po::variables_map &vm,
 
 	std::string storage_module = vm["storage"].as<std::string>();
 	bool samestorage = (storage_module == oldstorage);
+
+	if (samestorage)
+		samestorage = check_old_new<bool>("storage.tollerant", opt_config, vm);
+
 	if (storage_module == "inifile")
 	{
 		if (!vm.count("storage.inifile.stage"))
@@ -610,9 +614,6 @@ bool Storage::init(const po::variables_map &vm,
 			else
 				samestorage = false;
 		}
-
-		if (samestorage)
-			samestorage = check_old_new<bool>("storage.inifile.tollerant", opt_config, vm);
 
 		bool b = false;
 		for (size_t i=0; i<newstages_.size(); ++i)
@@ -869,7 +870,7 @@ bool Storage::init(const po::variables_map &vm,
 
 			backend_.second = (void (*)(mantra::Storage *)) destroy_IniFileStorage;
 			backend_.first = create_IniFileStorage(*finalstage_.first, 
-						vm["storage.inifile.tollerant"].as<bool>());
+						vm["storage.tollerant"].as<bool>());
 			have_cascade = false;
 			init();
 			if (event_)
@@ -891,8 +892,6 @@ bool Storage::init(const po::variables_map &vm,
 
 		if (samestorage)
 			samestorage = check_old_new<std::string>("storage.berkeleydb.db-dir", opt_config, vm);
-		if (samestorage)
-			samestorage = check_old_new<bool>("storage.berkeleydb.tollerant", opt_config, vm);
 		if (samestorage)
 			samestorage = check_old_new<bool>("storage.berkeleydb.private", opt_config, vm);
 		if (samestorage)
@@ -919,7 +918,7 @@ bool Storage::init(const po::variables_map &vm,
 						dlsym(handle_, "create_BerkeleyDBStorage");
 
 			backend_.first = create(vm["storage.berkeleydb.db-dir"].as<std::string>().c_str(),
-				vm["storage.berkeleydb.tollerant"].as<bool>(),
+				vm["storage.tollerant"].as<bool>(),
 				vm["storage.berkeleydb.private"].as<bool>(),
 				vm["storage.berkeleydb.password"].as<std::string>().c_str(),
 				vm["storage.berkeleydb.btree"].as<bool>());
@@ -961,9 +960,6 @@ bool Storage::init(const po::variables_map &vm,
 			else
 				samestorage = false;
 		}
-
-		if (samestorage)
-			samestorage = check_old_new<bool>("storage.xml.tollerant", opt_config, vm);
 
 		bool b = false;
 		for (size_t i=0; i<newstages_.size(); ++i)
@@ -1231,7 +1227,7 @@ bool Storage::init(const po::variables_map &vm,
 						(mantra::XMLStorage *(*)(mantra::FinalStage &, bool t, const char *))
 						dlsym(handle_, "create_XMLStorage");
 
-			backend_.first = create(*finalstage_.first, vm["storage.xml.tollerant"].as<bool>(),
+			backend_.first = create(*finalstage_.first, vm["storage.tollerant"].as<bool>(),
 						vm["storage.xml.encoding"].as<std::string>().c_str());
 			have_cascade = false;
 			init();
@@ -1265,13 +1261,13 @@ bool Storage::init(const po::variables_map &vm,
 		if (samestorage)
 			samestorage = check_old_new<boost::uint16_t>("storage.mysql.port", opt_config, vm);
 		if (samestorage)
-			samestorage = check_old_new<bool>("storage.mysql.tollerant", opt_config, vm);
-		if (samestorage)
 			samestorage = check_old_new<unsigned int>("storage.mysql.timeout", opt_config, vm);
 		if (samestorage)
 			samestorage = check_old_new<bool>("storage.mysql.compression", opt_config, vm);
 		if (samestorage)
 			samestorage = check_old_new<unsigned int>("storage.mysql.max-conn-count", opt_config, vm);
+		if (samestorage)
+			samestorage = check_old_new<unsigned int>("storage.mysql.max-spare-count", opt_config, vm);
 
 		if (!samestorage)
 		{
@@ -1300,20 +1296,21 @@ bool Storage::init(const po::variables_map &vm,
 			backend_.second = (void (*)(mantra::Storage *)) dlsym(handle_, "destroy_MySQLStorage");
 			mantra::MySQLStorage *(*create)(const char *, const char *,
 					const char *, const char *, boost::uint16_t, bool,
-					unsigned int, bool, unsigned int) =
+					unsigned int, bool, unsigned int, unsigned int) =
 				(mantra::MySQLStorage *(*)(const char *, const char *,
 					const char *, const char *, boost::uint16_t, bool,
-					unsigned int, bool, unsigned int))
+					unsigned int, bool, unsigned int, unsigned int))
 						dlsym(handle_, "create_MySQLStorage");
 
 			backend_.first = create(vm["storage.mysql.db-name"].as<std::string>().c_str(),
 				user.empty() ? NULL : user.c_str(),
 				password.empty() ? NULL : password.c_str(),
 				host.empty() ? NULL : host.c_str(), port,
-				vm["storage.mysql.tollerant"].as<bool>(),
+				vm["storage.tollerant"].as<bool>(),
 				vm["storage.mysql.timeout"].as<unsigned int>(),
 				vm["storage.mysql.compression"].as<bool>(),
-				vm["storage.mysql.max-conn-count"].as<unsigned int>());
+				vm["storage.mysql.max-conn-count"].as<unsigned int>(),
+				vm["storage.mysql.max-spare-count"].as<unsigned int>());
 			have_cascade = false;
 			init();
 			if (event_)
@@ -1346,13 +1343,13 @@ bool Storage::init(const po::variables_map &vm,
 		if (samestorage)
 			samestorage = check_old_new<boost::uint16_t>("storage.postgresql.port", opt_config, vm);
 		if (samestorage)
-			samestorage = check_old_new<bool>("storage.postgresql.tollerant", opt_config, vm);
-		if (samestorage)
 			samestorage = check_old_new<unsigned int>("storage.postgresql.timeout", opt_config, vm);
 		if (samestorage)
 			samestorage = check_old_new<bool>("storage.postgresql.ssl-only", opt_config, vm);
 		if (samestorage)
 			samestorage = check_old_new<unsigned int>("storage.postgresql.max-conn-count", opt_config, vm);
+		if (samestorage)
+			samestorage = check_old_new<unsigned int>("storage.postgresql.max-spare-count", opt_config, vm);
 
 		if (!samestorage)
 		{
@@ -1381,20 +1378,21 @@ bool Storage::init(const po::variables_map &vm,
 			backend_.second = (void (*)(mantra::Storage *)) dlsym(handle_, "destroy_PostgreSQLStorage");
 			mantra::PostgreSQLStorage *(*create)(const char *, const char *,
 					const char *, const char *, boost::uint16_t, bool,
-					unsigned int, bool, unsigned int) =
+					unsigned int, bool, unsigned int, unsigned int) =
 				(mantra::PostgreSQLStorage *(*)(const char *, const char *,
 					const char *, const char *, boost::uint16_t, bool,
-					unsigned int, bool, unsigned int))
+					unsigned int, bool, unsigned int, unsigned int))
 						dlsym(handle_, "create_PostgreSQLStorage");
 
 			backend_.first = create(vm["storage.postgresql.db-name"].as<std::string>().c_str(),
 				user.empty() ? NULL : user.c_str(),
 				password.empty() ? NULL : password.c_str(),
 				host.empty() ? NULL : host.c_str(), port,
-				vm["storage.postgresql.tollerant"].as<bool>(),
+				vm["storage.tollerant"].as<bool>(),
 				vm["storage.postgresql.timeout"].as<unsigned int>(),
 				vm["storage.postgresql.ssl-only"].as<bool>(),
-				vm["storage.postgresql.max-conn-count"].as<unsigned int>());
+				vm["storage.postgresql.max-conn-count"].as<unsigned int>(),
+				vm["storage.postgresql.max-spare-count"].as<unsigned int>());
 			have_cascade = true;
 			init();
 			if (event_)
@@ -1419,9 +1417,9 @@ bool Storage::init(const po::variables_map &vm,
 		if (samestorage)
 			samestorage = check_old_new<std::string>("storage.sqlite.db-name", opt_config, vm);
 		if (samestorage)
-			samestorage = check_old_new<bool>("storage.sqlite.tollerant", opt_config, vm);
-		if (samestorage)
 			samestorage = check_old_new<unsigned int>("storage.sqlite.max-conn-count", opt_config, vm);
+		if (samestorage)
+			samestorage = check_old_new<unsigned int>("storage.sqlite.max-spare-count", opt_config, vm);
 
 		if (!samestorage)
 		{
@@ -1437,13 +1435,14 @@ bool Storage::init(const po::variables_map &vm,
 			}
 
 			backend_.second = (void (*)(mantra::Storage *)) dlsym(handle_, "destroy_SQLiteStorage");
-			mantra::SQLiteStorage *(*create)(const char *, bool, unsigned int) =
-				(mantra::SQLiteStorage *(*)(const char *, bool, unsigned int))
+			mantra::SQLiteStorage *(*create)(const char *, bool, unsigned int, unsigned int) =
+				(mantra::SQLiteStorage *(*)(const char *, bool, unsigned int, unsigned int))
 						dlsym(handle_, "create_SQLiteStorage");
 
 			backend_.first = create(vm["storage.sqlite.db-name"].as<std::string>().c_str(),
-				vm["storage.sqlite.tollerant"].as<bool>(),
-				vm["storage.sqlite.max-conn-count"].as<unsigned int>());
+				vm["storage.tollerant"].as<bool>(),
+				vm["storage.sqlite.max-conn-count"].as<unsigned int>(),
+				vm["storage.sqlite.max-spare-count"].as<unsigned int>());
 			have_cascade = false;
 			init();
 			if (event_)
