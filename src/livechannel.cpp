@@ -36,6 +36,7 @@ RCSID(magick__livechannel_cpp, "@(#)$Id$");
 
 #include "livechannel.h"
 #include "liveuser.h"
+#include "serviceuser.h"
 #include "storedchannel.h"
 
 #include <mantra/core/trace.h>
@@ -78,7 +79,8 @@ void LiveChannel::PendingModes::operator()()
 		  std::string(off_.begin(), off_.end()) %
 		  std::string(on_.begin(), on_.end()));
 
-	if (!user_)
+	ServiceUser *su = dynamic_cast<ServiceUser *>(user_.get());
+	if (!su)
 	{
 		user_ = ROOT->data.Get_LiveUser(ROOT->chanserv.Primary());
 		if (!user_)
@@ -90,7 +92,7 @@ void LiveChannel::PendingModes::operator()()
 	}
 
 	event_ = 0;
-	if (!channel_ || !user_->GetService())
+	if (!channel_ || !IsService(user_))
 	{
 		on_.clear();
 		on_params_.clear();
@@ -144,8 +146,7 @@ void LiveChannel::PendingModes::operator()()
 	}
 
 	SYNC_UNLOCK(lock);
-
-	user_->GetService()->MODE(user_, channel_, modes, params);
+	su->MODE(channel_, modes, params);
 
 	MT_ASSIGN(codetype);
 	MT_EE
@@ -1186,31 +1187,39 @@ void LiveChannel::Modes(const boost::shared_ptr<LiveUser> &user,
 	MT_EE
 }
 
-void LiveChannel::SendModes(const boost::shared_ptr<LiveUser> &user,
+void LiveChannel::SendModes(const ServiceUser *service,
 							const std::string &in, const std::string &params)
 {
 	MT_EB
-	MT_FUNC("LiveChannel::SendModes" << user << in << params);
+	MT_FUNC("LiveChannel::SendModes" << service << in << params);
+
+	if (!service)
+		return;
 
 	boost::char_separator<char> sep(" \t");
 	typedef boost::tokenizer<boost::char_separator<char>,
 		std::string::const_iterator, std::string> tokenizer;
 	tokenizer tokens(params, sep);
 	std::vector<std::string> v(tokens.begin(), tokens.end());
-	SendModes(user, in, v);
+	SendModes(service, in, v);
 
 	MT_EE
 }
 
-void LiveChannel::SendModes(const boost::shared_ptr<LiveUser> &user,
+void LiveChannel::SendModes(const ServiceUser *service,
 							const std::string &in, const std::vector<std::string> &params)
 {
 	MT_EB
-	MT_FUNC("LiveChannel::SendModes" << user << in << params);
+	MT_FUNC("LiveChannel::SendModes" << service << in << params);
+
+	if (!service)
+		return;
 
 	// Bloody useless ...
 	if (in.find_first_not_of("+-") == std::string::npos)
 		return;
+
+	boost::shared_ptr<LiveUser> user = service->GetUser();
 
 	SYNC_LOCK(pending_modes_);
 	pending_modes_t::iterator i = pending_modes_.lower_bound(user);

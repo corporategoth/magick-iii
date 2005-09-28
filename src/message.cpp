@@ -34,6 +34,7 @@ RCSID(magick__message_cpp, "@(#)$Id$");
 
 #include "magick.h"
 #include "liveuser.h"
+#include "serviceuser.h"
 #include "livechannel.h"
 #include "text.h"
 
@@ -1070,9 +1071,9 @@ static bool biPRIVMSG(const Message &m)
 		MT_RET(false);
 	}
 
-	Service *service = target->GetService();
-	if (service)
-		service->Execute(target, user, m.Params()[m.Params().size()-1]);
+	ServiceUser *su = dynamic_cast<ServiceUser *>(target.get());
+	if (su)
+		su->Execute(user, m.Params()[m.Params().size()-1]);
 
 	MT_RET(true);
 	MT_EE

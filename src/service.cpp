@@ -34,6 +34,7 @@ RCSID(magick__service_cpp, "@(#)$Id$");
 
 #include "magick.h"
 #include "liveuser.h"
+#include "serviceuser.h"
 #include "livechannel.h"
 #include "storednick.h"
 #include "storeduser.h"
@@ -127,7 +128,7 @@ boost::shared_ptr<LiveUser> Service::SIGNON(const std::string &nick)
 	if (!ROOT->proto.send(out))
 		MT_RET(user);
 
-	user = LiveUser::create(this, nick, real_, uplink);
+	user = ServiceUser::create(this, nick, real_, uplink);
 
 	MT_RET(user);
 	MT_EE
@@ -164,15 +165,15 @@ void Service::Check()
 		}
 		else
 		{
-			const Service *s = u->GetService();
-			if (s == this)
+			ServiceUser *su = dynamic_cast<ServiceUser *>(u.get());
+			if (su->GetService() == this)
 			{
 				users.insert(u);
 				continue;
 			}
 
 			if (u->GetServer() == uplink)
-				QUIT(u, _("Signing on as different service."));
+				su->QUIT(_("Signing on as different service."));
 			else
 				uplink->KILL(u, _("Nickname reserved for services."));
 			u = SIGNON(*i);
@@ -249,7 +250,8 @@ void Service::QUIT(const boost::shared_ptr<LiveUser> &source,
 	MT_EB
 	MT_FUNC("Service::QUIT" << source << message);
 
-	if (!source || source->GetService() != this)
+	ServiceUser *su = dynamic_cast<ServiceUser *>(source.get());
+	if (!su || su->GetService() != this)
 		return;
 
 	std::string out;
@@ -257,14 +259,17 @@ void Service::QUIT(const boost::shared_ptr<LiveUser> &source,
 						" :" + message);
 	bool rv = ROOT->proto.send(out);
 	if (rv)
+	{
+		SIGNOFF(source);
 		source->Quit(message);
+	}
 
 	MT_EE
 }
 
-void Service::KILL(const boost::shared_ptr<LiveUser> &source,
+void Service::KILL(const ServiceUser *source,
 				   const boost::shared_ptr<LiveUser> &target,
-				   const std::string &message)
+				   const std::string &message) const
 {
 	MT_EB
 	MT_FUNC("Service::KILL" << source << target << message);
@@ -277,13 +282,13 @@ void Service::KILL(const boost::shared_ptr<LiveUser> &source,
 						" " + target->Name() + " :" + message);
 	bool rv = ROOT->proto.send(out);
 	if (rv)
-		target->Kill(source, message);
+		target->Kill(source->GetUser(), message);
 
 	MT_EE
 }
 
 void Service::KILL(const boost::shared_ptr<LiveUser> &target,
-				   const std::string &message)
+				   const std::string &message) const
 {
 	MT_EB
 	MT_FUNC("Service::KILL" << target << message);
@@ -295,12 +300,12 @@ void Service::KILL(const boost::shared_ptr<LiveUser> &target,
 	if (j == users_.end() || **j != primary_)
 		return;
 
-	KILL(*j, target, message);
+	KILL(dynamic_cast<ServiceUser *>(j->get()), target, message);
 
 	MT_EE
 }
 
-void Service::PRIVMSG(const boost::shared_ptr<LiveUser> &source,
+void Service::PRIVMSG(const ServiceUser *source,
 					  const boost::shared_ptr<LiveUser> &target,
 					  const boost::format &message) const
 {
@@ -335,12 +340,12 @@ void Service::PRIVMSG(const boost::shared_ptr<LiveUser> &target,
 		pending_privmsg.push_back(std::make_pair(target, message));
 	}
 	else
-		PRIVMSG(*j, target, message);
+		PRIVMSG(dynamic_cast<ServiceUser *>(j->get()), target, message);
 
 	MT_EE
 }
 
-void Service::NOTICE(const boost::shared_ptr<LiveUser> &source,
+void Service::NOTICE(const ServiceUser *source,
 					 const boost::shared_ptr<LiveUser> &target,
 					 const boost::format &message) const
 {
@@ -375,12 +380,12 @@ void Service::NOTICE(const boost::shared_ptr<LiveUser> &target,
 		pending_notice.push_back(std::make_pair(target, message));
 	}
 	else
-		NOTICE(*j, target, message);
+		NOTICE(dynamic_cast<ServiceUser *>(j->get()), target, message);
 
 	MT_EE
 }
 
-void Service::ANNOUNCE(const boost::shared_ptr<LiveUser> &source,
+void Service::ANNOUNCE(const ServiceUser *source,
 					   const boost::format &message) const
 {
 	MT_EB
@@ -411,12 +416,12 @@ void Service::ANNOUNCE(const boost::format &message) const
 	if (j == users_.end() || **j != primary_)
 		return;
 
-	ANNOUNCE(*j, message);
+	ANNOUNCE(dynamic_cast<ServiceUser *>(j->get()), message);
 
 	MT_EE
 }
 
-void Service::SVSNICK(const boost::shared_ptr<LiveUser> &source,
+void Service::SVSNICK(const ServiceUser *source,
 					  const boost::shared_ptr<LiveUser> &target,
 					  const std::string &newnick) const
 {
@@ -448,12 +453,12 @@ void Service::SVSNICK(const boost::shared_ptr<LiveUser> &target,
 	if (j == users_.end() || **j != primary_)
 		return;
 
-	SVSNICK(*j, target, newnick);
+	SVSNICK(dynamic_cast<ServiceUser *>(j->get()), target, newnick);
 
 	MT_EE
 }
 
-void Service::JOIN(const boost::shared_ptr<LiveUser> &source,
+void Service::JOIN(const ServiceUser *source,
 				   const boost::shared_ptr<LiveChannel> &channel) const
 {
 	MT_EB
@@ -482,7 +487,7 @@ void Service::JOIN(const boost::shared_ptr<LiveUser> &source,
 	}
 
 	ROOT->proto.send(out);
-	channel->Join(source);
+	channel->Join(source->GetUser());
 
 	MT_EE
 }
@@ -499,12 +504,12 @@ void Service::JOIN(const boost::shared_ptr<LiveChannel> &channel) const
 	if (j == users_.end() || **j != primary_)
 		return;
 
-	JOIN(*j, channel);
+	JOIN(dynamic_cast<ServiceUser *>(j->get()), channel);
 
 	MT_EE
 }
 
-void Service::PART(const boost::shared_ptr<LiveUser> &source,
+void Service::PART(const ServiceUser *source,
 				   const boost::shared_ptr<LiveChannel> &channel,
 				   const std::string &reason) const
 {
@@ -519,7 +524,7 @@ void Service::PART(const boost::shared_ptr<LiveUser> &source,
 						channel->Name() + (reason.empty() ? std::string() :
 															" :" + reason));
 	ROOT->proto.send(out);
-	channel->Part(source);
+	channel->Part(source->GetUser());
 
 	MT_EE
 }
@@ -537,12 +542,12 @@ void Service::PART(const boost::shared_ptr<LiveChannel> &channel,
 	if (j == users_.end() || **j != primary_)
 		return;
 
-	PART(*j, channel, reason);
+	PART(dynamic_cast<ServiceUser *>(j->get()), channel, reason);
 
 	MT_EE
 }
 
-void Service::TOPIC(const boost::shared_ptr<LiveUser> &source,
+void Service::TOPIC(const ServiceUser *source,
 					const boost::shared_ptr<LiveChannel> &channel,
 				    const std::string &topic) const
 {
@@ -564,28 +569,25 @@ void Service::TOPIC(const boost::shared_ptr<LiveUser> &source,
 	ROOT->proto.addline(*source, out, msg);
 
 	bool didjoin = false;
-	boost::shared_ptr<LiveUser> sender = source;
-	if (ROOT->proto.ConfigValue<bool>("topic-join") && !source->InChannel(channel))
+	const ServiceUser *sender = source;
+	if (ROOT->proto.ConfigValue<bool>("topic-join"))
 	{
-		if (*source == primary_)
-		{
-			JOIN(source, channel);
-			didjoin = true;
-		}
-		else
+		if (*source != primary_)
 		{
 			SYNC_RLOCK(users_);
 			users_t::const_iterator j = std::lower_bound(users_.begin(),
 														 users_.end(),
 														 primary_);
 			if (j != users_.end() && **j == primary_)
-				sender = *j;
+				sender = dynamic_cast<ServiceUser *>(j->get());
+			if (!sender)
+				return;
+		}
 
-			if (!sender->InChannel(channel))
-			{
-				JOIN(sender, channel);
-				didjoin = true;
-			}
+		if (!sender->InChannel(channel))
+		{
+			JOIN(sender, channel);
+			didjoin = true;
 		}
 	}
 
@@ -610,12 +612,12 @@ void Service::TOPIC(const boost::shared_ptr<LiveChannel> &channel,
 	if (j == users_.end() || **j != primary_)
 		return;
 
-	TOPIC(*j, channel, topic);
+	TOPIC(dynamic_cast<ServiceUser *>(j->get()), channel, topic);
 
 	MT_EE
 }
 
-void Service::KICK(const boost::shared_ptr<LiveUser> &source,
+void Service::KICK(const ServiceUser *source,
 				   const boost::shared_ptr<LiveChannel> &channel,
 				   const boost::shared_ptr<LiveUser> &target,
 				   const boost::format &reason) const
@@ -630,7 +632,7 @@ void Service::KICK(const boost::shared_ptr<LiveUser> &source,
 	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("KICK") + ' ' +
 						channel->Name() + ' ' + target->Name() + " :" + reason.str());
 	ROOT->proto.send(out);
-	channel->Kick(target, source, reason.str());
+	channel->Kick(target, source->GetUser(), reason.str());
 
 	MT_EE
 }
@@ -649,12 +651,12 @@ void Service::KICK(const boost::shared_ptr<LiveChannel> &channel,
 	if (j == users_.end() || **j != primary_)
 		return;
 
-	KICK(*j, channel, target, reason);
+	KICK(dynamic_cast<ServiceUser *>(j->get()), channel, target, reason);
 
 	MT_EE
 }
 
-void Service::INVITE(const boost::shared_ptr<LiveUser> &source,
+void Service::INVITE(const ServiceUser *source,
 					 const boost::shared_ptr<LiveChannel> &channel,
 					 const boost::shared_ptr<LiveUser> &target) const
 {
@@ -685,12 +687,12 @@ void Service::INVITE(const boost::shared_ptr<LiveChannel> &channel,
 	if (j == users_.end() || **j != primary_)
 		return;
 
-	INVITE(*j, channel, target);
+	INVITE(dynamic_cast<ServiceUser *>(j->get()), channel, target);
 
 	MT_EE
 }
 
-void Service::MODE(const boost::shared_ptr<LiveUser> &source,
+void Service::MODE(const ServiceUser *source,
 				   const std::string &in) const
 {
 	MT_EB
@@ -702,12 +704,12 @@ void Service::MODE(const boost::shared_ptr<LiveUser> &source,
 	std::string out;
 	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("MODE") + ' ' + in);
 	ROOT->proto.send(out);
-	source->Modes(in);
+	source->GetUser()->Modes(in);
 
 	MT_EE
 }
 
-void Service::MODE(const boost::shared_ptr<LiveUser> &source,
+void Service::MODE(const ServiceUser *source,
 				   const boost::shared_ptr<LiveChannel> &channel,
 				   const std::string &in,
 				   const std::vector<std::string> &params) const
@@ -769,12 +771,12 @@ void Service::MODE(const boost::shared_ptr<LiveUser> &source,
 	}
 
 	ROOT->proto.send(out);
-	channel->Modes(source, in, params);
+	channel->Modes(source->GetUser(), in, params);
 
 	MT_EE
 }
 
-bool Service::CommandMerge::operator()(const boost::shared_ptr<LiveUser> &serv,
+bool Service::CommandMerge::operator()(const ServiceUser *serv,
 									   const boost::shared_ptr<LiveUser> &user,
 									   const std::vector<std::string> &params)
 {
@@ -795,20 +797,20 @@ bool Service::CommandMerge::operator()(const boost::shared_ptr<LiveUser> &serv,
 	p[primary].append(" " + p[secondary]);
 	p.erase(p.begin() + secondary);
 
-	bool rv = service.Execute(serv, user, p, primary);
+	bool rv = serv->Execute(user, p, primary);
 
 	MT_RET(rv);
 	MT_EE
 }
 
-bool Service::Help(const boost::shared_ptr<LiveUser> &service,
+bool Service::Help(const ServiceUser *service,
 				   const boost::shared_ptr<LiveUser> &user,
 				   const std::vector<std::string> &params) const
 {
 	MT_EB
 	MT_FUNC("Service::Help" << service << user << params);
 
-	if (!service || !service->GetService())
+	if (!service)
 		MT_RET(false);
 
 	NSEND(service, user, N_("HELP system has not yet been written."));
@@ -817,14 +819,14 @@ bool Service::Help(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-bool Service::AuxHelp(const boost::shared_ptr<LiveUser> &service,
+bool Service::AuxHelp(const ServiceUser *service,
 					  const boost::shared_ptr<LiveUser> &user,
 					  const std::vector<std::string> &params) const
 {
 	MT_EB
 	MT_FUNC("Service::AuxHelp" << service << user << params);
 
-	if (!service || !service->GetService())
+	if (!service)
 		MT_RET(false);
 
 	boost::char_separator<char> sep(" \\t");
@@ -845,7 +847,7 @@ bool Service::AuxHelp(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-bool Service::Execute(const boost::shared_ptr<LiveUser> &service,
+bool Service::Execute(const ServiceUser *service,
 					  const boost::shared_ptr<LiveUser> &user,
 					  const std::vector<std::string> &params,
 					  unsigned int key) const
@@ -860,7 +862,7 @@ bool Service::Execute(const boost::shared_ptr<LiveUser> &service,
 		MT_RET(false);
 	}
 
-	if (!service || !service->GetService())
+	if (!service)
 	{
 		LOG(Error, _("Received %1% call from %2%, but it was not sent to a service!"),
 			boost::algorithm::to_upper_copy(params[key]) % user->Name());

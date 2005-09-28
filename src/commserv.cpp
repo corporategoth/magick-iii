@@ -40,7 +40,7 @@ RCSID(magick__commserv_cpp, "@(#)$Id$");
 
 #include <mantra/core/trace.h>
 
-static bool biREGISTER(const boost::shared_ptr<LiveUser> &service,
+static bool biREGISTER(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -110,7 +110,7 @@ static bool biREGISTER(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biDROP(const boost::shared_ptr<LiveUser> &service,
+static bool biDROP(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -132,7 +132,7 @@ static bool biDROP(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biINFO(const boost::shared_ptr<LiveUser> &service,
+static bool biINFO(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -153,7 +153,7 @@ static bool biINFO(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biMEMO(const boost::shared_ptr<LiveUser> &service,
+static bool biMEMO(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -169,7 +169,7 @@ static bool biMEMO(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biMEMBER_ADD(const boost::shared_ptr<LiveUser> &service,
+static bool biMEMBER_ADD(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -223,7 +223,7 @@ static bool biMEMBER_ADD(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biMEMBER_DEL(const boost::shared_ptr<LiveUser> &service,
+static bool biMEMBER_DEL(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -304,7 +304,7 @@ static bool biMEMBER_DEL(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biMEMBER_LIST(const boost::shared_ptr<LiveUser> &service,
+static bool biMEMBER_LIST(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -375,7 +375,7 @@ static bool biMEMBER_LIST(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biMESSAGE_ADD(const boost::shared_ptr<LiveUser> &service,
+static bool biMESSAGE_ADD(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -419,7 +419,7 @@ static bool biMESSAGE_ADD(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biMESSAGE_DEL(const boost::shared_ptr<LiveUser> &service,
+static bool biMESSAGE_DEL(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -493,7 +493,7 @@ static bool biMESSAGE_DEL(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biMESSAGE_LIST(const boost::shared_ptr<LiveUser> &service,
+static bool biMESSAGE_LIST(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -550,7 +550,7 @@ static bool biMESSAGE_LIST(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biSET_HEAD(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_HEAD(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -614,7 +614,7 @@ static bool biSET_HEAD(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biSET_EMAIL(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_EMAIL(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -653,7 +653,7 @@ static bool biSET_EMAIL(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biSET_WEBSITE(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_WEBSITE(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -700,7 +700,7 @@ static bool biSET_WEBSITE(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biSET_DESCRIPTION(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_DESCRIPTION(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -733,7 +733,7 @@ static bool biSET_DESCRIPTION(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biSET_SECURE(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_SECURE(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -775,7 +775,7 @@ static bool biSET_SECURE(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biSET_OPENMEMO(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_OPENMEMO(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -817,7 +817,7 @@ static bool biSET_OPENMEMO(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biSET_PRIVATE(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_PRIVATE(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -859,7 +859,7 @@ static bool biSET_PRIVATE(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biUNSET_EMAIL(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_EMAIL(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -889,7 +889,7 @@ static bool biUNSET_EMAIL(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biUNSET_WEBSITE(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_WEBSITE(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -919,7 +919,7 @@ static bool biUNSET_WEBSITE(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biUNSET_DESCRIPTION(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_DESCRIPTION(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -949,7 +949,7 @@ static bool biUNSET_DESCRIPTION(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biUNSET_SECURE(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_SECURE(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -982,7 +982,7 @@ static bool biUNSET_SECURE(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biUNSET_OPENMEMO(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_OPENMEMO(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -1015,7 +1015,7 @@ static bool biUNSET_OPENMEMO(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biUNSET_PRIVATE(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_PRIVATE(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -1048,7 +1048,7 @@ static bool biUNSET_PRIVATE(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biSET_COMMENT(const boost::shared_ptr<LiveUser> &service,
+static bool biSET_COMMENT(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -1074,7 +1074,7 @@ static bool biSET_COMMENT(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biUNSET_COMMENT(const boost::shared_ptr<LiveUser> &service,
+static bool biUNSET_COMMENT(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -1097,7 +1097,7 @@ static bool biUNSET_COMMENT(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biLOCK_SECURE(const boost::shared_ptr<LiveUser> &service,
+static bool biLOCK_SECURE(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -1133,7 +1133,7 @@ static bool biLOCK_SECURE(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biLOCK_OPENMEMO(const boost::shared_ptr<LiveUser> &service,
+static bool biLOCK_OPENMEMO(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -1169,7 +1169,7 @@ static bool biLOCK_OPENMEMO(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biLOCK_PRIVATE(const boost::shared_ptr<LiveUser> &service,
+static bool biLOCK_PRIVATE(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -1205,7 +1205,7 @@ static bool biLOCK_PRIVATE(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biUNLOCK_SECURE(const boost::shared_ptr<LiveUser> &service,
+static bool biUNLOCK_SECURE(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -1230,7 +1230,7 @@ static bool biUNLOCK_SECURE(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biUNLOCK_OPENMEMO(const boost::shared_ptr<LiveUser> &service,
+static bool biUNLOCK_OPENMEMO(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -1255,7 +1255,7 @@ static bool biUNLOCK_OPENMEMO(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biUNLOCK_PRIVATE(const boost::shared_ptr<LiveUser> &service,
+static bool biUNLOCK_PRIVATE(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {
@@ -1280,7 +1280,7 @@ static bool biUNLOCK_PRIVATE(const boost::shared_ptr<LiveUser> &service,
 	MT_EE
 }
 
-static bool biLIST(const boost::shared_ptr<LiveUser> &service,
+static bool biLIST(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
 {

@@ -1028,11 +1028,13 @@ static void add_operserv_options(po::options_description &opts)
 		("operserv.akill.expire-sadmin", mantra::value<mantra::duration>()->default_value(mantra::duration("1y")),
 					"default expiration time for an AKILL set by SADMIN")
 
-		("operserv.clone.limit", mantra::value<unsigned int>()->default_value(2),
+		("operserv.clone.user-limit", mantra::value<unsigned int>()->default_value(2),
+					"default maximum number of connections for the same host")
+		("operserv.clone.host-limit", mantra::value<unsigned int>()->default_value(3),
 					"default maximum number of connections for the same host")
 		("operserv.clone.max-limit", mantra::value<unsigned int>()->default_value(50),
 					"maximum amount the clone limit may be overridden to")
-		("operserv.clone.kill-reason", mantra::value<std::string>()->default_value("Maximum connections from one host exceeded"),
+		("operserv.clone.kill-reason", mantra::value<std::string>()->default_value("Maximum connections exceeded"),
 					"kill reason when a user exceeds their clone limit")
 		("operserv.clone.expire", mantra::value<mantra::duration>()->default_value(mantra::duration("3h")),
 					"how long to remember old connections from the same host")
@@ -1051,7 +1053,7 @@ static void add_operserv_options(po::options_description &opts)
 					"how long to ignore a user for flooding")
 		("operserv.ignore.limit", mantra::value<unsigned int>()->default_value(5),
 					"how many times ignore can be triggered before its permanent")
-		("operserv.ignore.remove", mantra::value<mantra::duration>()->default_value(mantra::duration("5n")),
+		("operserv.ignore.remove", mantra::value<mantra::duration>()->default_value(mantra::duration("15n")),
 					"how long to remember old flood ignores")
 		("operserv.ignore.method", mantra::value<unsigned int>()->default_value(5)->parser(
 					mantra::validate_mapped<std::string, unsigned int, mantra::iless<std::string> >("nick!user@port.host", 0)

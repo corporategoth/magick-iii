@@ -45,6 +45,7 @@ RCSID(magick__livechannel_h, "@(#) $Id$");
 #include <boost/regex.hpp>
 
 class StoredChannel;
+class ServiceUser;
 
 class rx_iless
 {
@@ -242,9 +243,9 @@ public:
 			   const std::string &in, const std::string &params = std::string());
 	void Modes(const boost::shared_ptr<LiveUser> &user,
 			   const std::string &in, const std::vector<std::string> &params);
-	void SendModes(const boost::shared_ptr<LiveUser> &user,
+	void SendModes(const ServiceUser *service,
 				   const std::string &in, const std::string &params = std::string());
-	void SendModes(const boost::shared_ptr<LiveUser> &user,
+	void SendModes(const ServiceUser *service,
 				   const std::string &in, const std::vector<std::string> &params);
 	std::set<char> Modes() const;
 	bool Mode(char c) const
@@ -255,20 +256,20 @@ public:
 	std::string Modes_Key() const;
 	unsigned int Modes_Limit() const;
 
-	void PRIVMSG(const boost::shared_ptr<LiveUser> &source,
+	void PRIVMSG(const ServiceUser *source,
 				 const std::set<char> &modes,
 				 const boost::format &message) const;
 	void PRIVMSG(const std::set<char> &modes,
 				 const boost::format &message);
 
-	void NOTICE(const boost::shared_ptr<LiveUser> &source,
+	void NOTICE(const ServiceUser *source,
 				const std::set<char> &modes,
 				const boost::format &message) const;
 	void NOTICE(const std::set<char> &modes,
 				const boost::format &message);
 
 /*
-	void SEND(const boost::shared_ptr<LiveUser> &source,
+	void SEND(const ServiceUser *source,
 			  const std::set<char> &modes,
 			  const boost::format &message) const;
 	void SEND(const std::set<char> &modes,

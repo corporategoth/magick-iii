@@ -359,13 +359,13 @@ void StoredNick::Drop()
 	MT_EE
 }
 
-void StoredNick::SendInfo(const boost::shared_ptr<LiveUser> &service,
+void StoredNick::SendInfo(const ServiceUser *service,
 						  const boost::shared_ptr<LiveUser> &user) const
 {
 	MT_EB
 	MT_FUNC("StoredNick::SendInfo" << service << user);
 
-	if (!service || !user || !service->GetService())
+	if (!service || !user)
 		return;
 
 	bool priv = false;

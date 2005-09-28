@@ -52,8 +52,8 @@ RCSID(magick__liveuser_h, "@(#) $Id$");
 #include <boost/multi_index/mem_fun.hpp>
 
 class Server;
-class Service;
 class StoredNick;
+class ServiceUser;
 
 // These macros are used to send a notice/message to a user in their
 // own language, and using their preferred communication mechanism.
@@ -100,9 +100,11 @@ class LiveUser : private boost::noncopyable,
 	typedef std::map<boost::shared_ptr<StoredChannel>, std::pair<std::string, unsigned int> > channel_drop_token_t;
 	typedef std::map<unsigned int, LiveMemo> pending_memos_t;
 
+protected:
 	// This is used so we can send a shared_ptr to others.
 	boost::weak_ptr<LiveUser> self;
 
+private:
 	// This is the only class with a changable name.
 	std::string RWSYNC(name_);
 
@@ -114,7 +116,6 @@ class LiveUser : private boost::noncopyable,
 	boost::shared_ptr<Server> server_;
 	boost::posix_time::ptime signon_;
 	boost::posix_time::ptime seen_;
-	Service *service_;
 
 	// From here on, they do.
 	// This is the 'general' lock, some stuff has a more specific
@@ -173,22 +174,19 @@ class LiveUser : private boost::noncopyable,
 
 	void unignore();
 	void protect();
-	LiveUser(Service *service, const std::string &name,
-			 const std::string &real,
-			 const boost::shared_ptr<Server> &server,
-			 const std::string &id);
 	LiveUser(const std::string &name, const std::string &real,
 			 const std::string &user, const std::string &host,
 			 const boost::shared_ptr<Server> &server,
 			 const boost::posix_time::ptime &signon,
 			 const std::string &id);
-public:
-	~LiveUser();
 
-	static boost::shared_ptr<LiveUser> create(Service *s,
-			const std::string &name, const std::string &real,
-			const boost::shared_ptr<Server> &server,
-			const std::string &id = std::string());
+protected:
+	LiveUser(const std::string &name, const std::string &real,
+			 const boost::shared_ptr<Server> &server,
+			 const std::string &id);
+
+public:
+	virtual ~LiveUser();
 
 	static boost::shared_ptr<LiveUser> create(const std::string &name,
 			const std::string &real, const std::string &user,
@@ -209,7 +207,6 @@ public:
 	const boost::shared_ptr<Server> &GetServer() const { return server_; }
 	const boost::posix_time::ptime &Signon() const { return signon_; }
 	const boost::posix_time::ptime &Seen() const { return seen_; }
-	Service *GetService() const { return service_; }
 	bool Matches(const std::string &mask) const
 		{ return mantra::glob_match(mask, Name() + "!" + User() + "@" + Host(), true); }
 
@@ -298,8 +295,7 @@ public:
 						  unsigned long n) const;
 
 	boost::format format(const std::string &in) const;
-	void send(const boost::shared_ptr<LiveUser> &service,
-			  const boost::format &fmt) const;
+	void send(const ServiceUser *service, const boost::format &fmt) const;
 };
 
 // Special interface used by Storage.

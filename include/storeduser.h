@@ -45,6 +45,7 @@ RCSID(magick__storeduser_h, "@(#) $Id$");
 #include <boost/noncopyable.hpp>
 #include <boost/operators.hpp>
 
+class ServiceUser;
 class StoredUser : private boost::noncopyable,
 				   public boost::totally_ordered1<StoredUser>,
 				   public boost::totally_ordered2<StoredUser, boost::uint32_t>
@@ -85,7 +86,7 @@ private:
 	void Offline(const boost::shared_ptr<LiveUser> &user);
 	void Add(const boost::shared_ptr<StoredNick> &nick);
 	void Del(const boost::shared_ptr<StoredNick> &nick);
-	void SendInfo(const boost::shared_ptr<LiveUser> &service,
+	void SendInfo(const ServiceUser *service,
 				  const boost::shared_ptr<LiveUser> &user) const;
 
 	// use if_StoredUser_StoredChannel
@@ -224,7 +225,7 @@ class if_StoredUser_StoredNick
 		{ base.Add(nick); }
 	inline void Del(const boost::shared_ptr<StoredNick> &nick)
 		{ base.Del(nick); }
-	inline void SendInfo(const boost::shared_ptr<LiveUser> &service,
+	inline void SendInfo(const ServiceUser *service,
 						 const boost::shared_ptr<LiveUser> &user) const
 		{ base.SendInfo(service, user); }
 };

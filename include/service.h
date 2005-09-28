@@ -47,6 +47,7 @@ RCSID(magick__service_h, "@(#) $Id$");
 #include <boost/tokenizer.hpp>
 
 class LiveUser;
+class ServiceUser;
 class LiveChannel;
 
 enum TraceTypes_t
@@ -67,11 +68,11 @@ enum TraceTypes_t
 
 class Service
 {
-	friend class if_Service_LiveUser;
+	friend class ServiceUser;
 	friend class if_Service_Magick;
 
 public:
-	typedef boost::function3<bool, const boost::shared_ptr<LiveUser> &,
+	typedef boost::function3<bool, const ServiceUser *,
 							 const boost::shared_ptr<LiveUser> &,
 							 const std::vector<std::string> &> functor;
 	typedef std::set<std::string, mantra::iless<std::string> > nicks_t;
@@ -104,6 +105,63 @@ private:
 	void Set(const std::vector<std::string> &nicks, const std::string &real = std::string());
 	void SIGNOFF(const boost::shared_ptr<LiveUser> &user);
 	boost::shared_ptr<LiveUser> SIGNON(const std::string &nick);
+
+	// This should NOT be passed a ServiceUser.
+	void QUIT(const boost::shared_ptr<LiveUser> &source,
+			  const std::string &message = std::string());
+
+	void KILL(const ServiceUser *source,
+			  const boost::shared_ptr<LiveUser> &target,
+			  const std::string &message = std::string()) const;
+	void PRIVMSG(const ServiceUser *source,
+				 const boost::shared_ptr<LiveUser> &target,
+				 const boost::format &message) const;
+	void NOTICE(const ServiceUser *source,
+				const boost::shared_ptr<LiveUser> &target,
+				const boost::format &message) const;
+	void ANNOUNCE(const ServiceUser *source,
+				  const boost::format &message) const;
+	void SVSNICK(const ServiceUser *source,
+				 const boost::shared_ptr<LiveUser> &target,
+				 const std::string &newnick) const;
+	void JOIN(const ServiceUser *source,
+			  const boost::shared_ptr<LiveChannel> &channel) const;
+	void PART(const ServiceUser *source,
+			  const boost::shared_ptr<LiveChannel> &channel,
+			  const std::string &reason = std::string()) const;
+	void TOPIC(const ServiceUser *source,
+			   const boost::shared_ptr<LiveChannel> &channel,
+			   const std::string &topic) const;
+	void KICK(const ServiceUser *source,
+			  const boost::shared_ptr<LiveChannel> &channel,
+			  const boost::shared_ptr<LiveUser> &target,
+			  const boost::format &reason) const;
+	void INVITE(const ServiceUser *source,
+				const boost::shared_ptr<LiveChannel> &channel,
+				const boost::shared_ptr<LiveUser> &target) const;
+	void MODE(const ServiceUser *source,
+			  const std::string &in) const;
+	void MODE(const ServiceUser *source,
+			  const boost::shared_ptr<LiveChannel> &channel,
+			  const std::string &in,
+			  const std::vector<std::string> &params = std::vector<std::string>()) const;
+
+	bool Execute(const ServiceUser *service,
+				 const boost::shared_ptr<LiveUser> &user,
+				 const std::vector<std::string> &params,
+				 unsigned int key = 0) const;
+
+	bool Execute(const ServiceUser *service,
+				 const boost::shared_ptr<LiveUser> &user,
+				 const std::string &params, unsigned int key = 0) const
+	{
+		boost::char_separator<char> sep(" \t");
+		typedef boost::tokenizer<boost::char_separator<char>,
+			std::string::const_iterator, std::string> tokenizer;
+		tokenizer tokens(params, sep);
+		std::vector<std::string> v(tokens.begin(), tokens.end());
+		return Execute(service, user, v, key);
+	}
 public:
 	Service(TraceTypes_t trace);
 	virtual ~Service();
@@ -123,77 +181,31 @@ public:
 		{ return PushCommand(boost::regex(rx, boost::regex_constants::icase), func, min_param, perms); }
 	void DelCommand(unsigned int id);
 
-	void QUIT(const boost::shared_ptr<LiveUser> &source,
-			  const std::string &message = std::string());
 	void MASSQUIT(const std::string &message = std::string())
 	{
 		for_each(users_.begin(), users_.end(),
 				 boost::bind(&Service::QUIT, this, _1, message));
 	}
-	void KILL(const boost::shared_ptr<LiveUser> &source,
-			  const boost::shared_ptr<LiveUser> &target,
-			  const std::string &message = std::string());
-	void KILL(const boost::shared_ptr<LiveUser> &target,
-			  const std::string &message = std::string());
 
-	void PRIVMSG(const boost::shared_ptr<LiveUser> &source,
-				 const boost::shared_ptr<LiveUser> &target,
-				 const boost::format &message) const;
+	void KILL(const boost::shared_ptr<LiveUser> &target,
+			  const std::string &message = std::string()) const;
 	void PRIVMSG(const boost::shared_ptr<LiveUser> &target,
 				 const boost::format &message);
-
-	void NOTICE(const boost::shared_ptr<LiveUser> &source,
-				const boost::shared_ptr<LiveUser> &target,
-				const boost::format &message) const;
 	void NOTICE(const boost::shared_ptr<LiveUser> &target,
 				const boost::format &message);
-
-	void ANNOUNCE(const boost::shared_ptr<LiveUser> &source,
-				  const boost::format &message) const;
 	void ANNOUNCE(const boost::format &message) const;
-
-	void SVSNICK(const boost::shared_ptr<LiveUser> &source,
-				 const boost::shared_ptr<LiveUser> &target,
-				 const std::string &newnick) const;
 	void SVSNICK(const boost::shared_ptr<LiveUser> &target,
 				 const std::string &newnick) const;
-
-	void JOIN(const boost::shared_ptr<LiveUser> &source,
-			  const boost::shared_ptr<LiveChannel> &channel) const;
 	void JOIN(const boost::shared_ptr<LiveChannel> &channel) const;
-
-	void PART(const boost::shared_ptr<LiveUser> &source,
-			  const boost::shared_ptr<LiveChannel> &channel,
-			  const std::string &reason = std::string()) const;
 	void PART(const boost::shared_ptr<LiveChannel> &channel,
 			  const std::string &reason = std::string()) const;
-
-	void TOPIC(const boost::shared_ptr<LiveUser> &source,
-			   const boost::shared_ptr<LiveChannel> &channel,
-			   const std::string &topic) const;
 	void TOPIC(const boost::shared_ptr<LiveChannel> &channel,
 			   const std::string &topic) const;
-	
-	void KICK(const boost::shared_ptr<LiveUser> &source,
-			  const boost::shared_ptr<LiveChannel> &channel,
-			  const boost::shared_ptr<LiveUser> &target,
-			  const boost::format &reason) const;
 	void KICK(const boost::shared_ptr<LiveChannel> &channel,
 			  const boost::shared_ptr<LiveUser> &target,
 			  const boost::format &reason) const;
-
-	void INVITE(const boost::shared_ptr<LiveUser> &source,
-				const boost::shared_ptr<LiveChannel> &channel,
-				const boost::shared_ptr<LiveUser> &target) const;
 	void INVITE(const boost::shared_ptr<LiveChannel> &channel,
 				const boost::shared_ptr<LiveUser> &target) const;
-
-	void MODE(const boost::shared_ptr<LiveUser> &source,
-			  const std::string &in) const;
-	void MODE(const boost::shared_ptr<LiveUser> &source,
-			  const boost::shared_ptr<LiveChannel> &channel,
-			  const std::string &in,
-			  const std::vector<std::string> &params = std::vector<std::string>()) const;
 
 	class CommandMerge
 	{
@@ -204,34 +216,17 @@ public:
 		CommandMerge(const Service &serv, unsigned int p, unsigned int s)
 			: service(serv), primary(p), secondary(s) {}
 
-		bool operator()(const boost::shared_ptr<LiveUser> &service,
+		bool operator()(const ServiceUser *service,
 						const boost::shared_ptr<LiveUser> &user,
 						const std::vector<std::string> &params);
 	};
 
-	bool Help(const boost::shared_ptr<LiveUser> &service,
+	bool Help(const ServiceUser *service,
 			  const boost::shared_ptr<LiveUser> &user,
 			  const std::vector<std::string> &params) const;
-	bool AuxHelp(const boost::shared_ptr<LiveUser> &service,
+	bool AuxHelp(const ServiceUser *service,
 				 const boost::shared_ptr<LiveUser> &user,
 				 const std::vector<std::string> &params) const;
-
-	bool Execute(const boost::shared_ptr<LiveUser> &service,
-				 const boost::shared_ptr<LiveUser> &user,
-				 const std::vector<std::string> &params,
-				 unsigned int key = 0) const;
-
-	bool Execute(const boost::shared_ptr<LiveUser> &service,
-				 const boost::shared_ptr<LiveUser> &user,
-				 const std::string &params, unsigned int key = 0) const
-	{
-		boost::char_separator<char> sep(" \t");
-		typedef boost::tokenizer<boost::char_separator<char>,
-			std::string::const_iterator, std::string> tokenizer;
-		tokenizer tokens(params, sep);
-		std::vector<std::string> v(tokens.begin(), tokens.end());
-		return Execute(service, user, v, key);
-	}
 };
 
 // Special interface used by Magick.
@@ -246,19 +241,6 @@ class if_Service_Magick
 
 	void Set(const std::vector<std::string> &nicks, const std::string &real = std::string())
 		{ base.Set(nicks, real); }
-};
-
-class if_Service_LiveUser
-{
-	friend class LiveUser;
-	Service &base;
-
-	// This is INTENTIONALLY private ...
-	if_Service_LiveUser(Service &b) : base(b) {}
-	if_Service_LiveUser(Service *b) : base(*b) {}
-
-	void SIGNOFF(const boost::shared_ptr<LiveUser> &user)
-		{ base.SIGNOFF(user); }
 };
 
 void init_nickserv_functions(Service &serv);

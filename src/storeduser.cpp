@@ -1481,13 +1481,13 @@ static void check_option(std::string &str, const mantra::Storage::RecordMap &dat
 	MT_EE
 }
 
-void StoredUser::SendInfo(const boost::shared_ptr<LiveUser> &service,
+void StoredUser::SendInfo(const ServiceUser *service,
 						  const boost::shared_ptr<LiveUser> &user) const
 {
 	MT_EB
 	MT_FUNC("StoredUser::SendInfo" << service << user);
 
-	if (!service || !user || !service->GetService())
+	if (!service || !user)
 		return;
 
 	bool opersop = (user->InCommittee(ROOT->ConfigValue<std::string>("commserv.oper.name")) ||

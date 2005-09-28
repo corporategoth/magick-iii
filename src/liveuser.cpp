@@ -2,6 +2,7 @@
 #pragma hdrstop
 #else
 #pragma implementation
+#pragma implementation "serviceuser.h"
 #endif
 
 /* Magick IRC Services
@@ -34,6 +35,7 @@ RCSID(magick__liveuser_cpp, "@(#)$Id$");
 
 #include "magick.h"
 #include "liveuser.h"
+#include "serviceuser.h"
 
 #include "livechannel.h"
 #include "storednick.h"
@@ -45,16 +47,27 @@ RCSID(magick__liveuser_cpp, "@(#)$Id$");
 
 #include <boost/algorithm/string.hpp>
 
-LiveUser::LiveUser(Service *service, const std::string &pname,
+ServiceUser::ServiceUser(Service *service, const std::string &pname,
 				   const std::string &real,
+				   const boost::shared_ptr<Server> &server,
+				   const std::string &pid)
+	: LiveUser(pname, real, server, pid), service_(service)
+{
+	MT_EB
+	MT_FUNC("ServiceUser::ServiceUser" << service << pname << server << pid);
+
+	MT_EE
+}
+
+LiveUser::LiveUser(const std::string &pname, const std::string &real,
 				   const boost::shared_ptr<Server> &server,
 				   const std::string &pid)
 	: SYNC_RWINIT(name_, reader_priority, pname), id_(pid), real_(real),
 	  server_(server), signon_(mantra::GetCurrentDateTime()),
-	  seen_(mantra::GetCurrentDateTime()), service_(service),
-	  flood_triggers_(0), ignored_(false), ignore_timer_(0), ident_timer_(0),
-	  identified_(true), SYNC_NRWINIT(stored_, reader_priority),
-	  password_fails_(0), drop_token_(std::make_pair(std::string(), 0)),
+	  seen_(mantra::GetCurrentDateTime()), flood_triggers_(0), ignored_(false),
+	  ignore_timer_(0), ident_timer_(0), identified_(true),
+	  SYNC_NRWINIT(stored_, reader_priority), password_fails_(0),
+	  drop_token_(std::make_pair(std::string(), 0)),
 		  committees_by_id_(committees_.get<id>()),
 		  committees_by_name_(committees_.get<name>()),
 	  last_nick_reg_(boost::date_time::not_a_date_time),
@@ -62,7 +75,7 @@ LiveUser::LiveUser(Service *service, const std::string &pname,
 	  last_memo_(boost::date_time::not_a_date_time)
 {
 	MT_EB
-	MT_FUNC("LiveUser::LiveUser" << service << pname << server << pid);
+	MT_FUNC("LiveUser::LiveUser" << pname << server << pid);
 
 	if (ROOT->ConfigExists("services.user"))
 		user_ = ROOT->ConfigValue<std::string>("services.user");
@@ -85,8 +98,8 @@ LiveUser::LiveUser(const std::string &pname, const std::string &real,
 	: SYNC_RWINIT(name_, reader_priority, pname),
 	  id_(pid), real_(real), user_(user), host_(host),
 	  server_(server), signon_(signon), seen_(mantra::GetCurrentDateTime()),
-	  service_(NULL), flood_triggers_(0), ignored_(false), ignore_timer_(0),
-	  ident_timer_(0), identified_(false), SYNC_NRWINIT(stored_, reader_priority),
+	  flood_triggers_(0), ignored_(false), ignore_timer_(0), ident_timer_(0),
+	  identified_(false), SYNC_NRWINIT(stored_, reader_priority),
 	  password_fails_(0), drop_token_(std::make_pair(std::string(), 0)),
 		  committees_by_id_(committees_.get<id>()),
 		  committees_by_name_(committees_.get<name>()),
@@ -114,15 +127,16 @@ LiveUser::~LiveUser()
 		ROOT->event->Cancel(i->second.second);
 }
 
-boost::shared_ptr<LiveUser> LiveUser::create(Service *s,
+boost::shared_ptr<LiveUser> ServiceUser::create(Service *s,
 			const std::string &name, const std::string &real,
 			const boost::shared_ptr<Server> &server, const std::string &id)
 {
 	MT_EB
-	MT_FUNC("LiveUser::create" << s << name << real << server << id);
+	MT_FUNC("ServiceUser::create" << s << name << real << server << id);
 
-	boost::shared_ptr<LiveUser> rv(new LiveUser(s, name, real, server, id));
-	rv->self = rv;
+	ServiceUser *su = new ServiceUser(s, name, real, server, id);
+	boost::shared_ptr<LiveUser> rv(su);
+	su->self = rv;
 	ROOT->data.Add(rv);
 	MT_RET(rv);
 
@@ -559,9 +573,6 @@ void LiveUser::Quit(const std::string &reason)
 			stored_.reset();
 		}
 	}
-
-	if (service_)
-		if_Service_LiveUser(service_).SIGNOFF(self.lock());
 
 	if_StorageDeleter<LiveUser>(ROOT->data).Del(self.lock());
 
@@ -1259,29 +1270,29 @@ boost::format LiveUser::format(const std::string &in) const
 	MT_EE
 }
 
-void LiveUser::send(const boost::shared_ptr<LiveUser> &service,
+void LiveUser::send(const ServiceUser *service,
 					const boost::format &fmt) const
 {
 	MT_EB
 	MT_FUNC("LiveUser::send" << service << fmt);
 
-	if (GetService() || !service->GetService())
+	if (!service)
 		return;
 
 	boost::shared_ptr<StoredNick> stored = Stored();
 	if (stored)
 	{
 		if (stored->User()->PRIVMSG())
-			service->GetService()->PRIVMSG(service, self.lock(), fmt);
+			service->PRIVMSG(self.lock(), fmt);
 		else
-			service->GetService()->NOTICE(service, self.lock(), fmt);
+			service->NOTICE(self.lock(), fmt);
 	}
 	else
 	{
 		if (ROOT->ConfigValue<bool>("nickserv.defaults.privmsg"))
-			service->GetService()->PRIVMSG(service, self.lock(), fmt);
+			service->PRIVMSG(self.lock(), fmt);
 		else
-			service->GetService()->NOTICE(service, self.lock(), fmt);
+			service->NOTICE(self.lock(), fmt);
 	}
 
 	MT_EE

@@ -250,7 +250,7 @@ public:
 
 	void Drop();
 
-	void SendInfo(const boost::shared_ptr<LiveUser> &service,
+	void SendInfo(const ServiceUser *service,
 				  const boost::shared_ptr<LiveUser> &user) const;
 };
 

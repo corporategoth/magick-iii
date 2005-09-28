@@ -38,6 +38,7 @@ RCSID(magick__storedchannel_cpp, "@(#)$Id$");
 #include "storeduser.h"
 #include "storednick.h"
 #include "liveuser.h"
+#include "serviceuser.h"
 
 #include <mantra/core/trace.h>
 
@@ -219,7 +220,7 @@ void StoredChannel::DoRevenge(RevengeType_t action,
 	if (!live)
 		return;
 
-	boost::shared_ptr<LiveUser> service = ROOT->data.Get_LiveUser(ROOT->chanserv.Primary());
+	ServiceUser *service = dynamic_cast<ServiceUser *>(ROOT->data.Get_LiveUser(ROOT->chanserv.Primary()).get());
 	if (!service)
 		return;
 
@@ -364,7 +365,7 @@ void StoredChannel::DoRevenge(RevengeType_t action,
 		}
 		else
 		{
-			service->GetService()->KICK(service, live, target,
+			service->KICK(live, target,
 				format(_("REVENGE: Do not kick %1%")) % victim->Name());
 
 			if (rlevel >= R_Ban1 && rlevel <= R_Ban5)
@@ -523,7 +524,9 @@ void StoredChannel::Join(const boost::shared_ptr<LiveChannel> &live,
 		cache.Put("last_used", mantra::GetCurrentDateTime());
 
 	// Get ChanServ.
-	boost::shared_ptr<LiveUser> service = ROOT->data.Get_LiveUser(ROOT->chanserv.Primary());
+	ServiceUser *service = dynamic_cast<ServiceUser *>(ROOT->data.Get_LiveUser(ROOT->chanserv.Primary()).get());
+	if (!service)
+		return;
 
 	std::string chanmodeparams = ROOT->proto.ConfigValue<std::string>("channel-mode-params");
 	if (level >= LEVEL_Get(Level::LVL_AutoOp).Value())
@@ -2008,13 +2011,13 @@ static void check_option(std::string &str, const mantra::Storage::RecordMap &dat
 	MT_EE
 }
 
-void StoredChannel::SendInfo(const boost::shared_ptr<LiveUser> &service,
+void StoredChannel::SendInfo(const ServiceUser *service,
 							 const boost::shared_ptr<LiveUser> &user) const
 {
 	MT_EB
 	MT_FUNC("StoredChannel::SendInfo" << service << user);
 
-	if (!service || !user || !service->GetService())
+	if (!service || !user)
 		return;
 
 	mantra::Storage::RecordMap data;
