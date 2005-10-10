@@ -555,12 +555,12 @@ inline bool check_old_new(const char *entry, const po::variables_map &old_vm,
 	MT_EB
 	MT_FUNC("check_old_new" << entry << old_vm << new_vm);
 
-	if (old_vm.count(entry) != new_vm.count(entry))
+	if (old_vm[entry].empty() != new_vm[entry].empty())
 		MT_RET(false);
 
 	// No clue why (old_vm[entry].as<T>() != new_vm[entry].as<T>())
 	// will not work, but the below is the same anyway.
-	if (new_vm.count(entry) &&
+	if (!new_vm[entry].empty() &&
 		boost::any_cast<T>(old_vm[entry].value()) !=
 		boost::any_cast<T>(new_vm[entry].value()))
 		MT_RET(false);
@@ -579,7 +579,7 @@ bool Storage::init(const po::variables_map &vm,
 		hasher = mantra::Hasher((mantra::Hasher::HashType) vm["storage.password-hash"].as<unsigned int>());
 
 	std::string oldstorage;
-	if (opt_config.count("storage"))
+	if (!opt_config["storage"].empty())
 		oldstorage = opt_config["storage"].as<std::string>();
 
 	std::string storage_module = vm["storage"].as<std::string>();
@@ -590,7 +590,7 @@ bool Storage::init(const po::variables_map &vm,
 
 	if (storage_module == "inifile")
 	{
-		if (!vm.count("storage.inifile.stage"))
+		if (vm["storage.inifile.stage"].empty())
 		{
 			LOG(Error, _("CFG: No stages_ found for %1%."),
 				"storage.inifile");
@@ -598,7 +598,7 @@ bool Storage::init(const po::variables_map &vm,
 		}
 
 		std::vector<std::string> newstages_ = vm["storage.inifile.stage"].as<std::vector<std::string> >();
-		if (opt_config.count("storage.inifile.stage"))
+		if (!opt_config["storage.inifile.stage"].empty())
 		{
 			std::vector<std::string> oldstages_ = opt_config["storage.inifile.stage"].as<std::vector<std::string> >();
 
@@ -629,7 +629,7 @@ bool Storage::init(const po::variables_map &vm,
 				else
 					b = true;
 
-				if (!vm.count("storage.inifile.stage.file.name"))
+				if (vm["storage.inifile.stage.file.name"].empty())
 				{
 					LOG(Error, _("CFG: No file name specified for %1%."),
 							"storage.inifile.stage.file");
@@ -650,8 +650,8 @@ bool Storage::init(const po::variables_map &vm,
 				else
 					b = true;
 
-				if (!vm.count("storage.inifile.stage.net.host") ||
-					!vm.count("storage.inifile.stage.net.port"))
+				if (vm["storage.inifile.stage.net.host"].empty() ||
+					vm["storage.inifile.stage.net.port"].empty())
 				{
 					LOG(Error, _("CFG: No host and/or port specified for %1%."),
 						"storage.inifile.stage.net");
@@ -665,7 +665,7 @@ bool Storage::init(const po::variables_map &vm,
 			}
 			else if (newstages_[i] == "verify")
 			{
-				if (!vm.count("storage.inifile.stage.verify.string"))
+				if (vm["storage.inifile.stage.verify.string"].empty())
 				{
 					LOG(Error, _("CFG: No verify string specified for %1%."),
 						"storage.inifile.stage.verify");
@@ -689,9 +689,9 @@ bool Storage::init(const po::variables_map &vm,
 			else if (newstages_[i] == "crypt")
 			{
 				size_t cnt = 0;
-				if (vm.count("storage.inifile.stage.crypt.key"))
+				if (!vm["storage.inifile.stage.crypt.key"].empty())
 					++cnt;
-				if (vm.count("storage.inifile.stage.crypt.keyfile"))
+				if (!vm["storage.inifile.stage.crypt.keyfile"].empty())
 					++cnt;
 				if (!cnt)
 				{
@@ -746,7 +746,7 @@ bool Storage::init(const po::variables_map &vm,
 					boost::uint16_t port = vm["storage.inifile.stage.net.port"].as<boost::uint16_t>();
 
 					mantra::Socket s;
-					if (vm.count("bind"))
+					if (!vm["bind"].empty())
 						s = mantra::Socket(mantra::Socket::STREAM, vm["bind"].as<std::string>());
 					else
 					{
@@ -804,9 +804,9 @@ bool Storage::init(const po::variables_map &vm,
 				else if (newstages_[i] == "crypt")
 				{
 					std::string key;
-					if (vm.count("storage.inifile.stage.crypt.key"))
+					if (!vm["storage.inifile.stage.crypt.key"].empty())
 						key = vm["storage.inifile.stage.crypt.key"].as<std::string>();
-					else if (vm.count("storage.inifile.stage.crypt.keyfile"))
+					else if (!vm["storage.inifile.stage.crypt.keyfile"].empty())
 					{
 						mantra::mfile f(vm["storage.inifile.stage.crypt.keyfile"].as<std::string>());
 						if (!f.IsOpened())
@@ -884,7 +884,7 @@ bool Storage::init(const po::variables_map &vm,
 #ifdef MANTRA_STORAGE_BERKELEYDB_SUPPORT
 	else if (storage_module == "berkeleydb")
 	{
-		if (!vm.count("storage.berkeleydb.db-dir"))
+		if (vm["storage.berkeleydb.db-dir"].empty())
 		{
 			NLOG(Error, _("CFG: No DB directory specified for storage.berkeldydb."));
 			MT_RET(false);
@@ -936,7 +936,7 @@ bool Storage::init(const po::variables_map &vm,
 #ifdef MANTRA_STORAGE_XML_SUPPORT
 	else if (storage_module == "xml")
 	{
-		if (!vm.count("storage.xml.stage"))
+		if (vm["storage.xml.stage"].empty())
 		{
 			LOG(Error, _("CFG: No stages_ found for %1%."),
 				"storage.xml");
@@ -944,7 +944,7 @@ bool Storage::init(const po::variables_map &vm,
 		}
 
 		std::vector<std::string> newstages_ = vm["storage.xml.stage"].as<std::vector<std::string> >();
-		if (samestorage && opt_config.count("storage.xml.stage"))
+		if (samestorage && !opt_config["storage.xml.stage"].empty())
 		{
 			std::vector<std::string> oldstages_ = opt_config["storage.xml.stage"].as<std::vector<std::string> >();
 
@@ -975,7 +975,7 @@ bool Storage::init(const po::variables_map &vm,
 				else
 					b = true;
 
-				if (!vm.count("storage.xml.stage.file.name"))
+				if (vm["storage.xml.stage.file.name"].empty())
 				{
 					LOG(Error, _("CFG: No file name specified for %1%."),
 						"storage.xml.stage.file");
@@ -996,8 +996,8 @@ bool Storage::init(const po::variables_map &vm,
 				else
 					b = true;
 
-				if (!vm.count("storage.xml.stage.net.host") ||
-					!vm.count("storage.xml.stage.net.port"))
+				if (vm["storage.xml.stage.net.host"].empty() ||
+					vm["storage.xml.stage.net.port"].empty())
 				{
 					LOG(Error, _("CFG: No host and/or port specified for %1%."),
 						"storage.xml.stage.net");
@@ -1011,7 +1011,7 @@ bool Storage::init(const po::variables_map &vm,
 			}
 			else if (newstages_[i] == "verify")
 			{
-				if (!vm.count("storage.xml.stage.verify.string"))
+				if (vm["storage.xml.stage.verify.string"].empty())
 				{
 					LOG(Error, "No verify string specified for %1%.",
 						"storage.xml.stage.verify");
@@ -1035,9 +1035,9 @@ bool Storage::init(const po::variables_map &vm,
 			else if (newstages_[i] == "crypt")
 			{
 				size_t cnt = 0;
-				if (vm.count("storage.xml.stage.crypt.key"))
+				if (!vm["storage.xml.stage.crypt.key"].empty())
 					++cnt;
-				if (vm.count("storage.xml.stage.crypt.keyfile"))
+				if (!vm["storage.xml.stage.crypt.keyfile"].empty())
 					++cnt;
 				if (!cnt)
 				{
@@ -1092,7 +1092,7 @@ bool Storage::init(const po::variables_map &vm,
 					boost::uint16_t port = vm["storage.xml.stage.net.port"].as<boost::uint16_t>();
 
 					mantra::Socket s;
-					if (vm.count("bind"))
+					if (!vm["bind"].empty())
 						s = mantra::Socket(mantra::Socket::STREAM, vm["bind"].as<std::string>());
 					else
 					{
@@ -1150,9 +1150,9 @@ bool Storage::init(const po::variables_map &vm,
 				else if (newstages_[i] == "crypt")
 				{
 					std::string key;
-					if (vm.count("storage.xml.stage.crypt.key"))
+					if (!vm["storage.xml.stage.crypt.key"].empty())
 						key = vm["storage.xml.stage.crypt.key"].as<std::string>();
-					else if (vm.count("storage.xml.stage.crypt.keyfile"))
+					else if (!vm["storage.xml.stage.crypt.keyfile"].empty())
 					{
 						mantra::mfile f(vm["storage.xml.stage.crypt.keyfile"].as<std::string>());
 						if (!f.IsOpened())
@@ -1243,7 +1243,7 @@ bool Storage::init(const po::variables_map &vm,
 #ifdef MANTRA_STORAGE_MYSQL_SUPPORT
 	else if (storage_module == "mysql")
 	{
-		if (!vm.count("storage.mysql.db-name"))
+		if (vm["storage.mysql.db-name"].empty())
 		{
 			LOG(Error, _("CFG: No DB name specified for %1%."),
 				"storage.mysql");
@@ -1276,13 +1276,13 @@ bool Storage::init(const po::variables_map &vm,
 
 			std::string user, password, host;
 			boost::uint16_t port = 0;
-			if (vm.count("storage.mysql.user"))
+			if (!vm["storage.mysql.user"].empty())
 				user = vm["storage.mysql.user"].as<std::string>();
-			if (vm.count("storage.mysql.password"))
+			if (!vm["storage.mysql.password"].empty())
 				password = vm["storage.mysql.password"].as<std::string>();
-			if (vm.count("storage.mysql.host"))
+			if (!vm["storage.mysql.host"].empty())
 				host = vm["storage.mysql.host"].as<std::string>();
-			if (vm.count("storage.mysql.port"))
+			if (!vm["storage.mysql.port"].empty())
 				port = vm["storage.mysql.port"].as<boost::uint16_t>();
 
 			handle_ = dlopen("libmantra_storage_mysql.so", RTLD_NOW | RTLD_GLOBAL);
@@ -1325,7 +1325,7 @@ bool Storage::init(const po::variables_map &vm,
 #ifdef MANTRA_STORAGE_POSTGRESQL_SUPPORT
 	else if (storage_module == "postgresql")
 	{
-		if (!vm.count("storage.postgresql.db-name"))
+		if (vm["storage.postgresql.db-name"].empty())
 		{
 			LOG(Error, _("CFG: No DB name specified for %1%."),
 				"storage.postgresql");
@@ -1358,13 +1358,13 @@ bool Storage::init(const po::variables_map &vm,
 
 			std::string user, password, host;
 			boost::uint16_t port = 0;
-			if (vm.count("storage.postgresql.user"))
+			if (!vm["storage.postgresql.user"].empty())
 				user = vm["storage.postgresql.user"].as<std::string>();
-			if (vm.count("storage.postgresql.password"))
+			if (!vm["storage.postgresql.password"].empty())
 				password = vm["storage.postgresql.password"].as<std::string>();
-			if (vm.count("storage.postgresql.host"))
+			if (!vm["storage.postgresql.host"].empty())
 				host = vm["storage.postgresql.host"].as<std::string>();
-			if (vm.count("storage.postgresql.port"))
+			if (!vm["storage.postgresql.port"].empty())
 				port = vm["storage.postgresql.port"].as<boost::uint16_t>();
 
 			handle_ = dlopen("libmantra_storage_postgresql.so", RTLD_NOW | RTLD_GLOBAL);
@@ -1407,7 +1407,7 @@ bool Storage::init(const po::variables_map &vm,
 #ifdef MANTRA_STORAGE_SQLITE_SUPPORT
 	else if (storage_module == "sqlite")
 	{
-		if (!vm.count("storage.sqlite.db-name"))
+		if (vm["storage.sqlite.db-name"].empty())
 		{
 			LOG(Error, _("CFG: No DB name specified for %1%."),
 				"storage.sqlite");

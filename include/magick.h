@@ -40,14 +40,15 @@ RCSID(magick__magick_h, "@(#) $Id$");
 #include "storage.h"
 
 #include <istream>
+#include <vector>
 
 #include <mantra/core/utils.h>
 #include <mantra/core/translate.h>
+#include <mantra/core/typed_value.h>
 #include <mantra/service/flowcontrol.h>
 #include <mantra/service/events.h>
 #include <mantra/log/interface.h>
 
-#include <boost/program_options.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/read_write_mutex.hpp>
 
@@ -109,7 +110,7 @@ class Magick
 	boost::program_options::options_description opt_command_line_only;
 	boost::program_options::options_description opt_common;
 	boost::program_options::options_description opt_config_file_only;
-	boost::program_options::variables_map opt_config;
+	mantra::OptionsSet opt_config;
 
 	boost::read_write_mutex logger_lock;
 	std::list<mantra::Logger<char> *> loggers;
@@ -134,7 +135,11 @@ public:
 	void run(const boost::function0<bool> &check);
 
 	bool ConfigExists(const char *key) const
-		{ return opt_config.count(key) != 0; }
+	{
+		if (opt_config.empty())
+			return false;
+		return !opt_config[key].empty();
+	}
 	template<typename T>
 	T ConfigValue(const char *key) const
 		{ return opt_config[key].template as<T>(); }

@@ -5139,12 +5139,32 @@ static bool biSET_MLOCK(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biSET_MLOCK" << service << user << params);
 
-	// TODO: To be implemented.
-	SEND(service, user,
-		 N_("The %1% command has not yet been implemented."),
-		 boost::algorithm::to_upper_copy(params[0]));
+	boost::shared_ptr<StoredChannel> channel = ROOT->data.Get_StoredChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
 
-	MT_RET(false);
+	if (!channel->ACCESS_Matches(user, StoredChannel::Level::LVL_Set))
+	{
+		SEND(service, user, N_("You do not have sufficient access to modify settings for channel %1%."),
+			 channel->Name());
+		MT_RET(false);
+	}
+
+	std::string modes = channel->ModeLock(params[2]);
+	if (modes.empty())
+		NSEND(service, user, N_("Failed to parse mode lock specification or no lockable modes specified."));
+	else
+	{
+		if (modes[0] != '+' && modes[0] != '-')
+			modes.insert(0, 1, '+');
+		SEND(service, user, N_("Mode lock for channel %1% has been set to \002%2%\017."),
+			 channel->Name() % modes);
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -5626,12 +5646,33 @@ static bool biUNSET_MLOCK(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biUNSET_MLOCK" << service << user << params);
 
-	// TODO: To be implemented.
-	SEND(service, user,
-		 N_("The %1% command has not yet been implemented."),
-		 boost::algorithm::to_upper_copy(params[0]));
+	boost::shared_ptr<StoredChannel> channel = ROOT->data.Get_StoredChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
 
-	MT_RET(false);
+	if (!channel->ACCESS_Matches(user, StoredChannel::Level::LVL_Set))
+	{
+		SEND(service, user, N_("You do not have sufficient access to modify settings for channel %1%."),
+			 channel->Name());
+		MT_RET(false);
+	}
+
+	std::string locked = channel->ModeLock(std::string());
+	if (locked.empty())
+		SEND(service, user, N_("Revenge for channel %1% has been reset to the default"),
+			 channel->Name());
+	else
+	{
+		if (locked[0] != '+' && locked[0] != '-')
+			locked.insert(0, 1, '+');
+		SEND(service, user, N_("The mode lock setting for channel %1% is locked at %1%, these modes have not been unset."),
+			 channel->Name() % locked);
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -6181,12 +6222,32 @@ static bool biLOCK_MLOCK(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biLOCK_MLOCK" << service << user << params);
 
-	// TODO: To be implemented.
-	SEND(service, user,
-		 N_("The %1% command has not yet been implemented."),
-		 boost::algorithm::to_upper_copy(params[0]));
+	boost::shared_ptr<StoredChannel> channel = ROOT->data.Get_StoredChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
 
-	MT_RET(false);
+	std::string modes = channel->LOCK_ModeLock(params[2]);
+	if (modes.empty())
+		NSEND(service, user, N_("Failed to parse mode lock specification or no lockable modes specified."));
+	else
+	{
+		if (modes[0] != '+' && modes[0] != '-')
+			modes.insert(0, 1, '+');
+		std::set<char> mlock_on(channel->ModeLock_On());
+		std::set<char> mlock_off(channel->ModeLock_Off());
+		std::string allmodes;
+		if (!mlock_on.empty())
+			allmodes += '+' + std::string(mlock_on.begin(), mlock_on.end());
+		if (!mlock_off.empty())
+			allmodes += '-' + std::string(mlock_off.begin(), mlock_off.end());
+		SEND(service, user, N_("Mode lock for channel %1% has been locked to \002%2%\017 (%3%)."),
+			 channel->Name() % modes % allmodes);
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -6485,12 +6546,26 @@ static bool biUNLOCK_MLOCK(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biUNLOCK_MLOCK" << service << user << params);
 
-	// TODO: To be implemented.
-	SEND(service, user,
-		 N_("The %1% command has not yet been implemented."),
-		 boost::algorithm::to_upper_copy(params[0]));
+	boost::shared_ptr<StoredChannel> channel = ROOT->data.Get_StoredChannel(params[1]);
+	if (!channel)
+	{
+		SEND(service, user, N_("Channel %1% is not registered."), params[1]);
+		MT_RET(false);
+	}
 
-	MT_RET(false);
+	std::string remain = channel->LOCK_ModeLock(std::string());
+	if (remain.empty())
+		SEND(service, user, N_("Mode lock for channel %1% has been unlocked."),
+			 channel->Name());
+	else
+	{
+		if (remain[0] != '+' && remain[0] != '-')
+			remain.insert(0, 1, '+');
+		SEND(service, user, N_("The mode lock setting is globally locked to %1%, these modes have not been unlocked."),
+			 remain);
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 

@@ -47,24 +47,26 @@ RCSID(magick__config_parse_cpp, "@(#)$Id$");
 namespace po = boost::program_options;
 
 template<typename T>
-inline bool check_old_new(const char *entry, const po::variables_map &old_vm,
+inline bool check_old_new(const char *entry, const mantra::OptionsSet &old_vm,
 						  const po::variables_map &new_vm)
 {
 	MT_EB
 	MT_FUNC("check_old_new" << entry << old_vm << new_vm);
 
-	if (old_vm.count(entry) != new_vm.count(entry))
+	if (old_vm.empty())
+		MT_RET(false);
+
+	if (old_vm[entry].empty() != new_vm[entry].empty())
 		MT_RET(false);
 
 	// No clue why (old_vm[entry].as<T>() != new_vm[entry].as<T>())
 	// will not work, but the below is the same anyway.
-	if (new_vm.count(entry) &&
+	if (!new_vm[entry].empty() &&
 		boost::any_cast<T>(old_vm[entry].value()) !=
 		boost::any_cast<T>(new_vm[entry].value()))
 		MT_RET(false);
 
 	MT_RET(true);
-
 	MT_EE
 }
 
@@ -83,7 +85,10 @@ bool Magick::set_config(const po::variables_map &vm)
 		setlocale(LC_ALL, vm["language"].as<std::string>().c_str());
 
 	// Now parse commaneline-only options.
-	if (vm.count("trace"))
+	if (!vm["autoflush"].empty())
+		MT_AUTOFLUSH(true);
+
+	if (!vm["trace"].empty())
 	{
 		std::vector<std::string> traces = vm["trace"].as<std::vector<std::string> >();
 		for (size_t i=0; i<traces.size(); ++i)
@@ -109,7 +114,6 @@ bool Magick::set_config(const po::variables_map &vm)
 	}
 
 	// Simple syntax checkers first ...
-
 	if (vm["max-level"].as<unsigned int>() <
 		vm["level"].as<unsigned int>())
 	{
@@ -160,14 +164,22 @@ bool Magick::set_config(const po::variables_map &vm)
 	}
 
 	if (vm["operserv.clone.max-limit"].as<unsigned int>() <
-		vm["operserv.clone.limit"].as<unsigned int>())
+		vm["operserv.clone.user-limit"].as<unsigned int>())
 	{
 		LOG(Error, _("CFG: %1% must be at least equal to %2%."),
 			"operserv.clone.max-limit" % "operserv.clone.limit");
 		MT_RET(false);
 	}
 
-	if (vm.count("bind") && !check_old_new<std::string>("bind", opt_config, vm))
+	if (vm["operserv.clone.max-limit"].as<unsigned int>() <
+		vm["operserv.clone.host-limit"].as<unsigned int>())
+	{
+		LOG(Error, _("CFG: %1% must be at least equal to %2%."),
+			"operserv.clone.max-limit" % "operserv.clone.limit");
+		MT_RET(false);
+	}
+
+	if (!vm["bind"].empty() && !check_old_new<std::string>("bind", opt_config, vm))
 	{
 		mantra::Socket s(mantra::Socket::STREAM, vm["bind"].as<std::string>());
 		if (!s.Valid())
@@ -180,7 +192,7 @@ bool Magick::set_config(const po::variables_map &vm)
 
 	if (!check_old_new<std::string>("pidfile", opt_config, vm))
 	{
-		if (opt_config.count("pidfile"))
+		if (!opt_config["pidfile"].empty())
 			boost::filesystem::remove(opt_config["pidfile"].as<std::string>());
 		std::ofstream fs(vm["pidfile"].as<std::string>().c_str());
 		fs << pid << std::endl;
@@ -209,7 +221,7 @@ bool Magick::set_config(const po::variables_map &vm)
 	}
 
 	// Sign on/off services nicknames.
-	if (vm.count("services.nickserv"))
+	if (!vm["services.nickserv"].empty())
 	{
 		boost::char_separator<char> sep(" \t");
 		typedef boost::tokenizer<boost::char_separator<char>,
@@ -221,7 +233,7 @@ bool Magick::set_config(const po::variables_map &vm)
 	else
  		if_Service_Magick(nickserv).Set(std::vector<std::string>());
 
-	if (vm.count("services.chanserv"))
+	if (!vm["services.chanserv"].empty())
 	{
 		boost::char_separator<char> sep(" \t");
 		typedef boost::tokenizer<boost::char_separator<char>,
@@ -233,7 +245,7 @@ bool Magick::set_config(const po::variables_map &vm)
 	else
  		if_Service_Magick(chanserv).Set(std::vector<std::string>());
 
-	if (vm.count("services.memoserv"))
+	if (!vm["services.memoserv"].empty())
 	{
 		boost::char_separator<char> sep(" \t");
 		typedef boost::tokenizer<boost::char_separator<char>,
@@ -245,7 +257,7 @@ bool Magick::set_config(const po::variables_map &vm)
 	else
  		if_Service_Magick(memoserv).Set(std::vector<std::string>());
 
-	if (vm.count("services.commserv"))
+	if (!vm["services.commserv"].empty())
 	{
 		boost::char_separator<char> sep(" \t");
 		typedef boost::tokenizer<boost::char_separator<char>,
@@ -257,7 +269,7 @@ bool Magick::set_config(const po::variables_map &vm)
 	else
  		if_Service_Magick(commserv).Set(std::vector<std::string>());
 
-	if (vm.count("services.operserv"))
+	if (!vm["services.operserv"].empty())
 	{
 		boost::char_separator<char> sep(" \t");
 		typedef boost::tokenizer<boost::char_separator<char>,
@@ -269,7 +281,7 @@ bool Magick::set_config(const po::variables_map &vm)
 	else
  		if_Service_Magick(operserv).Set(std::vector<std::string>());
 
-	if (vm.count("services.other"))
+	if (!vm["services.other"].empty())
 	{
 		boost::char_separator<char> sep(" \t");
 		typedef boost::tokenizer<boost::char_separator<char>,
@@ -284,7 +296,7 @@ bool Magick::set_config(const po::variables_map &vm)
 	if (getUplink())
 	{
 		std::string quitmsg;
-		if (vm.count("services.quit-message"))
+		if (!vm["services.quit-message"].empty())
 			quitmsg = vm["services.quit-message"].as<std::string>();
 
 		if (!check_old_new<std::string>("services.user", opt_config, vm) ||
@@ -331,17 +343,17 @@ bool Magick::set_config(const po::variables_map &vm)
 		}
 	}
 
-	if (!data.init(vm, opt_config))
+	if (!data.init(vm, *opt_config))
 		MT_RET(false);
 
 	// Logging is the last thing, so that all previous errors are logged
 	// through any existing means.
-	if (vm.count("log"))
+	if (!vm["log"].empty())
 	{
 		mantra::LogLevel::Level_t level = (mantra::LogLevel::Level_t) vm["log-level"].as<unsigned int>();
 
 		std::set<std::string> ov;
-		if (opt_config.count("log"))
+		if (!opt_config["log"].empty())
 			ov = opt_config["log"].as<std::set<std::string> >();
 		std::set<std::string> v = vm["log"].as<std::set<std::string> >();
 
@@ -354,6 +366,8 @@ bool Magick::set_config(const po::variables_map &vm)
 							  std::inserter(samev, samev.end()));
 
 		std::set<std::string>::const_iterator iter;
+
+		static std::ostream *logstream = NULL;
 		if (samev.size())
 		{
 			boost::read_write_mutex::scoped_read_lock lock(logger_lock);
@@ -366,7 +380,7 @@ bool Magick::set_config(const po::variables_map &vm)
 					{
 						if (*iter == "file")
 						{
-							if (!vm.count("log.file.name"))
+							if (vm["log.file.name"].empty())
 							{
 								LOG(Error, _("CFG: %1% not specified."),
 									"log.file.name");
@@ -405,9 +419,9 @@ bool Magick::set_config(const po::variables_map &vm)
 								l->Max_Size(uint);
 
 							std::string arch_ext, str2;
-							if (vm.count("log.file.archive-cmd"))
+							if (!vm["log.file.archive-cmd"].empty())
 								str = vm["log.file.archive-cmd"].as<std::string>();
-							if (vm.count("log.file.archive-ext"))
+							if (!vm["log.file.archive-ext"].empty())
 								str2 = vm["log.file.archive-ext"].as<std::string>();
 							if (str != l->Archive_Cmd() || str2 != l->Archive_Extension())
 								l->Archive(str, str2);
@@ -444,7 +458,7 @@ bool Magick::set_config(const po::variables_map &vm)
 						}
 						else if (*iter == "syslog")
 						{
-							if (!vm.count("log.syslog.facility"))
+							if (vm["log.syslog.facility"].empty())
 							{
 								LOG(Error, _("CFG: %1% not specified."),
 									"log.syslog.facility");
@@ -466,7 +480,7 @@ bool Magick::set_config(const po::variables_map &vm)
 						}
 						else if (*iter == "simple")
 						{
-							if (!vm.count("log.simple.name"))
+							if (vm["log.simple.name"].empty())
 							{
 								LOG(Error, _("CFG: %1% not specified."),
 									"log.simple.name");
@@ -480,29 +494,28 @@ bool Magick::set_config(const po::variables_map &vm)
 									"simple");
 								MT_RET(false);
 							}
+							delete l;
 
-/*
-							std::string str = vm["log.simple.name"].as<std::string>();
-							if (boost::algorithm::iequals(str, "stdout"))
-								if (l->Handle() != std::cout)
-									l->Handle() = std::cout;
-							else if (boost::algorithm::iequals(str, "stderr"))
-								if (l->Handle() != std::cerr)
-									l->Hanele() = std::cerr;
+							std::string name = vm["log.simple.name"].as<std::string>();
+							if (boost::algorithm::iequals(name, "stdout"))
+								l = new mantra::SimpleLogger<char>(std::cout, level,
+										vm["log.simple.utc"].as<bool>());
+							else if (boost::algorithm::iequals(name, "stderr"))
+								l = new mantra::SimpleLogger<char>(std::cerr, level,
+										vm["log.simple.utc"].as<bool>());
 							else
 							{
-								std::ofstream of(str.c_str());
-								if (!of)
+								logstream = new std::ofstream(name.c_str(),
+														std::ios_base::app |
+														std::ios_base::out);
+								if (!*logstream)
 								{
-									LOG(Error, "Could not open log file %1%", vm["log.simple.name"].as<std::string>());
+									LOG(Error, _("CFG: Could not open log file %1%."), vm["log.simple.name"].as<std::string>());
 									MT_RET(false);
 								}
-								l->Handle() = of;
+								l = new mantra::SimpleLogger<char>(*logstream, level,
+										vm["log.simple.utc"].as<bool>());
 							}
-*/
-
-							if (level != l->Threshold())
-								l->Threshold(level);
 
 							// Standard options (except UTC).
 							std::string str = vm["log.simple.format"].as<std::string>();
@@ -536,14 +549,14 @@ bool Magick::set_config(const po::variables_map &vm)
 						}
 						else if (*iter == "net")
 						{
-							if (!vm.count("log.net.host"))
+							if (vm["log.net.host"].empty())
 							{
 								LOG(Error, _("CFG: %1% not specified."),
 									"log.net.host");
 								MT_RET(false);
 							}
 
-							if (!vm.count("log.net.port"))
+							if (vm["log.net.port"].empty())
 							{
 								LOG(Error, _("CFG: %1% not specified."),
 									"log.net.port");
@@ -566,7 +579,7 @@ bool Magick::set_config(const po::variables_map &vm)
 								port != l->Handle().Remote_Port())
 							{
 								mantra::Socket s;
-								if (vm.count("bind"))
+								if (!vm["bind"].empty())
 									s = mantra::Socket(mantra::Socket::STREAM, vm["bind"].as<std::string>());
 								else
 								{
@@ -633,7 +646,7 @@ bool Magick::set_config(const po::variables_map &vm)
 			{
 				if (*iter == "file")
 				{
-					if (!vm.count("log.file.name"))
+					if (vm["log.file.name"].empty())
 					{
 						LOG(Error, _("CFG: %1% not specified."),
 							"log.file.name");
@@ -650,9 +663,9 @@ bool Magick::set_config(const po::variables_map &vm)
 							vm["log.file.utc"].as<bool>());
 					l->Backup(vm["log.file.backup"].as<unsigned int>());
 					l->Max_Size(vm["log.file.max-size"].as<unsigned int>());
-					if (vm.count("archive-cmd"))
+					if (!vm["archive-cmd"].empty())
 						l->Archive(vm["log.file.archive-cmd"].as<std::string>(),
-								   !vm.count("archive-ext") ? std::string() :
+								   vm["archive-ext"].empty() ? std::string() :
 								   vm["log.file.archive-ext"].as<std::string>());
 
 					// Standard options (except UTC).
@@ -670,7 +683,7 @@ bool Magick::set_config(const po::variables_map &vm)
 				}
 				else if (*iter == "syslog")
 				{
-					if (!vm.count("log.syslog.facility"))
+					if (vm["log.syslog.facility"].empty())
 					{
 						LOG(Error, _("CFG: %1% not specified."),
 								"log.syslog.facility");
@@ -687,7 +700,7 @@ bool Magick::set_config(const po::variables_map &vm)
 				}
 				else if (*iter == "simple")
 				{
-					if (!vm.count("log.simple.name"))
+					if (vm["log.simple.name"].empty())
 					{
 						LOG(Error, _("CFG: %1% not specified."),
 							"log.simple.name");
@@ -705,13 +718,15 @@ bool Magick::set_config(const po::variables_map &vm)
 								vm["log.simple.utc"].as<bool>());
 					else
 					{
-						std::ofstream of(name.c_str());
-						if (!of)
+						logstream = new std::ofstream(name.c_str(),
+												std::ios_base::app |
+												std::ios_base::out);
+						if (!*logstream)
 						{
 							LOG(Error, _("CFG: Could not open log file %1%."), vm["log.simple.name"].as<std::string>());
 							MT_RET(false);
 						}
-						l = new mantra::SimpleLogger<char>(of, level,
+						l = new mantra::SimpleLogger<char>(*logstream, level,
 								vm["log.simple.utc"].as<bool>());
 					}
 
@@ -730,14 +745,14 @@ bool Magick::set_config(const po::variables_map &vm)
 				}
 				else if (*iter == "net")
 				{
-					if (!vm.count("log.net.host"))
+					if (vm["log.net.host"].empty())
 					{
 						LOG(Error, _("CFG: %1% not specified."),
 							"log.net.host");
 						MT_RET(false);
 					}
 
-					if (!vm.count("log.net.port"))
+					if (vm["log.net.port"].empty())
 					{
 						LOG(Error, _("CFG: %1% not specified."),
 							"log.net.port");
@@ -747,7 +762,7 @@ bool Magick::set_config(const po::variables_map &vm)
 					std::string host = vm["log.net.host"].as<std::string>();
 
 					mantra::Socket s;
-					if (vm.count("bind"))
+					if (!vm["bind"].empty())
 						s = mantra::Socket(mantra::Socket::STREAM, vm["bind"].as<std::string>());
 					else
 					{
@@ -792,13 +807,19 @@ bool Magick::set_config(const po::variables_map &vm)
 				for (i=loggers.begin(); i!=loggers.end(); ++i)
 					if (*iter == (*i)->backend())
 					{
+						delete (*i);
 						loggers.erase(i);
 						break;
 					}
+				if (*iter == "simple")
+				{
+					delete logstream;
+					logstream = NULL;
+				}
 			}
 		}
 	}
-	else if (opt_config.count("log"))
+	else if (!opt_config["log"].empty())
 	{
 		boost::read_write_mutex::scoped_write_lock lock(logger_lock);
 		std::list<mantra::Logger<char> *>::iterator i;
@@ -885,8 +906,6 @@ bool Magick::set_config(const po::variables_map &vm)
 	StoredChannel::Level::Default(StoredChannel::Level::LVL_CMD_Clear,
 								  vm["chanserv.levels.cmd-clear"].as<int>(),
 								  boost::regex("CMDCLEAR"), N_("Use the CLEAR command"));
-
-	opt_config = vm;
 
 	MT_RET(true);
 	MT_EE

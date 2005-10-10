@@ -211,7 +211,7 @@ bool Protocol::reload(const std::string &file)
 
 	fwd_tokens.clear();
 	rev_tokens.clear();
-	if (opt_protocol.count("token"))
+	if (!opt_protocol["token"].empty())
 	{
 		std::vector<std::pair<std::string, std::string> > tmp =
 			opt_protocol["token"].as<std::vector<std::pair<std::string, std::string> > >();
@@ -223,7 +223,7 @@ bool Protocol::reload(const std::string &file)
 		}
 	}
 
-	if (opt_protocol.count("numeric.encoding"))
+	if (!opt_protocol["numeric.encoding"].empty())
 	{
 		typedef boost::tokenizer<boost::char_separator<char>,
 				std::string::const_iterator, std::string> tokenizer;
@@ -523,11 +523,11 @@ bool Protocol::Connect(const Uplink &s)
 	std::string out;
 
 	usetokens = false;
-	if (opt_protocol.count("capabilities"))
+	if (!opt_protocol["capabilities"].empty())
 		addline(out, opt_protocol["capabilities"].as<std::string>());
 
 	std::string tmp;
-	if (opt_protocol.count("tsora"))
+	if (!opt_protocol["tsora"].empty())
 	{
 		unsigned int ts = opt_protocol["tsora"].as<unsigned int>();
 		if (ts > 7)
@@ -547,7 +547,7 @@ bool Protocol::Connect(const Uplink &s)
 					? boost::lexical_cast<std::string>(IDToNumeric(s.ID()))
 					: s.ID()) % std::mktime(&tm_curr) % std::mktime(&tm_start)).str());
 
-	if (opt_protocol.count("tsora"))
+	if (!opt_protocol["tsora"].empty())
 	{
 		unsigned int ts = opt_protocol["tsora"].as<unsigned int>();
 

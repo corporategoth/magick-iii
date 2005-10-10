@@ -317,7 +317,7 @@ void StoredChannel::DoRevenge(RevengeType_t action,
 					// Detect the highest matching ban ...
 					if (rlevel == R_Mirror && newrlevel < R_Ban5)
 					{
-						for (size_t i = 5; i > 0; --i)
+						for (int i = 5; i > 0; --i)
 						{
 							if (newrlevel < R_Ban1 + i - 1 &&
 								mantra::glob_match(j->first, mask[i-1], true))
@@ -339,7 +339,7 @@ void StoredChannel::DoRevenge(RevengeType_t action,
 					// Detect the highest matching ban ...
 					if (rlevel == R_Mirror && newrlevel < R_Ban5)
 					{
-						for (size_t i = 5; i > 0; --i)
+						for (int i = 5; i > 0; --i)
 						{
 							if (newrlevel < R_Ban1 + i - 1 &&
 								boost::regex_match(mask[i-1], j->first))
@@ -1338,13 +1338,183 @@ StoredChannel::Revenge_t StoredChannel::Revenge() const
 	MT_EE
 }
 
+static void FilterDynamic(std::set<char> &in)
+{
+	MT_EB
+	MT_FUNC("FilterDynamic" << in);
+
+	std::string chanmodeargs = ROOT->proto.ConfigValue<std::string>("channel-mode-params");
+	std::string::iterator i;
+	for (i = chanmodeargs.begin(); i != chanmodeargs.end(); ++i)
+	{
+		switch (*i)
+		{
+		case 'o':
+		case 'h':
+		case 'v':
+		case 'q':
+		case 'u':
+		case 'a':
+		case 'b':
+		case 'e':
+		case 'd':
+			in.erase(*i);
+			break;
+		}
+	}
+
+	MT_EE
+}
+
 std::string StoredChannel::ModeLock(const std::string &in)
 {
 	MT_EB
-	MT_FUNC("ModeLock" << in);
+	MT_FUNC("StoredChannel::ModeLock" << in);
 
+	std::string chanmodeargs = ROOT->proto.ConfigValue<std::string>("channel-mode-params");
+	typedef boost::tokenizer<boost::char_separator<char>,
+			std::string::const_iterator, std::string> tokenizer;
+	boost::char_separator<char> sep(" \t");
+	tokenizer tokens(in, sep);
 
-	std::string rv;
+	std::vector<std::string> ent;
+	ent.assign(tokens.begin(), tokens.end());
+
+	std::set<char> on, off, lock_on = LOCK_ModeLock_On(),
+				   lock_off = LOCK_ModeLock_Off();
+
+	std::string key;
+	if (lock_on.find('k') != lock_on.end())
+		key = ModeLock_Key();
+
+	boost::uint32_t limit = 0;
+	if (lock_on.find('l') != lock_on.end())
+		limit = ModeLock_Limit();
+
+	size_t param = 1;
+	bool add = true;
+	std::string::const_iterator i;
+	for (i = ent[0].begin(); i != ent[0].end(); ++i)
+	{
+		switch (*i)
+		{
+		case '+':
+			add = true;
+			break;
+		case '-':
+			add = false;
+			break;
+		case 'l':
+			if (!add)
+			{
+				if (!limit)
+					off.insert(*i);
+				break;
+			}
+		case 'k':
+			if (!add)
+			{
+				if (key.empty())
+					off.insert(*i);
+				break;
+			}
+		default:
+			if (chanmodeargs.find(*i) != std::string::npos)
+			{
+				if (param >= ent.size())
+					break;
+
+				switch (*i)
+				{
+				case 'o':
+				case 'h':
+				case 'v':
+				case 'q':
+				case 'u':
+				case 'a':
+				case 'b': // ban
+				case 'd': // regex ban
+				case 'e': // except
+					break;
+				case 'l':
+					if (off.find(*i) == off.end() &&
+						lock_off.find(*i) == lock_off.end())
+					{
+						try
+						{
+							limit = boost::lexical_cast<boost::uint32_t>(ent[param]);
+						}
+						catch (const boost::bad_lexical_cast &e)
+						{
+						}
+					}
+					break;
+				case 'k':
+					if (off.find(*i) == off.end() &&
+						lock_off.find(*i) == lock_off.end())
+					{
+						key = ent[param];
+					}
+				}
+				++param;
+			}
+			else if (add)
+			{
+				if (off.find(*i) == off.end() &&
+					lock_off.find(*i) == lock_off.end())
+					on.insert(*i);
+			}
+			else if (on.find(*i) == on.end() &&
+					 lock_on.find(*i) == lock_on.end())
+				off.insert(*i);
+		}
+	}
+
+	std::string rv, rvp;
+	mantra::Storage::RecordMap rec;
+	if (!on.empty())
+		rec["mlock_on"] = std::string(on.begin(), on.end());
+	else
+		rec["mlock_on"] = mantra::NullValue();
+	on.insert(lock_on.begin(), lock_on.end());
+	on.erase('k');
+	on.erase('l');
+	if (!on.empty())
+		rv += '+' + std::string(on.begin(), on.end());
+
+	if (!key.empty())
+	{
+		if (rv.empty())
+			rv += '+';
+		rv += 'k';
+		rvp += ' ' + key;
+		rec["mlock_key"] = key;
+	}
+	else
+		rec["mlock_key"] = mantra::NullValue();
+
+	if (limit)
+	{
+		if (rv.empty())
+			rv += '+';
+		rv += 'l';
+		rvp += ' ' + boost::lexical_cast<std::string>(limit);
+		rec["mlock_limit"] = limit;
+	}
+	else
+		rec["mlock_limit"] = mantra::NullValue();
+
+	if (!off.empty())
+		rec["mlock_off"] = std::string(off.begin(), off.end());
+	else
+		rec["mlock_off"] = mantra::NullValue();
+	off.insert(lock_off.begin(), lock_off.end());
+	if (!off.empty())
+		rv += '-' + std::string(off.begin(), off.end());
+
+	rv.append(rvp);
+	cache.Put(rec);
+
 	MT_RET(rv);
 	MT_EE
 }
@@ -1378,33 +1548,46 @@ static std::string SplitModeLock(const std::string &in, bool on)
 	MT_EE
 }
 
-std::string StoredChannel::ModeLock_On() const
+std::set<char> StoredChannel::ModeLock_On() const
 {
 	MT_EB
 	MT_FUNC("StoredChannel::ModeLock_On");
 
-	std::string ret;
+	std::set<char> ret = LOCK_ModeLock_On();
+
+	std::string tmp;
 	mantra::StorageValue rv = cache.Get("mlock_on");
 	if (rv.type() == typeid(mantra::NullValue))
-		ret = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.defaults.mlock"), true);
+		tmp = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.defaults.mlock"), true);
 	else
-		ret = boost::get<std::string>(rv);
+		tmp = boost::get<std::string>(rv);
+	ret.insert(tmp.begin(), tmp.end());
+	FilterDynamic(ret);
+
+	if (ret.find('k') == ret.end() && !ModeLock_Key().empty())
+		ret.insert('k');
+	if (ret.find('l') == ret.end() && ModeLock_Limit())
+		ret.insert('l');
 
 	MT_RET(ret);
 	MT_EE
 }
 
-std::string StoredChannel::ModeLock_Off() const
+std::set<char> StoredChannel::ModeLock_Off() const
 {
 	MT_EB
 	MT_FUNC("StoredChannel::ModeLock_Off");
 
-	std::string ret;
+	std::set<char> ret = LOCK_ModeLock_Off();
+
+	std::string tmp;
 	mantra::StorageValue rv = cache.Get("mlock_off");
 	if (rv.type() == typeid(mantra::NullValue))
-		ret = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.defaults.mlock"), false);
+		tmp = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.defaults.mlock"), false);
 	else
-		ret = boost::get<std::string>(rv);
+		tmp = boost::get<std::string>(rv);
+	ret.insert(tmp.begin(), tmp.end());
+	FilterDynamic(ret);
 
 	MT_RET(ret);
 	MT_EE
@@ -1815,28 +1998,195 @@ std::string StoredChannel::LOCK_ModeLock(const std::string &in)
 	MT_EB
 	MT_FUNC("StoredChannel::LOCK_ModeLock" << in);
 
-	std::string rv;
+	std::string chanmodeargs = ROOT->proto.ConfigValue<std::string>("channel-mode-params");
+	typedef boost::tokenizer<boost::char_separator<char>,
+			std::string::const_iterator, std::string> tokenizer;
+	boost::char_separator<char> sep(" \t");
+	tokenizer tokens(in, sep);
+
+	std::vector<std::string> ent;
+	ent.assign(tokens.begin(), tokens.end());
+
+	std::set<char> on, off, lock_on, lock_off;
+	std::string tmp = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.lock.mlock"), true);
+	lock_on.insert(tmp.begin(), tmp.end());
+	tmp = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.lock.mlock"), false);
+	lock_off.insert(tmp.begin(), tmp.end());
+
+	std::string key;
+	boost::uint32_t limit = 0;
+
+	size_t param = 1;
+	bool add = true;
+	std::string::const_iterator i;
+	for (i = ent[0].begin(); i != ent[0].end(); ++i)
+	{
+		switch (*i)
+		{
+		case '+':
+			add = true;
+			break;
+		case '-':
+			add = false;
+			break;
+		case 'l':
+			if (!add)
+			{
+				if (!limit)
+					off.insert(*i);
+				break;
+			}
+		case 'k':
+			if (!add)
+			{
+				if (key.empty())
+					off.insert(*i);
+				break;
+			}
+		default:
+			if (chanmodeargs.find(*i) != std::string::npos)
+			{
+				if (param >= ent.size())
+					break;
+
+				switch (*i)
+				{
+				case 'o':
+				case 'h':
+				case 'v':
+				case 'q':
+				case 'u':
+				case 'a':
+				case 'b': // ban
+				case 'd': // regex ban
+				case 'e': // except
+					break;
+				case 'l':
+					if (off.find(*i) == off.end() &&
+						lock_off.find(*i) == lock_off.end())
+					{
+						try
+						{
+							limit = boost::lexical_cast<boost::uint32_t>(ent[param]);
+							on.insert(*i);
+						}
+						catch (const boost::bad_lexical_cast &e)
+						{
+						}
+					}
+					break;
+				case 'k':
+					if (off.find(*i) == off.end() &&
+						lock_off.find(*i) == lock_off.end())
+					{
+						key = ent[param];
+						on.insert(*i);
+					}
+				}
+				++param;
+			}
+			else if (add)
+			{
+				if (off.find(*i) == off.end() &&
+					lock_off.find(*i) == lock_off.end())
+					on.insert(*i);
+			}
+			else if (on.find(*i) == on.end() &&
+					 lock_on.find(*i) == lock_on.end())
+				off.insert(*i);
+		}
+	}
+
+	std::string rv, rvp;
+	mantra::Storage::RecordMap rec;
+	if (!on.empty())
+		rec["lock_mlock_on"] = std::string(on.begin(), on.end());
+	else
+		rec["lock_mlock_on"] = mantra::NullValue();
+
+	on.insert(lock_on.begin(), lock_on.end());
+	on.erase('k');
+	on.erase('l');
+	if (!on.empty())
+		rv += '+' + std::string(on.begin(), on.end());
+
+	if (!key.empty())
+	{
+		if (rv.empty())
+			rv += '+';
+		rv += 'k';
+		rvp += ' ' + key;
+		rec["mlock_key"] = key;
+	}
+	else if (off.find('k') != off.end())
+		rec["mlock_key"] = mantra::NullValue();
+
+	if (limit)
+	{
+		if (rv.empty())
+			rv += '+';
+		rv += 'l';
+		rvp += ' ' + boost::lexical_cast<std::string>(limit);
+		rec["mlock_limit"] = limit;
+	}
+	else if (off.find('l') != off.end())
+		rec["mlock_limit"] = mantra::NullValue();
+
+	if (!off.empty())
+		rec["lock_mlock_off"] = std::string(off.begin(), off.end());
+	else
+		rec["lock_mlock_off"] = mantra::NullValue();
+
+	off.insert(lock_off.begin(), lock_off.end());
+	if (!off.empty())
+		rv += '-' + std::string(off.begin(), off.end());
+
+	rv.append(rvp);
+	cache.Put(rec);
+
 	MT_RET(rv);
 	MT_EE
 }
 
-std::string StoredChannel::LOCK_ModeLock_On() const
+std::set<char> StoredChannel::LOCK_ModeLock_On() const
 {
 	MT_EB
 	MT_FUNC("StoredChannel::LOCK_ModeLock_On");
 
-	std::string ret;
+	std::string tmp = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.lock.mlock"), true);
+	std::set<char> ret(tmp.begin(), tmp.end());
+	if (ret.find('k') != ret.end())
+		ret.erase('k');
+	else if (ret.find('l') != ret.end())
+		ret.erase('l');
+
+	mantra::StorageValue rv = cache.Get("lock_mlock_on");
+	if (rv.type() != typeid(mantra::NullValue))
+	{
+		tmp = boost::get<std::string>(rv);
+		ret.insert(tmp.begin(), tmp.end());
+	}
+	FilterDynamic(ret);
 
 	MT_RET(ret);
 	MT_EE
 }
 
-std::string StoredChannel::LOCK_ModeLock_Off() const
+std::set<char> StoredChannel::LOCK_ModeLock_Off() const
 {
 	MT_EB
 	MT_FUNC("StoredChannel::LOCK_ModeLock_Off");
 
-	std::string ret;
+	std::string tmp = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.lock.mlock"), false);
+	std::set<char> ret(tmp.begin(), tmp.end());
+
+	mantra::StorageValue rv = cache.Get("lock_mlock_off");
+	if (rv.type() != typeid(mantra::NullValue))
+	{
+		tmp = boost::get<std::string>(rv);
+		ret.insert(tmp.begin(), tmp.end());
+	}
+	FilterDynamic(ret);
 
 	MT_RET(ret);
 	MT_EE
@@ -2338,12 +2688,12 @@ std::string StoredChannel::FilterModes(const boost::shared_ptr<LiveUser> &user,
 	ret.reserve(modes.size());
 	std::vector<std::string>::iterator p = params.begin();
 
-	std::string mlock_on = ModeLock_On();
-	std::string mlock_off = ModeLock_Off();
+	std::set<char> mlock_on = ModeLock_On();
+	std::set<char> mlock_off = ModeLock_Off();
 	if (ModeLock_Limit())
-		mlock_on.append(1, 'l');
+		mlock_on.insert('l');
 	if (!ModeLock_Key().empty())
-		mlock_on.append(1, 'k');
+		mlock_on.insert('k');
 
 	std::string::const_iterator i;
 	for (i = modes.begin(); i != modes.end(); ++i)
@@ -2361,7 +2711,7 @@ std::string StoredChannel::FilterModes(const boost::shared_ptr<LiveUser> &user,
 		case 'l':
 			if (!add)
 			{
-				if (mlock_on.find(*i) == std::string::npos)
+				if (mlock_on.find(*i) == mlock_on.end())
 					ret.append(1, *i);
 				break;
 			}
@@ -2380,8 +2730,8 @@ std::string StoredChannel::FilterModes(const boost::shared_ptr<LiveUser> &user,
 					break;
 				default:
 					// If it IS in the mlock ...
-					if (add ? mlock_off.find(*i) != std::string::npos
-						    : mlock_on.find(*i) != std::string::npos)
+					if (add ? mlock_off.find(*i) != mlock_off.end()
+						    : mlock_on.find(*i) != mlock_on.end())
 					{
 						p = params.erase(p);
 						break;
@@ -2391,8 +2741,8 @@ std::string StoredChannel::FilterModes(const boost::shared_ptr<LiveUser> &user,
 				}
 			}
 			// If its NOT in the mlock ...
-			else if (add ? mlock_off.find(*i) == std::string::npos
-						 : mlock_on.find(*i) == std::string::npos)
+			else if (add ? mlock_off.find(*i) == mlock_off.end()
+						 : mlock_on.find(*i) == mlock_on.end())
 				ret.append(1, *i);
 		}
 	}

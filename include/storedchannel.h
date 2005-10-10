@@ -218,8 +218,8 @@ public:
 	Revenge_t Revenge() const;
 
 	std::string ModeLock(const std::string &in);
-	std::string ModeLock_On() const;
-	std::string ModeLock_Off() const;
+	std::set<char> ModeLock_On() const;
+	std::set<char> ModeLock_Off() const;
 	std::string ModeLock_Key() const;
 	boost::uint32_t ModeLock_Limit() const;
 	
@@ -249,8 +249,8 @@ public:
 	bool LOCK_Revenge() const;
 
 	std::string LOCK_ModeLock(const std::string &in);
-	std::string LOCK_ModeLock_On() const;
-	std::string LOCK_ModeLock_Off() const;
+	std::set<char> LOCK_ModeLock_On() const;
+	std::set<char> LOCK_ModeLock_Off() const;
 
 	void Suspend(const boost::shared_ptr<StoredNick> &user,
 				 const std::string &reason);

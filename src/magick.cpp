@@ -122,7 +122,7 @@ void Magick::run(const boost::function0<bool> &check)
 					remote.host % remote.port);
 
 		mantra::Socket sock;
-		if (opt_config.count("bind"))
+		if (!opt_config["bind"].empty())
 			sock = mantra::Socket(mantra::Socket::STREAM, opt_config["bind"].as<std::string>());
 		else
 		{
@@ -195,7 +195,7 @@ void Magick::run(const boost::function0<bool> &check)
 					}
 					else
 					{
-						LOG(Warning, _("Connection to %2%[%3%] closed by foreign host."),
+						LOG(Warning, _("Connection to %1%[%2%] closed by foreign host."),
 								remote.host % remote.port);
 					}
 					sock.Close();

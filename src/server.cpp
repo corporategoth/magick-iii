@@ -182,7 +182,7 @@ Uplink::Uplink(const std::string &password, const std::string &id)
 		   ::ROOT->ConfigValue<std::string>("server-desc"), id,
 		   std::string()), password_(password), burst_(false),
 	  flack_(ROOT->ConfigValue<std::string>("filesystem.flack-dir"),
-			 ROOT->ConfigValue<unsigned int>("filesystem.flack-memory"))
+			 ROOT->ConfigValue<boost::uint64_t>("filesystem.flack-memory"))
 {
 	MT_EB
 	MT_FUNC("Uplink::Uplink" << id);

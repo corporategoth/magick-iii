@@ -183,11 +183,9 @@ public:
 			case '-':
 				add = false;
 				break;
-			case 'o': // These cannot be in an mlock.
+			case 'o': // These cannot be in an mlock on ANY protocol.
 			case 'v':
 			case 'b':
-			case 'e':
-			case 'h':
 				throw po::invalid_option_value(s);
 			case 'k':
 				if (had.find((char) ent[0][i]) != had.end())
@@ -195,7 +193,7 @@ public:
 				had.insert((char) ent[0][i]);
 				if (add)
 				{
-					if (++j >= ent.size())
+//					if (++j >= ent.size())
 						throw po::invalid_option_value(s);
 				}
 				break;
@@ -205,17 +203,17 @@ public:
 				had.insert((char) ent[0][i]);
 				if (add)
 				{
-					if (++j >= ent.size())
+//					if (++j >= ent.size())
 						throw po::invalid_option_value(s);
 
-					try
-					{
-						boost::lexical_cast<unsigned int>(ent[j]);
-					}
-					catch (const boost::bad_lexical_cast &)
-					{
-						throw po::invalid_option_value(s);
-					}
+//					try
+//					{
+//						boost::lexical_cast<unsigned int>(ent[j]);
+//					}
+//					catch (const boost::bad_lexical_cast &)
+//					{
+//						throw po::invalid_option_value(s);
+//					}
 				}
 				break;
 			default:
@@ -255,6 +253,7 @@ void Magick::init_config()
 #ifdef MANTRA_TRACING
 		("trace", mantra::value<std::vector<std::string> >()->composing()->parser(mantra::validate_regex<std::string, char>("^[[:alpha:]]+:[[:xdigit:]]{4}$")),
 					"alter startup trace levels")
+		("autoflush", mantra::value<bool>()->implicit(), "turn on autoflush for trace")
 #endif
 		("disable-dcc", mantra::value<bool>()->implicit(), "disable all file transfers")
 	;
@@ -433,6 +432,8 @@ static void add_stage_options(po::options_description &opts, const std::string &
 
 		((prefix + ".stage.file.name").c_str(), mantra::value<std::string>(),
 					"file name to for the final destination")
+		((prefix + ".stage.file.tempname").c_str(), mantra::value<std::string>(),
+					"temporary file name to for the final destination")
 
 		((prefix + ".stage.net.host").c_str(), mantra::value<std::string>()->parser(mantra::validate_host()),
 					"host or ip address of final destination")
@@ -1158,21 +1159,22 @@ bool Magick::parse_config(const std::vector<std::string> &args)
 	po::options_description cfgfile;
 	cfgfile.add(opt_common).add(opt_config_file_only);
 
-	po::variables_map vm;
+	po::variables_map *curr_vm = new po::variables_map;
+	mantra::OptionsSet vm(curr_vm);
 
 	try
 	{
 		if (!args.empty())
 		{
-			po::store(po::command_line_parser(args).options(cmdline).run(), vm);
-			if (vm.count("help"))
+			po::store(po::command_line_parser(args).options(cmdline).run(), *curr_vm);
+			if (!vm["help"].empty())
 			{
 				std::cout << "Syntax: " << args[0] << " [options]\n" <<
 							 cmdline <<  std::endl;
 				flow->Shutdown();
-				MT_RET(true);
+				MT_RET(false);
 			}
-			else if (vm.count("version"))
+			else if (!vm["version"].empty())
 			{
 				std::cout << "Magick IRC Services v" << MAGICK_VERSION_MAJOR <<
 					"." << MAGICK_VERSION_MINOR << "." << MAGICK_VERSION_PATCH << "\n" <<
@@ -1181,9 +1183,9 @@ bool Magick::parse_config(const std::vector<std::string> &args)
 					"available at http://www.neuromancy.net/license/gpl.html." <<
 					std::endl;
 				flow->Shutdown();
-				MT_RET(true);
+				MT_RET(false);
 			}
-			else if (vm.count("dir"))
+			else if (!vm["dir"].empty())
 			{
 				if (chdir(vm["dir"].as<std::string>().c_str()) < 0)
 				{
@@ -1196,24 +1198,20 @@ bool Magick::parse_config(const std::vector<std::string> &args)
 		std::ifstream fs(vm["config"].as<std::string>().c_str());
 		if (!fs.is_open())
 		{
-			LOG(Error, _("Could not open configuration file %1%."), vm["config"].as<std::string>());
+			LOG(Error, _("Could not open configuration file %1%."),
+				vm["config"].as<std::string>());
 			MT_RET(false);
 		}
-		else
-		{
-			po::store(po::parse_config_file(fs, cfgfile), vm);
-			fs.close();
-		}
 
-printf("DEBUG 1\n");
-		if (vm.count("include"))
+		po::store(po::parse_config_file(fs, cfgfile), *curr_vm);
+		fs.close();
+
+		if (!vm["include"].empty())
 		{
 			std::vector<std::string> supp = vm["include"].as<std::vector<std::string> >();
-printf("DEBUG 2 %d\n", supp.size());
 			for (size_t i = 0; i < supp.size(); ++i)
 			{
-printf("DEBUG 3 %s\n", supp[i].c_str());
-				fs.open(supp[i].c_str());
+				std::ifstream fs(supp[i].c_str());
 				if (!fs.is_open())
 				{
 					LOG(Error, _("Could not open supplemental configuration file %1%."), supp[i]);
@@ -1221,13 +1219,15 @@ printf("DEBUG 3 %s\n", supp[i].c_str());
 				}
 				else
 				{
-					po::store(po::parse_config_file(fs, cfgfile), vm);
+					curr_vm = new po::variables_map;
+					po::store(po::parse_config_file(fs, cfgfile), *curr_vm);
+					vm.next(curr_vm);
 					fs.close();
 				}
 			}
 		}
 
-		po::notify(vm); 
+		vm.notify();
 	}
 	catch (po::error &e)
 	{
@@ -1237,7 +1237,7 @@ printf("DEBUG 3 %s\n", supp[i].c_str());
 
 	for (size_t i=0; required_fields[i]; ++i)
 	{
-		if (!vm.count(required_fields[i]))
+		if (vm[required_fields[i]].empty())
 		{
 			LOG(Error, _("Missing field %1%."), required_fields[i]);
 			MT_RET(false);
@@ -1251,7 +1251,13 @@ printf("DEBUG 3 %s\n", supp[i].c_str());
 		MT_RET(false);
 	}
 
-	bool rv = set_config(vm);
-	MT_RET(rv);
+	if (set_config(*vm))
+	{
+		vm.swap(opt_config);
+		MT_RET(true);
+	}
+	else
+		MT_RET(false);
+
 	MT_EE
 }
