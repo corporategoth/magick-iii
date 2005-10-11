@@ -924,7 +924,7 @@ static void add_chanserv_options(po::options_description &opts)
 						+ std::make_pair("BAN4",StoredChannel::R_Ban4)
 						+ std::make_pair("BAN5",StoredChannel::R_Ban5) ), "")
 
-		("chanserv.lock.mlock", mantra::value<bool>()->default_value(false), "")
+		("chanserv.lock.mlock", mantra::value<std::string>()->parser(validate_mlock()), "")
 		("chanserv.lock.bantime", mantra::value<bool>()->default_value(false), "")
 		("chanserv.lock.parttime", mantra::value<bool>()->default_value(false), "")
 		("chanserv.lock.keeptopic", mantra::value<bool>()->default_value(false), "")

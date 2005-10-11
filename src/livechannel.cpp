@@ -378,6 +378,9 @@ void LiveChannel::Stored(const boost::shared_ptr<StoredChannel> &stored)
 		stored_ = stored;
 	}
 
+	if (!stored)
+		return;
+
 	{
 		SYNC_LOCK(topic_);
 		if (!topic_.empty())

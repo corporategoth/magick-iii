@@ -2008,10 +2008,14 @@ std::string StoredChannel::LOCK_ModeLock(const std::string &in)
 	ent.assign(tokens.begin(), tokens.end());
 
 	std::set<char> on, off, lock_on, lock_off;
-	std::string tmp = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.lock.mlock"), true);
-	lock_on.insert(tmp.begin(), tmp.end());
-	tmp = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.lock.mlock"), false);
-	lock_off.insert(tmp.begin(), tmp.end());
+	std::string tmp;
+	if (ROOT->ConfigExists("chanserv.lock.mlock"))
+	{
+		tmp = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.lock.mlock"), true);
+		lock_on.insert(tmp.begin(), tmp.end());
+		tmp = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.lock.mlock"), false);
+		lock_off.insert(tmp.begin(), tmp.end());
+	}
 
 	std::string key;
 	boost::uint32_t limit = 0;
@@ -2153,7 +2157,9 @@ std::set<char> StoredChannel::LOCK_ModeLock_On() const
 	MT_EB
 	MT_FUNC("StoredChannel::LOCK_ModeLock_On");
 
-	std::string tmp = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.lock.mlock"), true);
+	std::string tmp;
+	if (ROOT->ConfigExists("chanserv.lock.mlock"))
+		tmp = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.lock.mlock"), true);
 	std::set<char> ret(tmp.begin(), tmp.end());
 	if (ret.find('k') != ret.end())
 		ret.erase('k');
@@ -2177,7 +2183,9 @@ std::set<char> StoredChannel::LOCK_ModeLock_Off() const
 	MT_EB
 	MT_FUNC("StoredChannel::LOCK_ModeLock_Off");
 
-	std::string tmp = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.lock.mlock"), false);
+	std::string tmp;
+	if (ROOT->ConfigExists("chanserv.lock.mlock"))
+		tmp = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.lock.mlock"), false);
 	std::set<char> ret(tmp.begin(), tmp.end());
 
 	mantra::StorageValue rv = cache.Get("lock_mlock_off");
@@ -2294,11 +2302,14 @@ void StoredChannel::DropInternal()
 			if_LiveChannel_StoredChannel(live_).Stored(boost::shared_ptr<StoredChannel>());
 	}
 
-	boost::mutex::scoped_lock sl(lock_);
+	identified_users_t ident;
+	{
+		boost::mutex::scoped_lock sl(lock_);
+		identified_users_.swap(ident);
+	}
 	identified_users_t::const_iterator i;
-	for (i=identified_users_.begin(); i!=identified_users_.end(); ++i)
+	for (i=ident.begin(); i!=ident.end(); ++i)
 		(*i)->UnIdentify(self.lock());
-	identified_users_.clear();
 
 	MT_EE
 }
@@ -2550,14 +2561,71 @@ void StoredChannel::SendInfo(const ServiceUser *service,
 			}
 		}
 
+		std::set<char> mlock_on, mlock_off;
 		std::string str;
+		if (ROOT->ConfigExists("chanserv.lock.mlock"))
+		{
+			str = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.lock.mlock"), true);
+			mlock_on.insert(str.begin(), str.end());
+			str = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.lock.mlock"), false);
+			mlock_off.insert(str.begin(), str.end());
+		}
+
+		std::set<char> on, off;
+		i = data.find("lock_mlock_on");
+		j = data.find("lock_mlock_on");
+		if (i != data.end())
+		{
+			str = boost::get<std::string>(i->second);
+			std::set<char>(str.begin(), str.end()).swap(on);
+		}
+		if (j != data.end())
+		{
+			str = boost::get<std::string>(j->second);
+			std::set<char>(str.begin(), str.end()).swap(off);
+		}
+
+		std::set<char>::iterator k;
+		for (k = on.begin(); k != on.end(); ++k)
+			if (off.find(*k) == off.end())
+				mlock_on.insert(*k);
+		for (k = off.begin(); k != off.end(); ++k)
+			if (on.find(*k) == on.end())
+				mlock_off.insert(*k);
 
 		i = data.find("mlock_on");
-		j = data.find("mlock_off");
 		if (i != data.end())
-			str += '+' + boost::get<std::string>(i->second);
-		if (j != data.end())
-			str += '-' + boost::get<std::string>(j->second);
+			str = boost::get<std::string>(i->second);
+		else
+			str = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.defaults.mlock"), true);
+		std::set<char>(str.begin(), str.end()).swap(on);
+
+		i = data.find("mlock_off");
+		if (i != data.end())
+			str = boost::get<std::string>(i->second);
+		else
+			str = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.defaults.mlock"), false);
+		std::set<char>(str.begin(), str.end()).swap(off);
+
+		for (k = on.begin(); k != on.end(); ++k)
+			if (off.find(*k) == off.end())
+				mlock_on.insert(*k);
+		for (k = off.begin(); k != off.end(); ++k)
+			if (on.find(*k) == on.end())
+				mlock_off.insert(*k);
+
+		i = data.find("mlock_key");
+		if (i != data.end())
+			mlock_on.insert('k');
+		i = data.find("mlock_limit");
+		if (i != data.end())
+			mlock_on.insert('l');
+
+		str.clear();
+		if (!mlock_on.empty())
+			str += '+' + std::string(mlock_on.begin(), mlock_on.end());
+		if (!mlock_off.empty())
+			str += '-' + std::string(mlock_off.begin(), mlock_off.end());
 		if (!str.empty())
 			SEND(service, user, N_("Mode Lock      : %1%"), str);
 
