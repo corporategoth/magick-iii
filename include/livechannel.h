@@ -195,6 +195,8 @@ public:
 
 	// Its more efficient to populate in this instance.
 	void Users(users_t &users) const;
+	void Users(users_t &users, const std::string &mask) const;
+	void Users(users_t &users, const boost::regex &mask) const;
 	bool IsUser(const boost::shared_ptr<LiveUser> &user) const;
 	std::set<char> User(const boost::shared_ptr<LiveUser> &user) const;
 	bool User(const boost::shared_ptr<LiveUser> &user, char c) const
@@ -203,6 +205,8 @@ public:
 		return (modes.find(c) != modes.end());
 	}
 	void Splits(users_t &splitusers) const;
+	void Splits(users_t &users, const std::string &mask) const;
+	void Splits(users_t &users, const boost::regex &mask) const;
 	bool IsSplit(const boost::shared_ptr<LiveUser> &user) const;
 	std::set<char> Split(const boost::shared_ptr<LiveUser> &user) const;
 	bool Split(const boost::shared_ptr<LiveUser> &user, char c) const

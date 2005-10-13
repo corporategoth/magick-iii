@@ -609,6 +609,34 @@ void LiveChannel::Users(LiveChannel::users_t &users) const
 	MT_EE
 }
 
+void LiveChannel::Users(LiveChannel::users_t &users, const std::string &mask) const
+{
+	MT_EB
+	MT_FUNC("LiveChannel::Users" << users << mask);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator i;
+	for (i = users_.begin(); i != users_.end(); ++i)
+		if (i->first->Matches(mask))
+			users.insert(*i);
+
+	MT_EE
+}
+
+void LiveChannel::Users(LiveChannel::users_t &users, const boost::regex &mask) const
+{
+	MT_EB
+	MT_FUNC("LiveChannel::Users" << users << mask);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator i;
+	for (i = users_.begin(); i != users_.end(); ++i)
+		if (i->first->Matches(mask))
+			users.insert(*i);
+
+	MT_EE
+}
+
 bool LiveChannel::IsUser(const boost::shared_ptr<LiveUser> &user) const
 {
 	MT_EB
@@ -643,6 +671,34 @@ void LiveChannel::Splits(LiveChannel::users_t &splits) const
 
 	SYNC_RLOCK(users_);
 	splits = splits_;
+
+	MT_EE
+}
+
+void LiveChannel::Splits(LiveChannel::users_t &splits, const std::string &mask) const
+{
+	MT_EB
+	MT_FUNC("LiveChannel::Splits" << splits << mask);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator i;
+	for (i = splits_.begin(); i != splits_.end(); ++i)
+		if (i->first->Matches(mask))
+			splits.insert(*i);
+
+	MT_EE
+}
+
+void LiveChannel::Splits(LiveChannel::users_t &splits, const boost::regex &mask) const
+{
+	MT_EB
+	MT_FUNC("LiveChannel::Splits" << splits << mask);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator i;
+	for (i = splits_.begin(); i != splits_.end(); ++i)
+		if (i->first->Matches(mask))
+			splits.insert(*i);
 
 	MT_EE
 }

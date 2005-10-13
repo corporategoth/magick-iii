@@ -209,6 +209,11 @@ public:
 	const boost::posix_time::ptime &Seen() const { return seen_; }
 	bool Matches(const std::string &mask) const
 		{ return mantra::glob_match(mask, Name() + "!" + User() + "@" + Host(), true); }
+	bool Matches(const boost::regex &mask) const
+	{
+		boost::regex rx(mask.str(), mask.flags() | boost::regex_constants::icase);
+		return boost::regex_match(Name() + "!" + User() + "@" + Host(), rx);
+	}
 
 	inline bool operator<(const std::string &rhs) const
 	{
@@ -242,6 +247,11 @@ public:
 	std::string AltHost() const;
 	bool AltMatches(const std::string &mask) const
 		{ return mantra::glob_match(mask, Name() + "!" + User() + "@" + AltHost(), true); }
+	bool AltMatches(const boost::regex &mask) const
+	{
+		boost::regex rx(mask.str(), mask.flags() | boost::regex_constants::icase);
+		return boost::regex_match(Name() + "!" + User() + "@" + AltHost(), rx);
+	}
 	inline std::string PrefHost() const
 	{
 		std::string rv = AltHost();

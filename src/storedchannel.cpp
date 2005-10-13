@@ -504,6 +504,213 @@ void StoredChannel::Modes(const boost::shared_ptr<LiveUser> &user,
 	MT_EB
 	MT_FUNC("StoredChannel::Modes" << user << in << params);
 
+	std::string chanmodeargs = ROOT->proto.ConfigValue<std::string>("channel-mode-params");
+
+	boost::shared_ptr<LiveChannel> live;
+	{
+		SYNC_WLOCK(live_);
+		live = live_;
+	}
+
+	if (!live)
+		return;
+
+	// Get ChanServ.
+	ServiceUser *service = dynamic_cast<ServiceUser *>(ROOT->data.Get_LiveUser(ROOT->chanserv.Primary()).get());
+	if (!service)
+		return;
+
+	boost::int32_t level = ACCESS_Max(user);
+	std::map<boost::shared_ptr<LiveUser>, boost::int32_t> levels;
+
+	std::set<char> mlock_on = ModeLock_On(), mlock_off = ModeLock_Off();
+	bool add = true;
+	std::string::const_iterator i;
+	std::string out_on, out_off;
+	std::vector<std::string> out_on_params, out_off_params;
+	size_t offs = 0;
+	for (i = in.begin(); i != in.end(); ++i)
+	{
+		switch (*i)
+		{
+		case '+':
+			add = true;
+			break;
+		case '-':
+			add = false;
+			break;
+		case 'l':
+			if (add)
+			{
+				if (mlock_off.find(*i) != mlock_off.end())
+					out_off += 'l';
+				++offs;
+			}
+			else
+			{
+				if (mlock_on.find(*i) != mlock_on.end())
+				{
+					out_on += 'l';
+					out_on_params.push_back(boost::lexical_cast<std::string>(ModeLock_Limit()));
+				}
+			}
+			break;
+		case 'k':
+			if (mlock_on.find(*i) != mlock_on.end())
+			{
+				std::string key = ModeLock_Key();
+				if (add)
+				{
+					if (key != params[offs])
+					{
+						out_off += 'k';
+						out_off_params.push_back(params[offs]);
+						out_on += 'k';
+						out_on_params.push_back(key);
+					}
+				}
+				else
+				{
+					out_on += 'k';
+					out_on_params.push_back(key);
+				}
+			}
+			else if (add && mlock_off.find(*i) != mlock_off.end())
+			{
+				out_off += 'k';
+				out_off_params.push_back(params[offs]);
+			}
+			++offs;
+			break;
+		default:
+			if (chanmodeargs.find(*i) != std::string::npos)
+			{
+				switch (*i)
+				{
+				case 'o':
+				case 'h':
+				case 'v':
+				case 'q':
+				case 'u':
+				case 'a':
+					if (add)
+					{
+					}
+					else
+					{
+					}
+					break;
+				case 'b':
+					if (add)
+					{
+						LiveChannel::users_t users;
+						live->Users(users, params[offs]);
+						LiveChannel::users_t::iterator j;
+						for (j = users.begin(); j != users.end(); ++j)
+						{
+							// If we ban ourselves, too bad!
+							if (j->first == user)
+								continue;
+							boost::int32_t olevel;
+							std::map<boost::shared_ptr<LiveUser>, boost::int32_t>::iterator k
+								= levels.find(j->first);
+							if (k == levels.end())
+							{
+								olevel = ACCESS_Max(j->first);
+								levels[j->first] = olevel;
+							}
+							else
+								olevel = k->second;
+
+							if (olevel >= level)
+							{
+								DoRevenge(RT_Ban, user, j->first);
+								break;
+							}
+						}
+					}
+					break;
+				case 'd':
+					if (add)
+					{
+						LiveChannel::users_t users;
+						live->Users(users, boost::regex(params[offs]));
+						LiveChannel::users_t::iterator j;
+						for (j = users.begin(); j != users.end(); ++j)
+						{
+							// If we ban ourselves, too bad!
+							if (j->first == user)
+								continue;
+							boost::int32_t olevel;
+							std::map<boost::shared_ptr<LiveUser>, boost::int32_t>::iterator k
+								= levels.find(j->first);
+							if (k == levels.end())
+							{
+								olevel = ACCESS_Max(j->first);
+								levels[j->first] = olevel;
+							}
+							else
+								olevel = k->second;
+
+							if (olevel >= level)
+							{
+								DoRevenge(RT_Ban, user, j->first);
+								break;
+							}
+						}
+					}
+					break;
+				case 'e':
+					break;
+				default:
+					if (offs >= params.size())
+						break;
+
+					if (add)
+					{
+						if (mlock_off.find(*i) != mlock_off.end())
+						{
+							out_off += *i;
+							out_off_params.push_back(params[offs]);
+						}
+					}
+					else
+					{
+						if (mlock_on.find(*i) != mlock_on.end())
+						{
+							out_off += *i;
+							out_off_params.push_back(params[offs]);
+						}
+					}
+					++offs;
+				}
+			}
+			else
+			{
+				if (add)
+				{
+					if (mlock_off.find(*i) != mlock_off.end())
+						out_off += *i;
+				}
+				else
+				{
+					if (mlock_on.find(*i) != mlock_on.end())
+						out_off += *i;
+				}
+			}
+		}
+	}
+
+	if (!out_off.empty())
+	{
+		out_on += '-' + out_off;
+		out_on_params.insert(out_on_params.end(), out_off_params.begin(),
+							 out_off_params.end());
+	}
+
+	// Now combined ...
+	if (!out_on.empty())
+		live->SendModes(service, '+' + out_on, out_on_params);
 
 	MT_EE
 }
@@ -529,6 +736,25 @@ void StoredChannel::Join(const boost::shared_ptr<LiveChannel> &live,
 		return;
 
 	std::string chanmodeparams = ROOT->proto.ConfigValue<std::string>("channel-mode-params");
+
+	LiveChannel::users_t users;
+	live->Users(users);
+	// First join, set mlock.
+	if (users.size() == 1)
+	{
+		std::set<char> mlock = ModeLock_On();
+		if (mlock.find('k') != mlock.end())
+		{
+			live->SendModes(service, "+k", ModeLock_Key());
+			mlock.erase('k');
+		}
+		if (mlock.find('l') != mlock.end())
+		{
+			live->SendModes(service, "+l", boost::lexical_cast<std::string>(ModeLock_Limit()));
+			mlock.erase('l');
+		}
+		live->SendModes(service, '+' + std::string(mlock.begin(), mlock.end()));
+	}
 	if (level >= LEVEL_Get(Level::LVL_AutoOp).Value())
 	{
 		live->SendModes(service, "+o", user->Name());
@@ -1558,16 +1784,25 @@ std::set<char> StoredChannel::ModeLock_On() const
 	std::string tmp;
 	mantra::StorageValue rv = cache.Get("mlock_on");
 	if (rv.type() == typeid(mantra::NullValue))
-		tmp = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.defaults.mlock"), true);
+	{
+		if (ret.find('k') == ret.end() && !ModeLock_Key().empty())
+			tmp += 'k';
+		if (ret.find('l') == ret.end() && ModeLock_Limit())
+			tmp += 'l';
+		if (tmp.empty())
+			tmp = SplitModeLock(ROOT->ConfigValue<std::string>("chanserv.defaults.mlock"), true);
+		ret.insert(tmp.begin(), tmp.end());
+	}
 	else
+	{
 		tmp = boost::get<std::string>(rv);
-	ret.insert(tmp.begin(), tmp.end());
+		ret.insert(tmp.begin(), tmp.end());
+		if (ret.find('k') == ret.end() && !ModeLock_Key().empty())
+			ret.insert('k');
+		if (ret.find('l') == ret.end() && ModeLock_Limit())
+			ret.insert('l');
+	}
 	FilterDynamic(ret);
-
-	if (ret.find('k') == ret.end() && !ModeLock_Key().empty())
-		ret.insert('k');
-	if (ret.find('l') == ret.end() && ModeLock_Limit())
-		ret.insert('l');
 
 	MT_RET(ret);
 	MT_EE
