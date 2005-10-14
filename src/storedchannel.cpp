@@ -220,10 +220,6 @@ void StoredChannel::DoRevenge(RevengeType_t action,
 	if (!live)
 		return;
 
-	ServiceUser *service = dynamic_cast<ServiceUser *>(ROOT->data.Get_LiveUser(ROOT->chanserv.Primary()).get());
-	if (!service)
-		return;
-
 	Revenge_t rlevel = Revenge();
 	if (rlevel > R_None && ACCESS_Max(target) < ACCESS_Max(victim))
 	{
@@ -235,17 +231,17 @@ void StoredChannel::DoRevenge(RevengeType_t action,
 		switch (action)
 		{
 		case RT_DeOp:
-			live->SendModes(service, "+o", victim->Name());
+			live->SendModes(NULL, "+o", victim->Name());
 			if (rlevel == R_Mirror)
 				rlevel = R_DeOp;
 			break;
 		case RT_DeHalfOp:
-			live->SendModes(service, "+h", victim->Name());
+			live->SendModes(NULL, "+h", victim->Name());
 			if (rlevel == R_Mirror)
 				rlevel = R_DeOp;
 			break;
 		case RT_DeVoice:
-			live->SendModes(service, "+v", victim->Name());
+			live->SendModes(NULL, "+v", victim->Name());
 			if (rlevel == R_Mirror)
 				rlevel = R_DeOp;
 			break;
@@ -353,7 +349,7 @@ void StoredChannel::DoRevenge(RevengeType_t action,
 			if (rlevel == R_Mirror)
 				rlevel = newrlevel;
 
-			live->SendModes(service, modes, params);
+			live->SendModes(NULL, modes, params);
 		  }
 		}
 
@@ -361,12 +357,15 @@ void StoredChannel::DoRevenge(RevengeType_t action,
 		// is also already taken care of.
 		if (rlevel == R_DeOp)
 		{
-			live->SendModes(service, "-o", target->Name());
+			live->SendModes(NULL, "-o", target->Name());
 		}
 		else
 		{
-			service->KICK(live, target,
-				format(_("REVENGE: Do not kick %1%")) % victim->Name());
+			boost::shared_ptr<LiveUser> lu = ROOT->data.Get_LiveUser(ROOT->chanserv.Primary());
+			ServiceUser *service = dynamic_cast<ServiceUser *>(lu.get());
+			if (service)
+				service->KICK(live, target,
+					format(_("REVENGE: Do not kick %1%")) % victim->Name());
 
 			if (rlevel >= R_Ban1 && rlevel <= R_Ban5)
 			{
@@ -411,7 +410,7 @@ void StoredChannel::DoRevenge(RevengeType_t action,
 				}
 
 				if (!mask.empty())
-					live->SendModes(service, "+b", mask);
+					live->SendModes(NULL, "+b", mask);
 			}
 		}
 	}
@@ -513,11 +512,6 @@ void StoredChannel::Modes(const boost::shared_ptr<LiveUser> &user,
 	}
 
 	if (!live)
-		return;
-
-	// Get ChanServ.
-	ServiceUser *service = dynamic_cast<ServiceUser *>(ROOT->data.Get_LiveUser(ROOT->chanserv.Primary()).get());
-	if (!service)
 		return;
 
 	boost::int32_t level = ACCESS_Max(user);
@@ -710,7 +704,7 @@ void StoredChannel::Modes(const boost::shared_ptr<LiveUser> &user,
 
 	// Now combined ...
 	if (!out_on.empty())
-		live->SendModes(service, '+' + out_on, out_on_params);
+		live->SendModes(NULL, '+' + out_on, out_on_params);
 
 	MT_EE
 }
@@ -730,11 +724,6 @@ void StoredChannel::Join(const boost::shared_ptr<LiveChannel> &live,
 	if (level > 0)
 		cache.Put("last_used", mantra::GetCurrentDateTime());
 
-	// Get ChanServ.
-	ServiceUser *service = dynamic_cast<ServiceUser *>(ROOT->data.Get_LiveUser(ROOT->chanserv.Primary()).get());
-	if (!service)
-		return;
-
 	std::string chanmodeparams = ROOT->proto.ConfigValue<std::string>("channel-mode-params");
 
 	LiveChannel::users_t users;
@@ -745,28 +734,28 @@ void StoredChannel::Join(const boost::shared_ptr<LiveChannel> &live,
 		std::set<char> mlock = ModeLock_On();
 		if (mlock.find('k') != mlock.end())
 		{
-			live->SendModes(service, "+k", ModeLock_Key());
+			live->SendModes(NULL, "+k", ModeLock_Key());
 			mlock.erase('k');
 		}
 		if (mlock.find('l') != mlock.end())
 		{
-			live->SendModes(service, "+l", boost::lexical_cast<std::string>(ModeLock_Limit()));
+			live->SendModes(NULL, "+l", boost::lexical_cast<std::string>(ModeLock_Limit()));
 			mlock.erase('l');
 		}
-		live->SendModes(service, '+' + std::string(mlock.begin(), mlock.end()));
+		live->SendModes(NULL, '+' + std::string(mlock.begin(), mlock.end()));
 	}
 	if (level >= LEVEL_Get(Level::LVL_AutoOp).Value())
 	{
-		live->SendModes(service, "+o", user->Name());
+		live->SendModes(NULL, "+o", user->Name());
 	}
 	else if (chanmodeparams.find("h") == std::string::npos &&
 			 level >= LEVEL_Get(Level::LVL_AutoHalfOp).Value())
 	{
-		live->SendModes(service, "+h", user->Name());
+		live->SendModes(NULL, "+h", user->Name());
 	}
 	else if (level >= LEVEL_Get(Level::LVL_AutoVoice).Value())
 	{
-		live->SendModes(service, "+v", user->Name());
+		live->SendModes(NULL, "+v", user->Name());
 	}
 	
 	MT_EE

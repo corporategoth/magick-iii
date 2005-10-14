@@ -55,6 +55,16 @@ boost::shared_ptr<LiveChannel> LiveChannel::create(const std::string &name,
 	MT_EE
 }
 
+bool LiveChannel::PendingModes::operator<(const boost::shared_ptr<LiveUser> &rhs) const
+{
+	return *user_ < *rhs;
+}
+
+bool LiveChannel::PendingModes::operator==(const boost::shared_ptr<LiveUser> &rhs) const
+{
+	return *user_ == *rhs;
+}
+
 LiveChannel::PendingModes::PendingModes(const boost::shared_ptr<LiveChannel> &channel,
 										const boost::shared_ptr<LiveUser> &user)
 	: event_(0), channel_(channel), user_(user)
@@ -465,6 +475,12 @@ void LiveChannel::Stored(const boost::shared_ptr<StoredChannel> &stored)
 	MT_EE
 }
 
+bool operator<(const boost::shared_ptr<LiveChannel::PendingModes> &lhs,
+					  const boost::shared_ptr<LiveUser> &rhs)
+{
+	return (*lhs < rhs);
+}
+
 void LiveChannel::Quit(const boost::shared_ptr<LiveUser> &user)
 {
 	MT_EB
@@ -478,15 +494,20 @@ void LiveChannel::Quit(const boost::shared_ptr<LiveUser> &user)
 		SYNC_LOCK(recent_parts_);
 		recent_parts_.erase(user);
 	}
+
+	/*
 	{
 		SYNC_LOCK(pending_modes_);
-		pending_modes_t::iterator i = pending_modes_.find(user);
-		if (i != pending_modes_.end())
+		pending_modes_t::iterator i = std::lower_bound(pending_modes_.begin(),
+													   pending_modes_.end(),
+													   user);
+		if (i != pending_modes_.end() && (*i)->User() == user)
 		{
-			i->second->Cancel();
+			(*i)->Cancel();
 			pending_modes_.erase(i);
 		}
 	}
+	*/
 
 	MT_EE
 }
@@ -536,7 +557,7 @@ void LiveChannel::CommonPart(const boost::shared_ptr<LiveUser> &user)
 			SYNC_LOCK(pending_modes_);
 			pending_modes_t::iterator i;
 			for (i = pending_modes_.begin(); i != pending_modes_.end(); ++i)
-				i->second->Cancel();
+				(*i)->Cancel();
 			pending_modes_.clear();
 		}
 
@@ -1252,9 +1273,6 @@ void LiveChannel::SendModes(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("LiveChannel::SendModes" << service << in << params);
 
-	if (!service)
-		return;
-
 	boost::char_separator<char> sep(" \t");
 	typedef boost::tokenizer<boost::char_separator<char>,
 		std::string::const_iterator, std::string> tokenizer;
@@ -1271,22 +1289,22 @@ void LiveChannel::SendModes(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("LiveChannel::SendModes" << service << in << params);
 
-	if (!service)
-		return;
-
 	// Bloody useless ...
 	if (in.find_first_not_of("+-") == std::string::npos)
 		return;
 
-	boost::shared_ptr<LiveUser> user = service->GetUser();
+	boost::shared_ptr<LiveUser> user;
+	if (service)
+		user = service->GetUser();
 
 	SYNC_LOCK(pending_modes_);
-	pending_modes_t::iterator i = pending_modes_.lower_bound(user);
-	if (i == pending_modes_.end() || i->first != user)
-		i = pending_modes_.insert(i, std::make_pair(user,
-								  new PendingModes(self.lock(), user)));
+	pending_modes_t::iterator i = std::lower_bound(pending_modes_.begin(),
+												   pending_modes_.end(),
+												   user);
+	if (i == pending_modes_.end() || (*i)->User() != user)
+		i = pending_modes_.insert(i, boost::shared_ptr<PendingModes>(new PendingModes(self.lock(), user)));
 
-	i->second->Update(in, params);
+	(*i)->Update(in, params);
 
 	MT_EE
 }

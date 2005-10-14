@@ -44,6 +44,7 @@ RCSID(magick__livechannel_h, "@(#) $Id$");
 #include <boost/operators.hpp>
 #include <boost/regex.hpp>
 
+class LiveUser;
 class StoredChannel;
 class ServiceUser;
 
@@ -67,9 +68,13 @@ class LiveChannel : private boost::noncopyable,
 	friend class if_LiveChannel_LiveUser;
 	friend class LiveChannel::ClearPart;
 	friend class LiveChannel::PendingModes;
+	friend bool operator<(const boost::shared_ptr<LiveChannel::PendingModes> &lhs,
+						  const boost::shared_ptr<LiveUser> &rhs);
 
-	class PendingModes
+	class PendingModes : public boost::totally_ordered1<PendingModes>
 	{
+		friend bool operator<(const boost::shared_ptr<LiveChannel::PendingModes> &lhs,
+							  const boost::shared_ptr<LiveUser> &rhs);
 		typedef std::set<char> modes_t;
 		typedef std::set<std::string, mantra::iless<std::string> > params_t;
 		typedef std::map<char, params_t> modes_params_t;
@@ -88,6 +93,17 @@ class LiveChannel : private boost::noncopyable,
 		void Update(const std::string &in,
 					const std::vector<std::string> &params);
 		void Cancel();
+
+		const boost::shared_ptr<LiveChannel> &Channel() const { return channel_; }
+		const boost::shared_ptr<LiveUser> &User() const { return user_; }
+
+		bool operator<(const boost::shared_ptr<LiveUser> &rhs) const;
+		bool operator==(const boost::shared_ptr<LiveUser> &rhs) const;
+
+		inline bool operator<(const LiveChannel::PendingModes &in) const
+			{ return (*this < in.user_); }
+		inline bool operator==(const LiveChannel::PendingModes &in) const
+			{ return (*this == in.user_); }
 	};
 
 	class ClearPart
@@ -110,7 +126,7 @@ public:
 					 rx_iless> rxbans_t;
 	typedef std::set<std::string, mantra::iless<std::string> > exempts_t;
 	typedef std::set<boost::regex, rx_iless> rxexempts_t;
-	typedef std::map<boost::shared_ptr<LiveUser>, boost::shared_ptr<PendingModes> > pending_modes_t; 
+	typedef std::set<boost::shared_ptr<PendingModes> > pending_modes_t; 
 	typedef std::map<boost::shared_ptr<LiveUser>, unsigned int> recent_parts_t;
 
 private:
