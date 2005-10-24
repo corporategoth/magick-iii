@@ -689,7 +689,7 @@ void StoredChannel::Modes(const boost::shared_ptr<LiveUser> &user,
 				else
 				{
 					if (mlock_on.find(*i) != mlock_on.end())
-						out_off += *i;
+						out_on += *i;
 				}
 			}
 		}
@@ -1737,7 +1737,7 @@ std::string StoredChannel::ModeLock(const std::string &in)
 static std::string SplitModeLock(const std::string &in, bool on)
 {
 	MT_EB
-	MT_FUNC("SplitModeLock" << in);
+	MT_FUNC("SplitModeLock" << in << on);
 
 	bool add = true;
 	std::string ret;

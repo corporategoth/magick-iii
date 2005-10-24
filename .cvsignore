@@ -12,4 +12,8 @@ m4
 missing
 mkinstalldirs
 py-compile
+tags
+magick.tag
+magick.kdevelop.pcs
+magick.kdevses
 
