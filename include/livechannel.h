@@ -334,13 +334,21 @@ inline std::ostream &operator<<(std::ostream &os, const LiveChannel &in)
 template<typename T>
 inline bool operator<(const boost::shared_ptr<LiveChannel> &lhs, const T &rhs)
 {
-	return (*lhs < rhs);
+	if (!lhs)
+		return true;
+	else
+		return (*lhs < rhs);
 }
 
 inline bool operator<(const boost::shared_ptr<LiveChannel> &lhs,
 					  const boost::shared_ptr<LiveChannel> &rhs)
 {
-	return (*lhs < *rhs);
+	if (!lhs)
+		return true;
+	else if (!rhs)
+		return false;
+	else
+		return (*lhs < *rhs);
 }
 
 #endif // _MAGICK_LIVECHANNEL_H

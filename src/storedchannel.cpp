@@ -514,7 +514,10 @@ void StoredChannel::Modes(const boost::shared_ptr<LiveUser> &user,
 	if (!live)
 		return;
 
-	boost::int32_t level = ACCESS_Max(user);
+	boost::int32_t level = 0;
+	// user will be NULL if its a SERVER mode.
+	if (user)
+		ACCESS_Max(user);
 	std::map<boost::shared_ptr<LiveUser>, boost::int32_t> levels;
 
 	std::set<char> mlock_on = ModeLock_On(), mlock_off = ModeLock_Off();
@@ -595,7 +598,7 @@ void StoredChannel::Modes(const boost::shared_ptr<LiveUser> &user,
 					}
 					break;
 				case 'b':
-					if (add)
+					if (add && user)
 					{
 						LiveChannel::users_t users;
 						live->Users(users, params[offs]);
@@ -625,7 +628,7 @@ void StoredChannel::Modes(const boost::shared_ptr<LiveUser> &user,
 					}
 					break;
 				case 'd':
-					if (add)
+					if (add && user)
 					{
 						LiveChannel::users_t users;
 						live->Users(users, boost::regex(params[offs]));

@@ -36,7 +36,6 @@ RCSID(magick__message_cpp, "@(#)$Id$");
 #include "liveuser.h"
 #include "serviceuser.h"
 #include "livechannel.h"
-#include "text.h"
 
 #include <mantra/core/trace.h>
 #include <mantra/file/mfile.h>
@@ -420,7 +419,7 @@ static bool biINFO(const Message &m)
 		MT_RET(false);
 
 	uplink->NUMERIC(Uplink::nINFOSTART, m.Source(), _("Server INFO"), true);
-	const char **iter = contrib;
+	const char * const *iter = contrib;
 	while (*iter)
 		uplink->NUMERIC(Uplink::nINFO, m.Source(), *iter++, true);
 	uplink->NUMERIC(Uplink::nINFOEND, m.Source(), _("End of /INFO list"), true);

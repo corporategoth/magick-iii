@@ -385,21 +385,124 @@ void Service::NOTICE(const boost::shared_ptr<LiveUser> &target,
 	MT_EE
 }
 
+void Service::HELPOP(const ServiceUser *source,
+					 const boost::format &message) const
+{
+	MT_EB
+	MT_FUNC("Service::HELPOP" << source << message);
+
+	if (!ROOT->proto.ConfigValue<bool>("helpops"))
+	{
+		WALLOP(source, message);
+		return;
+	}
+
+	if (!source || source->GetService() != this)
+		return;
+
+	std::string out;
+	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("HELPOPS") + " :" +
+						message.str());
+	ROOT->proto.send(out);
+
+	MT_EE
+}
+
+void Service::HELPOP(const boost::format &message) const
+{
+	MT_EB
+	MT_FUNC("Service::HELPOP" << message);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator j = std::lower_bound(users_.begin(),
+												 users_.end(),
+												 primary_);
+	if (j == users_.end() || **j != primary_)
+		return;
+
+	HELPOP(dynamic_cast<ServiceUser *>(j->get()), message);
+
+	MT_EE
+}
+
+void Service::WALLOP(const ServiceUser *source,
+					 const boost::format &message) const
+{
+	MT_EB
+	MT_FUNC("Service::WALLOP" << source << message);
+
+	if (!source || source->GetService() != this)
+		return;
+
+	std::string out;
+	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("WALLOPS") + " :" +
+						message.str());
+	ROOT->proto.send(out);
+
+	MT_EE
+}
+
+void Service::WALLOP(const boost::format &message) const
+{
+	MT_EB
+	MT_FUNC("Service::WALLOP" << message);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator j = std::lower_bound(users_.begin(),
+												 users_.end(),
+												 primary_);
+	if (j == users_.end() || **j != primary_)
+		return;
+
+	WALLOP(dynamic_cast<ServiceUser *>(j->get()), message);
+
+	MT_EE
+}
+
+void Service::GLOBOP(const ServiceUser *source,
+					 const boost::format &message) const
+{
+	MT_EB
+	MT_FUNC("Service::GLOBOP" << source << message);
+
+	if (!source || source->GetService() != this)
+		return;
+
+	std::string out;
+	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("GLOBOPS") + " :" +
+						message.str());
+	ROOT->proto.send(out);
+
+	MT_EE
+}
+
+void Service::GLOBOP(const boost::format &message) const
+{
+	MT_EB
+	MT_FUNC("Service::GLOBOP" << message);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator j = std::lower_bound(users_.begin(),
+												 users_.end(),
+												 primary_);
+	if (j == users_.end() || **j != primary_)
+		return;
+
+	GLOBOP(dynamic_cast<ServiceUser *>(j->get()), message);
+
+	MT_EE
+}
+
 void Service::ANNOUNCE(const ServiceUser *source,
 					   const boost::format &message) const
 {
 	MT_EB
 	MT_FUNC("Service::ANNOUNCE" << source << message);
 
-	if (!source || source->GetService() != this)
-		return;
-
-	std::string out;
-	ROOT->proto.addline(*source, out, ROOT->proto.tokenise(
-						ROOT->proto.ConfigValue<bool>("globops")
-							? "GLOBOPS" : "WALLOPS") + " :" +
-						message.str());
-	ROOT->proto.send(out);
+	if (ROOT->proto.ConfigValue<bool>("globops"))
+		GLOBOP(source, message);
+	else
+		WALLOP(source, message);
 
 	MT_EE
 }
@@ -906,7 +1009,9 @@ bool Service::Execute(const ServiceUser *service,
 			}
 			if (i != func_map_.end())
 			{
-				if (params.size() < i->min_param)
+				// Add one to the min params to accomodate for the command
+				// name itself (which is params[0]).
+				if (params.size() < i->min_param + 1)
 				{
 					SEND(service, user,
 						 N_("Insufficient parameters for %1% command."),
@@ -917,6 +1022,7 @@ bool Service::Execute(const ServiceUser *service,
 			}
 		}
 		// This does NOT mean it wasn't found, just that it wasn't defined.
+		// When something is not defined, it is used to disable a command.
 		if (!f)
 		{
 			SEND(service, user, N_("No such command %1%."),

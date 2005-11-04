@@ -216,9 +216,7 @@
       <inlineGet>true</inlineGet>
       <inlineSet>true</inlineSet>
     </creategettersetter>
-    <references>
-      <pcs>Mantra</pcs>
-    </references>
+    <references/>
   </kdevcppsupport>
   <kdevdocumentation>
     <projectdoc>

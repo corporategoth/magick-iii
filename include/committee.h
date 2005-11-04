@@ -295,13 +295,21 @@ inline std::ostream &operator<<(std::ostream &os, const Committee &in)
 template<typename T>
 inline bool operator<(const boost::shared_ptr<Committee> &lhs, const T &rhs)
 {
-	return (*lhs < rhs);
+	if (!lhs)
+		return true;
+	else
+		return (*lhs < rhs);
 }
 
 inline bool operator<(const boost::shared_ptr<Committee> &lhs,
 					  const boost::shared_ptr<Committee> &rhs)
 {
-	return (*lhs < *rhs);
+	if (!lhs)
+		return true;
+	else if (!rhs)
+		return false;
+	else
+		return (*lhs < *rhs);
 }
 
 #endif // _MAGICK_COMMITTEE_H

@@ -2591,182 +2591,182 @@ void init_nickserv_functions(Service &serv)
 	comm_opersop.push_back(ROOT->ConfigValue<std::string>("commserv.sop.name"));
 
 	serv.PushCommand("^HELP$", boost::bind(&Service::Help, &serv,
-										   _1, _2, _3), 1);
+										   _1, _2, _3));
 
-	serv.PushCommand("^REGISTER$", &biREGISTER, 2);
-	serv.PushCommand("^DROP$", &biDROP, 1, comm_regd);
-	serv.PushCommand("^LINK$", &biLINK, 3);
-	serv.PushCommand("^LINK(S|LIST)$", &biLINKS, 1);
-	serv.PushCommand("^ID(ENT(IFY)?)?$", &biIDENTIFY, 2);
-	serv.PushCommand("^INFO$", &biINFO, 2);
-	serv.PushCommand("^GHOST$", &biGHOST, 3);
-	serv.PushCommand("^REC(OVER)?$", &biRECOVER, 3);
-	serv.PushCommand("^SEND$", &biSEND, 2);
-	serv.PushCommand("^SUSPEND$", &biSUSPEND, 3, comm_sop);
-	serv.PushCommand("^UN?SUSPEND$", &biUNSUSPEND, 2, comm_sop);
-	serv.PushCommand("^SETPASS(WORD)?$", &biSETPASS, 3, comm_sop);
+	serv.PushCommand("^REGISTER$", &biREGISTER, 1);
+	serv.PushCommand("^DROP$", &biDROP, 0, comm_regd);
+	serv.PushCommand("^LINK$", &biLINK, 2);
+	serv.PushCommand("^LINK(S|LIST)$", &biLINKS);
+	serv.PushCommand("^ID(ENT(IFY)?)?$", &biIDENTIFY, 1);
+	serv.PushCommand("^INFO$", &biINFO, 1);
+	serv.PushCommand("^GHOST$", &biGHOST, 2);
+	serv.PushCommand("^REC(OVER)?$", &biRECOVER, 2);
+	serv.PushCommand("^SEND$", &biSEND, 1);
+	serv.PushCommand("^SUSPEND$", &biSUSPEND, 2, comm_sop);
+	serv.PushCommand("^UN?SUSPEND$", &biUNSUSPEND, 1, comm_sop);
+	serv.PushCommand("^SETPASS(WORD)?$", &biSETPASS, 2, comm_sop);
 
 	serv.PushCommand("^FORBID$",
-					 Service::CommandMerge(serv, 0, 1), 2, comm_sop);
-	serv.PushCommand("^FORBID\\s+(ADD|NEW|CREATE)$", &biFORBID_ADD, 3, comm_sop);
-	serv.PushCommand("^FORBID\\s+(ERASE|DEL(ETE)?|REM(OVE)?)$", &biFORBID_DEL, 2, comm_sop);
-	serv.PushCommand("^FORBID\\s+(LIST|VIEW)$", &biFORBID_LIST, 2, comm_sop);
+					 Service::CommandMerge(serv, 0, 1), 1, comm_sop);
+	serv.PushCommand("^FORBID\\s+(ADD|NEW|CREATE)$", &biFORBID_ADD, 2, comm_sop);
+	serv.PushCommand("^FORBID\\s+(ERASE|DEL(ETE)?|REM(OVE)?)$", &biFORBID_DEL, 1, comm_sop);
+	serv.PushCommand("^FORBID\\s+(LIST|VIEW)$", &biFORBID_LIST, 1, comm_sop);
 	serv.PushCommand("^FORBID\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3), 1, comm_sop);
+								 _1, _2, _3), 0, comm_sop);
 
 	serv.PushCommand("^ACC(ESS)?$",
-					 Service::CommandMerge(serv, 0, 1), 2, comm_regd);
+					 Service::CommandMerge(serv, 0, 1), 1, comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+CUR(R(ENT)?)?$",
-					 &biACCESS_CURRENT, 1, comm_regd);
+					 &biACCESS_CURRENT, 0, comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+(ADD|NEW|CREATE)$",
-					 &biACCESS_ADD, 2, comm_regd);
+					 &biACCESS_ADD, 1, comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+(ERASE|DEL(ETE)?|REM(OVE)?)$",
-					 &biACCESS_DEL, 2, comm_regd);
+					 &biACCESS_DEL, 1, comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+(LIST|VIEW)$",
-					 &biACCESS_LIST, 1, comm_regd);
+					 &biACCESS_LIST, 0, comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+RE(NUMBER|INDEX)$",
-					 &biACCESS_REINDEX, 1, comm_regd);
+					 &biACCESS_REINDEX, 0, comm_regd);
 	serv.PushCommand("^ACC(ESS)?\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3), 1, comm_regd);
+								 _1, _2, _3), 0, comm_regd);
 
 	serv.PushCommand("^IGNORE$",
-					 Service::CommandMerge(serv, 0, 1), 2, comm_regd);
+					 Service::CommandMerge(serv, 0, 1), 1, comm_regd);
 	serv.PushCommand("^IGNORE\\s+(ADD|NEW|CREATE)$",
-					 &biIGNORE_ADD, 2, comm_regd);
+					 &biIGNORE_ADD, 1, comm_regd);
 	serv.PushCommand("^IGNORE\\s+(ERASE|DEL(ETE)?|REM(OVE)?)$",
-					 &biIGNORE_DEL, 2, comm_regd);
+					 &biIGNORE_DEL, 1, comm_regd);
 	serv.PushCommand("^IGNORE\\s+(LIST|VIEW)$",
-					 &biIGNORE_LIST, 1, comm_regd);
+					 &biIGNORE_LIST, 0, comm_regd);
 	serv.PushCommand("^IGNORE\\s+RE(NUMBER|INDEX)$",
-					 &biIGNORE_REINDEX, 1, comm_regd);
+					 &biIGNORE_REINDEX, 0, comm_regd);
 	serv.PushCommand("^IGNORE\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3), 1, comm_regd);
+								 _1, _2, _3), 0, comm_regd);
 
 	serv.PushCommand("^SET$",
-					 Service::CommandMerge(serv, 0, 1), 2, comm_regd);
+					 Service::CommandMerge(serv, 0, 1), 1, comm_regd);
 	serv.PushCommand("^SET\\s+PASS(W(OR)?D)?$",
-					 &biSET_PASSWORD, 2, comm_regd);
+					 &biSET_PASSWORD, 1, comm_regd);
 	serv.PushCommand("^SET\\s+E-?MAIL$",
-					 &biSET_EMAIL, 2, comm_regd);
+					 &biSET_EMAIL, 1, comm_regd);
 	serv.PushCommand("^SET\\s+(URL|WWW|WEB(PAGE|SITE)?|HTTPS?)$",
-					 &biSET_WEBSITE, 2, comm_regd);
+					 &biSET_WEBSITE, 1, comm_regd);
 	serv.PushCommand("^SET\\s+(UIN|ICQ)$",
-					 &biSET_ICQ, 2, comm_regd);
+					 &biSET_ICQ, 1, comm_regd);
 	serv.PushCommand("^SET\\s+(AIM)$",
-					 &biSET_AIM, 2, comm_regd);
+					 &biSET_AIM, 1, comm_regd);
 	serv.PushCommand("^SET\\s+MSN$",
-					 &biSET_MSN, 2, comm_regd);
+					 &biSET_MSN, 1, comm_regd);
 	serv.PushCommand("^SET\\s+JABBER$",
-					 &biSET_JABBER, 2, comm_regd);
+					 &biSET_JABBER, 1, comm_regd);
 	serv.PushCommand("^SET\\s+YAHOO$",
-					 &biSET_YAHOO, 2, comm_regd);
+					 &biSET_YAHOO, 1, comm_regd);
 	serv.PushCommand("^SET\\s+DESC(RIPT(ION)?)?$",
-					 &biSET_DESCRIPTION, 2, comm_regd);
+					 &biSET_DESCRIPTION, 1, comm_regd);
 	serv.PushCommand("^SET\\s+LANG(UAGE)?$",
-					 &biSET_LANGUAGE, 2, comm_regd);
+					 &biSET_LANGUAGE, 1, comm_regd);
 	serv.PushCommand("^SET\\s+PROT(ECT)?$",
-					 &biSET_PROTECT, 2, comm_regd);
+					 &biSET_PROTECT, 1, comm_regd);
 	serv.PushCommand("^SET\\s+SECURE$",
-					 &biSET_SECURE, 2, comm_regd);
+					 &biSET_SECURE, 1, comm_regd);
 	serv.PushCommand("^SET\\s+NOMEMOS?$",
-					 &biSET_NOMEMO, 2, comm_regd);
+					 &biSET_NOMEMO, 1, comm_regd);
 	serv.PushCommand("^SET\\s+PRIV(ATE)?$",
-					 &biSET_PRIVATE, 2, comm_regd);
+					 &biSET_PRIVATE, 1, comm_regd);
 	serv.PushCommand("^SET\\s+((PRIV)?MSG)$",
-					 &biSET_PRIVMSG, 2, comm_regd);
+					 &biSET_PRIVMSG, 1, comm_regd);
 	serv.PushCommand("^SET\\s+PIC(TURE)?$",
-					 &biSET_PICTURE, 2, comm_regd);
+					 &biSET_PICTURE, 1, comm_regd);
 	serv.PushCommand("^SET\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3), 1, comm_regd);
+								 _1, _2, _3), 0, comm_regd);
 
 	serv.PushCommand("^(UN|RE)SET$",
-					 Service::CommandMerge(serv, 0, 1), 2, comm_regd);
+					 Service::CommandMerge(serv, 0, 1), 1, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+E-?MAIL$",
-					 &biUNSET_EMAIL, 1, comm_regd);
+					 &biUNSET_EMAIL, 0, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+(URL|WWW|WEB(PAGE|SITE)?|HTTPS?)$",
-					 &biUNSET_WEBSITE, 1, comm_regd);
+					 &biUNSET_WEBSITE, 0, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+(UIN|ICQ)$",
-					 &biUNSET_ICQ, 1, comm_regd);
+					 &biUNSET_ICQ, 0, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+(AIM)$",
-					 &biUNSET_AIM, 1, comm_regd);
+					 &biUNSET_AIM, 0, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+MSN$",
-					 &biUNSET_MSN, 1, comm_regd);
+					 &biUNSET_MSN, 0, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+JABBER$",
-					 &biUNSET_JABBER, 1, comm_regd);
+					 &biUNSET_JABBER, 0, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+YAHOO$",
-					 &biUNSET_YAHOO, 1, comm_regd);
+					 &biUNSET_YAHOO, 0, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+DESC(RIPT(ION)?)?$",
-					 &biUNSET_DESCRIPTION, 1, comm_regd);
+					 &biUNSET_DESCRIPTION, 0, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+LANG(UAGE)?$",
-					 &biUNSET_LANGUAGE, 1, comm_regd);
+					 &biUNSET_LANGUAGE, 0, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+PROT(ECT)?$",
-					 &biUNSET_PROTECT, 1, comm_regd);
+					 &biUNSET_PROTECT, 0, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+SECURE$",
-					 &biUNSET_SECURE, 1, comm_regd);
+					 &biUNSET_SECURE, 0, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+NOMEMOS?$",
-					 &biUNSET_NOMEMO, 1, comm_regd);
+					 &biUNSET_NOMEMO, 0, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+PRIV(ATE)?$",
-					 &biUNSET_PRIVATE, 1, comm_regd);
+					 &biUNSET_PRIVATE, 0, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+((PRIV)?MSG)$",
-					 &biUNSET_PRIVMSG, 1, comm_regd);
+					 &biUNSET_PRIVMSG, 0, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+PIC(TURE)?$",
-					 &biUNSET_PICTURE, 1, comm_regd);
+					 &biUNSET_PICTURE, 0, comm_regd);
 	serv.PushCommand("^(UN|RE)SET\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3), 1, comm_regd);
+								 _1, _2, _3), 0, comm_regd);
 
 	serv.PushCommand("^SET\\s+COMMENT$",
-					 &biSET_COMMENT, 3, comm_opersop);
+					 &biSET_COMMENT, 2, comm_opersop);
 	serv.PushCommand("^SET\\s+NO?EX(PIRE)?$",
-					 &biSET_NOEXPIRE, 3, comm_sop);
+					 &biSET_NOEXPIRE, 2, comm_sop);
 	serv.PushCommand("^(UN|RE)SET\\s+COMMENT$",
-					 &biUNSET_COMMENT, 2, comm_opersop);
+					 &biUNSET_COMMENT, 1, comm_opersop);
 	serv.PushCommand("^(UN|RE)SET\\s+NO?EX(PIRE)?$",
-					 &biUNSET_NOEXPIRE, 2, comm_sop);
+					 &biUNSET_NOEXPIRE, 1, comm_sop);
 
 	serv.PushCommand("^LOCK$",
-					 Service::CommandMerge(serv, 0, 1), 2, comm_sop);
+					 Service::CommandMerge(serv, 0, 1), 1, comm_sop);
 	serv.PushCommand("^LOCK\\s+LANG(UAGE)?$",
-					 &biLOCK_LANGUAGE, 3, comm_sop);
+					 &biLOCK_LANGUAGE, 2, comm_sop);
 	serv.PushCommand("^LOCK\\s+PROT(ECT)?$",
-					 &biLOCK_PROTECT, 3, comm_sop);
+					 &biLOCK_PROTECT, 2, comm_sop);
 	serv.PushCommand("^LOCK\\s+SECURE$",
-					 &biLOCK_SECURE, 3, comm_sop);
+					 &biLOCK_SECURE, 2, comm_sop);
 	serv.PushCommand("^LOCK\\s+NOMEMOS?$",
-					 &biLOCK_NOMEMO, 3, comm_sop);
+					 &biLOCK_NOMEMO, 2, comm_sop);
 	serv.PushCommand("^LOCK\\s+PRIV(ATE)?$",
-					 &biLOCK_PRIVATE, 3, comm_sop);
+					 &biLOCK_PRIVATE, 2, comm_sop);
 	serv.PushCommand("^LOCK\\s+((PRIV)?MSG)$",
-					 &biLOCK_PRIVMSG, 3, comm_sop);
+					 &biLOCK_PRIVMSG, 2, comm_sop);
 	serv.PushCommand("^LOCK\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3), 1, comm_sop);
+								 _1, _2, _3), 0, comm_sop);
 
 	serv.PushCommand("^UN?LOCK$",
-					 Service::CommandMerge(serv, 0, 1), 2, comm_sop);
+					 Service::CommandMerge(serv, 0, 1), 1, comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+LANG(UAGE)?$",
-					 &biUNLOCK_LANGUAGE, 2, comm_sop);
+					 &biUNLOCK_LANGUAGE, 1, comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+PROT(ECT)?$",
-					 &biUNLOCK_PROTECT, 2, comm_sop);
+					 &biUNLOCK_PROTECT, 1, comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+SECURE$",
-					 &biUNLOCK_SECURE, 2, comm_sop);
+					 &biUNLOCK_SECURE, 1, comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+NOMEMOS?$",
-					 &biUNLOCK_NOMEMO, 2, comm_sop);
+					 &biUNLOCK_NOMEMO, 1, comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+PRIV(ATE)?$",
-					 &biUNLOCK_PRIVATE, 2, comm_sop);
+					 &biUNLOCK_PRIVATE, 1, comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+((PRIV)?MSG)$",
-					 &biUNLOCK_PRIVMSG, 2, comm_sop);
+					 &biUNLOCK_PRIVMSG, 1, comm_sop);
 	serv.PushCommand("^UN?LOCK\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
-								 _1, _2, _3), 1, comm_sop);
+								 _1, _2, _3), 0, comm_sop);
 
 	// These commands don't operate on any nickname.
-	serv.PushCommand("^(STORED)?LIST$", &biSTOREDLIST, 1);
-	serv.PushCommand("^LIVE(LIST)?$", &biLIVELIST, 1, comm_oper);
+	serv.PushCommand("^(STORED)?LIST$", &biSTOREDLIST);
+	serv.PushCommand("^LIVE(LIST)?$", &biLIVELIST, 0, comm_oper);
 
 	MT_EE
 }

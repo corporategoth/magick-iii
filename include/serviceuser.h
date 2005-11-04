@@ -76,7 +76,13 @@ public:
 	void NOTICE(const boost::shared_ptr<LiveUser> &target,
 				const boost::format &message) const
 		{ service_->NOTICE(this, target, message); }
-	void ANNOUNCE(const boost::format &message) const
+	void HELPOP(const boost::format &message) const // umode +h (-> WALLOP)
+		{ service_->HELPOP(this, message); }
+	void WALLOP(const boost::format &message) const // umode +w
+		{ service_->WALLOP(this, message); }
+	void GLOBOP(const boost::format &message) const // umode +o
+		{ service_->GLOBOP(this, message); }
+	void ANNOUNCE(const boost::format &message) const // GLOBOP -> WALLOP
 		{ service_->ANNOUNCE(this, message); }
 	void SVSNICK(const boost::shared_ptr<LiveUser> &target,
 				 const std::string &newnick) const

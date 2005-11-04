@@ -57,12 +57,22 @@ boost::shared_ptr<LiveChannel> LiveChannel::create(const std::string &name,
 
 bool LiveChannel::PendingModes::operator<(const boost::shared_ptr<LiveUser> &rhs) const
 {
-	return *user_ < *rhs;
+	if (!user_)
+		return true;
+	else if (!rhs)
+		return false;
+	else
+		return *user_ < *rhs;
 }
 
 bool LiveChannel::PendingModes::operator==(const boost::shared_ptr<LiveUser> &rhs) const
 {
-	return *user_ == *rhs;
+	if (!user_)
+		return !rhs;
+	else if (!rhs)
+		return !user_;
+	else
+		return *user_ == *rhs;
 }
 
 LiveChannel::PendingModes::PendingModes(const boost::shared_ptr<LiveChannel> &channel,
@@ -99,10 +109,11 @@ void LiveChannel::PendingModes::operator()()
 										   boost::posix_time::seconds(1));
 			return;
 		}
+		su = dynamic_cast<ServiceUser *>(user_.get());
 	}
 
 	event_ = 0;
-	if (!channel_ || !IsService(user_))
+	if (!channel_ || !su)
 	{
 		on_.clear();
 		on_params_.clear();

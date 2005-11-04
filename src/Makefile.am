@@ -10,8 +10,8 @@ LIBS = @LIBINTL@ @LIBS@
 magick_LDFLAGS	= -rdynamic
 magick_SOURCES	= main.cpp magick.cpp config_init.cpp config_parse.cpp \
 				  protocol.cpp storage.cpp server.cpp message.cpp service.cpp \
-				  dependency.cpp storageinterface.cpp liveuser.cpp \
+				  text.cpp dependency.cpp storageinterface.cpp liveuser.cpp \
 				  livechannel.cpp storeduser.cpp storednick.cpp storedchannel.cpp \
 				  storedchannel2.cpp committee.cpp otherdata.cpp nickserv.cpp \
-				  commserv.cpp chanserv.cpp
+				  commserv.cpp chanserv.cpp other.cpp
 

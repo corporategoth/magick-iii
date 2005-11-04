@@ -119,6 +119,12 @@ private:
 	void NOTICE(const ServiceUser *source,
 				const boost::shared_ptr<LiveUser> &target,
 				const boost::format &message) const;
+	void HELPOP(const ServiceUser *source,
+				  const boost::format &message) const;
+	void WALLOP(const ServiceUser *source,
+				  const boost::format &message) const;
+	void GLOBOP(const ServiceUser *source,
+				  const boost::format &message) const;
 	void ANNOUNCE(const ServiceUser *source,
 				  const boost::format &message) const;
 	void SVSNICK(const ServiceUser *source,
@@ -174,11 +180,35 @@ public:
 	bool IsNick(const std::string &nick) const
 		{ return (nicks_.find(nick) != nicks_.end()); }
 
-	unsigned int PushCommand(const boost::regex &rx, const functor &func, unsigned int min_param,
+	/** 
+	 * @brief Add a command to the execution 'chain'.
+	 * This will make a command recognized only for this service.  The regular
+	 * expression will automatically be made to ignore case.  The min_param
+	 * value does not include the command itself, even though the params
+	 * argument to the function in question has the command as params[0].
+	 * The 'perms' list is an 'OR' list, ie. user must be in perms[0] OR
+	 * perms[1] OR perms[2].  There is no way to enforce an AND relationship.
+	 * 
+	 * @param rx Regular expression to match for this command.
+	 * @param func Function to call when this command is matched.
+	 * @param min_param Minimum number of parameters required.
+	 * @param perms List of committees that the user must be a member of one of
+	 * 				to be able to execute this function (an empty list means
+	 * 				anyone may execute this command).
+	 * 
+	 * @return A unique identifier for this command.
+	 */
+	unsigned int PushCommand(const boost::regex &rx, const functor &func, unsigned int min_param = 0,
 							 const std::vector<std::string> &perms = std::vector<std::string>());
-	unsigned int PushCommand(const std::string &rx, const functor &func, unsigned int min_param,
+	unsigned int PushCommand(const std::string &rx, const functor &func, unsigned int min_param = 0,
 							 const std::vector<std::string> &perms = std::vector<std::string>())
 		{ return PushCommand(boost::regex(rx, boost::regex_constants::icase), func, min_param, perms); }
+
+	/** 
+	 * @brief Remove a command from the execution 'chain'.
+	 * 
+	 * @param id The ID returned by PushCommand.
+	 */
 	void DelCommand(unsigned int id);
 
 	void MASSQUIT(const std::string &message = std::string())
@@ -193,6 +223,9 @@ public:
 				 const boost::format &message);
 	void NOTICE(const boost::shared_ptr<LiveUser> &target,
 				const boost::format &message);
+	void HELPOP(const boost::format &message) const;
+	void WALLOP(const boost::format &message) const;
+	void GLOBOP(const boost::format &message) const;
 	void ANNOUNCE(const boost::format &message) const;
 	void SVSNICK(const boost::shared_ptr<LiveUser> &target,
 				 const std::string &newnick) const;

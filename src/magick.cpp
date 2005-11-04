@@ -106,7 +106,7 @@ void Magick::run(const boost::function0<bool> &check)
 //    init_memoserv_functions(memoserv);
     init_commserv_functions(commserv);
 //    init_operserv_functions(operserv);
-//    init_other_functions(other);
+    init_other_functions(other);
 
 	while (check())
 	{

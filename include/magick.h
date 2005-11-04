@@ -159,5 +159,6 @@ public:
 
 extern Magick *ROOT;
 extern mantra::FlowControl *flow;
+extern const char * const contrib[];
 
 #endif // _MAGICK_MAGICK_H

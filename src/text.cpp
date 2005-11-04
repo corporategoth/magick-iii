@@ -1,5 +1,7 @@
-#ifndef WIN32
-#pragma interface
+#ifdef WIN32
+#pragma hdrstop
+#else
+#pragma implementation
 #endif
 
 /* Magick IRC Services
@@ -13,15 +15,12 @@
 ** This code is released under the GNU General Public License v2.0 or better.
 ** The full text of this license should be contained in a file called
 ** COPYING distributed with this code.  If this file does not exist,
-** it may be viewed here: http://www.neuromancy.net/license/gpl.html
+** it may be viewed here: http://www.neuromaancy.net/license/gpl.html
 **
 ** ======================================================================= */
-#ifndef _MAGICK_TEXT_H
-#define _MAGICK_TEXT_H 1
+#define RCSID(x,y) const char *rcsid_magick__text_cpp_ ## x () { return y; }
+RCSID(magick__text_cpp, "@(#)$Id$");
 
-#ifdef RCSID
-RCSID(magick__text_h, "@(#) $Id$");
-#endif // RCSID
 /* ======================================================================= **
 **
 ** For official changes (by The Neuromancy Society), please
@@ -33,7 +32,9 @@ RCSID(magick__text_h, "@(#) $Id$");
 **
 ** ======================================================================= */
 
-const char *contrib[] = {
+#include "magick.h"
+
+const char * const contrib[] = {
 		"Magick IRC Services - http://www.neuromancy.net/magick",
 		"(c) 2005 The Neuromancy Society <info@neuromancy.net>",
 		"Lead Developer: Preston A. Elder <prez@neuromancy.net>",
@@ -49,7 +50,6 @@ const char *contrib[] = {
 		"Special thanks go out to all who have contributed ideas, code,",
 		"scripts, systems and their time to the development of Magick,",
 		"and all projects of The Neuromancy Society.",
-		NULL
+		0
 	};
 
-#endif // _MAGICK_TEXT_H

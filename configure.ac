@@ -35,6 +35,7 @@ AC_CONFIG_FILES([	Makefile po/Makefile.in m4/Makefile
 					src/Makefile
 					python/Makefile
 					doc/Makefile
+					doc/ircd/Makefile
 				])
 AM_CONFIG_HEADER(include/config.h)
 

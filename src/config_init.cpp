@@ -362,7 +362,7 @@ static void add_stage_options(po::options_description &opts, const std::string &
 		((prefix + ".stage.verify.nice").c_str(), mantra::value<bool>()->default_value(false),
 					"will we ignore a failure to verify")
 
-#ifdef MANTRA_STORAGE_STAGE_COMPRESS_SUPPORT
+//#ifdef MANTRA_STORAGE_STAGE_COMPRESS_SUPPORT
 		((prefix + ".stage.compress.type").c_str(), mantra::value<unsigned int>()->parser(
 					mantra::validate_mapped<std::string, unsigned int, mantra::iless<std::string> >("LZW", mantra::CompressStage::LZW)
 #ifdef HAVE_ZLIB_H
@@ -374,7 +374,7 @@ static void add_stage_options(po::options_description &opts, const std::string &
 					), "type of compression to use")
 		((prefix + ".stage.compress.level").c_str(), mantra::value<int>()->default_value(6)->parser(mantra::validate_range<int>(1, 9)),
 					"compression level (1-9)")
-#endif
+//#endif
 
 		((prefix + ".stage.crypt.type").c_str(), mantra::value<unsigned int>()->parser(
 					mantra::validate_mapped<std::string, unsigned int, mantra::iless<std::string> >("XOR", mantra::CryptStage::XOR)
@@ -493,7 +493,7 @@ static void add_storage_options(po::options_description &opts)
 	;
 	add_stage_options(opts, "storage.inifile");
 
-#ifdef MANTRA_STORAGE_XML_SUPPORT
+//#ifdef MANTRA_STORAGE_XML_SUPPORT
 	opts.add_options()
 		("storage.xml.stage", mantra::value<std::vector<std::string> >()->composing()->parser(
 					mantra::validate_oneof<std::string, mantra::iequal_to<std::string> >("file") + "net" + "verify"
@@ -506,10 +506,10 @@ static void add_storage_options(po::options_description &opts)
 					"encoding for XML data")
 	;
 	add_stage_options(opts, "storage.xml");
-#endif
+//#endif
 
 	opts.add_options()
-#ifdef MANTRA_STORAGE_POSTGRESQL_SUPPORT
+//#ifdef MANTRA_STORAGE_POSTGRESQL_SUPPORT
 		("storage.postgresql.db-name", mantra::value<std::string>(),
 					"database name we will connect to")
 		("storage.postgresql.user", mantra::value<std::string>(),
@@ -528,9 +528,9 @@ static void add_storage_options(po::options_description &opts)
 					"maximum number of connections to the database we may have")
 		("storage.postgresql.max-spare-count", mantra::value<unsigned int>()->default_value(4),
 					"maximum number of spare connections to the database to keep")
-#endif
+//#endif
 
-#ifdef MANTRA_STORAGE_MYSQL_SUPPORT
+//#ifdef MANTRA_STORAGE_MYSQL_SUPPORT
 		("storage.mysql.db-name", mantra::value<std::string>(),
 					"database name we will connect to")
 		("storage.mysql.user", mantra::value<std::string>(),
@@ -549,18 +549,18 @@ static void add_storage_options(po::options_description &opts)
 					"maximum number of connections to the database to keep")
 		("storage.mysql.max-spare-count", mantra::value<unsigned int>()->default_value(4),
 					"maximum number of spare connections to the database to keep")
-#endif
+//#endif
 
-#ifdef MANTRA_STORAGE_SQLITE_SUPPORT
+//#ifdef MANTRA_STORAGE_SQLITE_SUPPORT
 		("storage.sqlite.db-name", mantra::value<std::string>(),
 					"database name we will connect to")
 		("storage.sqlite.max-conn-count", mantra::value<unsigned int>()->default_value(0),
 					"maximum number of connections to the database to keep")
 		("storage.sqlite.max-spare-count", mantra::value<unsigned int>()->default_value(4),
 					"maximum number of spare connections to the database to keep")
-#endif
+//#endif
 
-#ifdef MANTRA_STORAGE_BERKELEYDB_SUPPORT
+//#ifdef MANTRA_STORAGE_BERKELEYDB_SUPPORT
 		("storage.berkeleydb.db-dir", mantra::value<std::string>(),
 					"directory where databases reside.")
 		("storage.berkeleydb.private", mantra::value<bool>()->default_value(true),
@@ -569,7 +569,7 @@ static void add_storage_options(po::options_description &opts)
 					"password used to protect databases.")
 		("storage.berkeleydb.btree", mantra::value<bool>()->default_value(false),
 					"use binary tree (instead of hash) for storage")
-#endif
+//#endif
 	;
 
 	MT_EE
@@ -852,7 +852,7 @@ static void add_nickserv_options(po::options_description &opts)
 		("nickserv.defaults.nomemo", mantra::value<bool>()->default_value(false), "")
 		("nickserv.defaults.private", mantra::value<bool>()->default_value(false), "")
 		("nickserv.defaults.privmsg", mantra::value<bool>()->default_value(false), "")
-		("nickserv.defaults.language", mantra::value<std::string>()->default_value("english"), "")
+		("nickserv.defaults.language", mantra::value<std::string>()->default_value("en_GB"), "")
 
 		("nickserv.lock.protect", mantra::value<bool>()->default_value(false), "")
 		("nickserv.lock.secure", mantra::value<bool>()->default_value(false), "")
