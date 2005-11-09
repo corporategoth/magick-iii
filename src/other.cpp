@@ -69,6 +69,38 @@ static bool biASK(const ServiceUser *service,
 	MT_EE
 }
 
+static void GraphChildren(const ServiceUser *service,
+						  const boost::shared_ptr<LiveUser> &user, size_t count,
+						  const Server &server, const std::string &prefix)
+{
+	std::list<boost::shared_ptr<Server> >::const_iterator i = server.Children().begin();
+	while (i != server.Children().end())
+	{
+		// Increment and get the current one back, so we can check if the next
+		// entry is end() but keep working on the current entry.
+		std::list<boost::shared_ptr<Server> >::const_iterator work = i++;
+
+		if (i != server.Children().end())
+		{
+			SEND(service, user, _("%1$-50s %2$ 3.03fs %3$ 5u (%4$ 3u) %5$ 3.2f%%"),
+				 (prefix + "|- " + (*work)->Name()) %
+				 (double((*work)->Lag().total_milliseconds()) / 1000.0) %
+				 (*work)->Users() % (*work)->Opers() %
+				 (double((*work)->Users()) / double(count) * 100.0));
+			GraphChildren(service, user, count, **work, prefix + "|  ");
+		}
+		else
+		{
+			SEND(service, user, _("%1$-50s %2$ 3.03fs %3$ 5u (%4$ 3u) %5$ 3.2f%%"),
+				 (prefix + "`- " + (*work)->Name()) %
+				 (double((*work)->Lag().total_milliseconds()) / 1000.0) %
+				 (*work)->Users() % (*work)->Opers() %
+				 (double((*work)->Users()) / double(count) * 100.0));
+			GraphChildren(service, user, count, **work, prefix + "   ");
+		}
+	}
+}
+
 static bool biMAP(const ServiceUser *service,
 					const boost::shared_ptr<LiveUser> &user,
 					const std::vector<std::string> &params)
@@ -76,7 +108,17 @@ static bool biMAP(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biMAP" << service << user << params);
 
+	boost::shared_ptr<Uplink> uplink = ROOT->getUplink();
+	if (!uplink)
+		MT_RET(false);
 
+	size_t count = ROOT->data.Users();
+
+	NSEND(service, user, N_("SERVER                                                  LAG USERS OPERS"));
+	SEND(service, user, _("%1$-50s %2$ 3.03fs %3$ 5u (%4$ 3u) %5$ 3.2f%%"),
+		 uplink->Name() % 0.0 % uplink->Users() % uplink->Opers() %
+		 (double(uplink->Users()) / double(count) * 100.0));
+	GraphChildren(service, user, count, *uplink, std::string());
 
 	MT_RET(true);
 	MT_EE

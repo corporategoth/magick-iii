@@ -137,9 +137,10 @@ boost::shared_ptr<LiveUser> ServiceUser::create(Service *s,
 	ServiceUser *su = new ServiceUser(s, name, real, server, id);
 	boost::shared_ptr<LiveUser> rv(su);
 	su->self = rv;
+	if_Server_LiveUser(server).Signon(rv);
 	ROOT->data.Add(rv);
-	MT_RET(rv);
 
+	MT_RET(rv);
 	MT_EE
 }
 
@@ -161,6 +162,7 @@ boost::shared_ptr<LiveUser> LiveUser::create(const std::string &name,
 		ROOT->ConfigValue<std::string>("commserv.all.name"));
 	rv->committees_.insert(comm);
 	if_Committee_LiveUser(comm).Online(rv);
+	if_Server_LiveUser(server).Signon(rv);
 	ROOT->data.Add(rv);
 
 	if (ROOT->data.Matches_Forbidden(name))
@@ -564,6 +566,8 @@ void LiveUser::Quit(const std::string &reason)
 			if_Committee_LiveUser(*i).Offline(self.lock());
 		committees_.clear();
 	}
+	// Update the server
+	if_Server_LiveUser(server_).Signoff(self.lock());
 	// Tell nickname I quit
 	{
 		SYNC_WLOCK(stored_);

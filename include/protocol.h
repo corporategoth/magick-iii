@@ -58,6 +58,7 @@ class Protocol
 	// These need to access our stuff directly, as they
 	// send all kinds of messages.
 	friend class Service;
+	friend class Server;
 	friend class Uplink;
 	friend class Jupe;
 

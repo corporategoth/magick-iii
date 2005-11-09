@@ -163,6 +163,9 @@ public:
 	bool init(const boost::program_options::variables_map &vm,
 			  const boost::program_options::variables_map &opt_config);
 	void ClearLive();
+	size_t Users() const;
+	size_t Channels() const;
+
 	void Load();
 	void Save();
 	std::string CryptPassword(const std::string &in) const;

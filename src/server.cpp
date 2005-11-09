@@ -42,6 +42,7 @@ void Server::Disconnect()
 
 	parent_ = NULL;
 
+	SYNC_LOCK(children_);
 	std::list<boost::shared_ptr<Server> >::iterator i;
 	for (i=children_.begin(); i!=children_.end(); ++i)
 		(*i)->Disconnect();
@@ -57,7 +58,8 @@ Server::Server(const std::string &name, const std::string &desc,
 			  : name_(name), description_(desc), id_(id),
 				altname_(altname.empty() ? name : altname),
 				last_ping_(boost::date_time::not_a_date_time),
-				lag_(boost::date_time::not_a_date_time), parent_(NULL)
+				ping_event_(0), parent_(NULL),
+				SYNC_NRWINIT(users_, reader_priority)
 {
 	MT_EB
 	MT_FUNC("Server::Server" << name << desc << id << altname);
@@ -75,11 +77,54 @@ Server::~Server()
 	MT_EE
 }
 
+boost::posix_time::ptime Server::Last_Ping() const
+{
+	MT_EB
+	MT_FUNC("Server::Last_Ping");
+
+	SYNC_LOCK(lag_);
+	MT_RET(last_ping_);
+	MT_EE
+}
+
+boost::posix_time::time_duration Server::Lag() const
+{
+	MT_EB
+	MT_FUNC("Server::Lag");
+
+	SYNC_LOCK(lag_);
+	MT_RET(lag_);
+	MT_EE
+}
+
+void Server::Signon(const boost::shared_ptr<LiveUser> &lu)
+{
+	MT_EB
+	MT_FUNC("Server::Signon" << lu);
+
+	SYNC_WLOCK(users_);
+	users_.insert(lu);
+
+	MT_EE
+}
+
+void Server::Signoff(const boost::shared_ptr<LiveUser> &lu)
+{
+	MT_EB
+	MT_FUNC("Server::Signoff" << lu);
+
+	SYNC_WLOCK(users_);
+	users_.erase(lu);
+
+	MT_EE
+}
+
 void Server::Connect(const boost::shared_ptr<Server> &s)
 {
 	MT_EB
 	MT_FUNC("Server::Connect" << s);
 
+	SYNC_LOCK(children_);
 	s->parent_ = this;
 	children_.push_back(s);
 
@@ -91,6 +136,7 @@ void Server::Disconnect(const std::string &name)
 	MT_EB
 	MT_FUNC("Server::Disconnect" << name);
 
+	SYNC_LOCK(children_);
 	std::list<boost::shared_ptr<Server> >::iterator i;
 	for (i=children_.begin(); i!=children_.end(); ++i)
 		if ((*i)->Name() == name)
@@ -108,6 +154,32 @@ void Server::Ping()
 	MT_EB
 	MT_FUNC("Server::Ping");
 
+	SYNC_LOCK(lag_);
+	if (ping_event_)
+	{
+		ROOT->event->Cancel(ping_event_);
+		ping_event_ = 0;
+	}
+
+	const Server *p = this;
+	const Jupe *j = dynamic_cast<const Jupe *>(p);
+	// Do not do this if *WE* are a jupe.
+	if (j)
+		return;
+
+	while (p && !j)
+	{
+		p = p->Parent();
+		j = dynamic_cast<const Jupe *>(p);
+	}
+
+	std::string out;
+	if (j)
+		ROOT->proto.addline(*j, out, ROOT->proto.tokenise("PING") + " :" + Name());
+	else
+		ROOT->proto.addline(out, ROOT->proto.tokenise("PING") + " :" + Name());
+	ROOT->proto.send(out);
+	last_ping_ = mantra::GetCurrentDateTime();
 
 	MT_EE
 }
@@ -117,11 +189,14 @@ void Server::Pong()
 	MT_EB
 	MT_FUNC("Server::Pong");
 
+	SYNC_LOCK(lag_);
 	if (last_ping_.is_special())
 		return;
 
 	lag_ = mantra::GetCurrentDateTime() - last_ping_;
 	last_ping_ = boost::date_time::not_a_date_time;
+	ping_event_ = ROOT->event->Schedule(boost::bind(&Server::Ping, this),
+										ROOT->ConfigValue<mantra::duration>("general.ping-frequency"));
 
 	MT_EE
 }
@@ -131,8 +206,10 @@ size_t Server::Users() const
 	MT_EB
 	MT_FUNC("Server::Users");
 
-	MT_RET(0);
+	SYNC_RLOCK(users_);
+	size_t rv = users_.size();
 
+	MT_RET(rv);
 	MT_EE
 }
 
@@ -141,8 +218,11 @@ size_t Server::Opers() const
 	MT_EB
 	MT_FUNC("Server::Opers");
 
-	MT_RET(0);
+	SYNC_RLOCK(users_);
+	size_t rv = std::count_if(users_.begin(), users_.end(),
+							  boost::bind(&LiveUser::Mode, _1, 'o'));
 
+	MT_RET(rv);
 	MT_EE
 }
 
@@ -322,7 +402,7 @@ public:
 		std::list<boost::shared_ptr<Server> >::const_iterator i = start.Children().begin();
 		std::list<boost::shared_ptr<Server> >::const_iterator ie = start.Children().end();
 
-		while (i != ie)
+		while (true)
 		{
 			if (i == ie)
 			{

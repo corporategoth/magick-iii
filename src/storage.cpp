@@ -1924,6 +1924,47 @@ void Storage::init()
 	MT_EE
 }
 
+void Storage::ClearLive()
+{
+	MT_EB
+	MT_FUNC("Storage::ClearLive");
+
+	{
+		SYNC_WLOCK(LiveChannels_);
+		LiveChannels_.clear();
+	}
+	{
+		SYNC_WLOCK(LiveUsers_);
+		LiveUsers_.clear();
+	}
+
+	MT_EE
+}
+
+size_t Storage::Users() const
+{
+	MT_EB
+	MT_FUNC("Storage::Users");
+
+	SYNC_RLOCK(LiveUsers_);
+	size_t rv = LiveUsers_.size();
+
+	MT_RET(rv);
+	MT_EE
+}
+
+size_t Storage::Channels() const
+{
+	MT_EB
+	MT_FUNC("Storage::Channels");
+
+	SYNC_RLOCK(LiveChannels_);
+	size_t rv = LiveChannels_.size();
+
+	MT_RET(rv);
+	MT_EE
+}
+
 void Storage::Load()
 {
 	MT_EB

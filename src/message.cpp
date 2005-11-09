@@ -1175,6 +1175,7 @@ static bool biSERVER(const Message &m)
 	}
 
 	uplink->de.Satisfy(Dependency::ServerExists, serv->Name());
+	serv->Ping();
 
 	MT_RET(true);
 	MT_EE

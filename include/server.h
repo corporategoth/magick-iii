@@ -39,6 +39,7 @@ RCSID(magick__server_h, "@(#) $Id$");
 #include <string>
 #include <queue>
 
+#include <mantra/core/sync.h>
 #include <mantra/net/socket.h>
 #include <mantra/net/socketgroup.h>
 #include <mantra/file/filebuffer.h>
@@ -48,18 +49,27 @@ RCSID(magick__server_h, "@(#) $Id$");
 #include <boost/thread/thread.hpp>
 #include <boost/thread/condition.hpp>
 
+class LiveUser;
+
 class Server
 {
+	friend class if_Server_LiveUser;
+
 	std::string name_;
 	std::string description_;
 	std::string id_;
 	std::string altname_;
 
+	boost::posix_time::time_duration SYNC(lag_);
 	boost::posix_time::ptime last_ping_;
-	boost::posix_time::time_duration lag_;
+	unsigned int ping_event_;
 
 	Server *parent_;
-	std::list<boost::shared_ptr<Server> > children_;
+	std::list<boost::shared_ptr<Server> > SYNC(children_);
+	std::set<boost::shared_ptr<LiveUser> > RWSYNC(users_);
+
+	void Signon(const boost::shared_ptr<LiveUser> &lu);
+	void Signoff(const boost::shared_ptr<LiveUser> &lu);
 
 protected:
 	virtual void Disconnect();
@@ -74,11 +84,11 @@ public:
 	const std::string &ID() const { return id_; }
 	const std::string &AltName() const { return altname_; }
 	const std::string &Description() const { return description_; }
-
-	boost::posix_time::ptime Last_Ping() const { return last_ping_; }
-	boost::posix_time::time_duration Lag() const { return lag_; }
-	
 	const Server *Parent() const { return parent_; }
+
+	boost::posix_time::ptime Last_Ping() const;
+	boost::posix_time::time_duration Lag() const;
+	
 	const std::list<boost::shared_ptr<Server> > &Children() const { return children_; }
 
 	void Connect(const boost::shared_ptr<Server> &s);
@@ -217,6 +227,23 @@ public:
 	}
 
 	bool ERROR(const std::string &arg) const;
+};
+
+// Special interface used by LiveUser.
+class if_Server_LiveUser
+{
+	friend class LiveUser;
+	friend class ServiceUser;
+	Server &base;
+
+	// This is INTENTIONALLY private ...
+	if_Server_LiveUser(Server &b) : base(b) {}
+	if_Server_LiveUser(const boost::shared_ptr<Server> &b) : base(*(b.get())) {}
+
+	inline void Signon(const boost::shared_ptr<LiveUser> &lu)
+		{ base.Signon(lu); }
+	inline void Signoff(const boost::shared_ptr<LiveUser> &lu)
+		{ base.Signoff(lu); }
 };
 
 // Used for tracing mainly.
