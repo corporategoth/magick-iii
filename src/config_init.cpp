@@ -778,10 +778,12 @@ static void add_general_options(po::options_description &opts)
 					"how long to attempt to create a connection")
 		("general.server-relink", mantra::value<mantra::duration>()->default_value(mantra::duration("5s")),
 					"how long to wait before attempting a connection")
-		("general.squit-protect", mantra::value<mantra::duration>()->default_value(mantra::duration("2n")),
-					"how long to remember info about a squit server")
 		("general.squit-cancel", mantra::value<mantra::duration>()->default_value(mantra::duration("10s")),
-					"how long to wait for SQUIT message before signing off user")
+					"how long to wait on a suspected SQUIT for actual SQUIT")
+		("general.squit-protect", mantra::value<mantra::duration>()->default_value(mantra::duration("2n")),
+					"how long to remember info about a SQUIT users")
+		("general.squit-rejoin", mantra::value<mantra::duration>()->default_value(mantra::duration("10s")),
+					"how long to wait after SQUIT ends for user to sign on")
 		("general.ping-frequency", mantra::value<mantra::duration>()->default_value(mantra::duration("30s")),
 					"how often to check the network lag")
 		("general.starthresh", mantra::value<unsigned int>()->default_value(4),

@@ -165,6 +165,7 @@ private:
 	void Stored(const boost::shared_ptr<StoredChannel> &stored);
 
 	// use if_LiveChannel_LiveUser
+	void Squit(const boost::shared_ptr<LiveUser> &user);
 	void Quit(const boost::shared_ptr<LiveUser> &user);
 
 	LiveChannel(const std::string &name,
@@ -321,6 +322,8 @@ class if_LiveChannel_LiveUser
 	if_LiveChannel_LiveUser(LiveChannel &b) : base(b) {}
 	if_LiveChannel_LiveUser(const boost::shared_ptr<LiveChannel> &b) : base(*(b.get())) {}
 
+	inline void Squit(const boost::shared_ptr<LiveUser> &user)
+		{ base.Squit(user); }
 	inline void Quit(const boost::shared_ptr<LiveUser> &user)
 		{ base.Quit(user); }
 };

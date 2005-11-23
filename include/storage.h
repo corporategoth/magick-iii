@@ -61,14 +61,58 @@ RCSID(magick__storage_h, "@(#) $Id$");
 
 class LiveUser;
 class LiveChannel;
+class Server;
 
 class Storage
 {
 	friend class StorageInterface;
 	template<typename T> friend class if_StorageDeleter;
 
-	typedef std::map<std::string, boost::shared_ptr<LiveUser>, mantra::iless<std::string> > LiveUsers_t;
-	typedef std::map<std::string, boost::shared_ptr<LiveChannel>, mantra::iless<std::string> > LiveChannels_t;
+public:
+	typedef std::set<boost::shared_ptr<LiveUser> > LiveUsers_t;
+	typedef std::set<boost::shared_ptr<LiveChannel> > LiveChannels_t;
+
+	// server name -> (end-squit event, squit users)
+	class SquitEntry : public boost::totally_ordered1<SquitEntry>,
+					   public boost::totally_ordered2<SquitEntry, std::string>
+	{
+		size_t stage_;
+		const std::string server_;
+		const std::string uplink_;
+		unsigned int event_;
+		Storage::LiveUsers_t users_;
+
+		void operator()();
+	public:
+		SquitEntry(const std::string &server, const std::string &uplink, size_t stage = 1)
+			: stage_(stage), server_(server), uplink_(uplink), event_(0){}
+		~SquitEntry();
+
+		size_t Stage() const { return stage_; }
+		const std::string &Server() const { return server_; }
+		const std::string &Uplink() const { return uplink_; }
+		const LiveUsers_t &Users() const { return users_; }
+	
+		// Do a swap WITHOUT scheduling a new cleanup timer (cancel existing timer).
+		void swap(Storage::LiveUsers_t &users);
+		// Do a swap WITH scheduling a new cleanup timer.
+		void swap(Storage::LiveUsers_t &users, const mantra::duration &duration);
+
+		// Remove a single user from the users DB (for cleanup).
+		void remove(const boost::shared_ptr<LiveUser> &user);
+		boost::shared_ptr<LiveUser> remove(const std::string &user);
+
+		bool operator<(const std::string &s) const
+			{ return server_ < s; }
+		bool operator==(const std::string &s) const
+			{ return server_ == s; }
+		bool operator<(const SquitEntry &in) const
+			{ return *this < in.server_; }
+		bool operator==(const SquitEntry &in) const
+			{ return *this == in.server_; }
+	};
+
+	typedef std::set<SquitEntry> SquitUsers_t;
 
 	typedef std::set<boost::shared_ptr<StoredUser> > StoredUsers_t;
 	typedef std::set<boost::shared_ptr<StoredNick> > StoredNicks_t;
@@ -109,7 +153,9 @@ class Storage
 	typedef std::set<Ignore> Ignores_t;
 	typedef std::set<KillChannel> KillChannels_t;
 
-	boost::mutex lock_;
+private:
+
+	mutable boost::mutex lock_;
 	std::pair<mantra::FinalStage *, void (*)(mantra::FinalStage *)> finalstage_;
 	std::vector<std::pair<mantra::Stage *, void (*)(mantra::Stage *)> > stages_;
 	std::pair<mantra::Storage *, void (*)(mantra::Storage *)> backend_;
@@ -120,6 +166,29 @@ class Storage
 
 	LiveUsers_t RWSYNC(LiveUsers_);
 	LiveChannels_t RWSYNC(LiveChannels_);
+
+	// SQUIT's have three stages (for the purposes of SQUIT protection).
+	// 1. Suspected SQUIT.  A user has signed off with a quit message consisting
+	//    of two server names where one is the uplink of the other, which is
+	//    usually the first sign of a SQUIT on networks without NOQUIT.
+	//    ACTION: Move the user into the first stage squit storage for a short
+	//            period of time until we get the SQUIT message.  If the timeout
+	//            expires before we get the SQUIT message or the user signs back
+	//            on again, Quit the user normally.
+	// 2. Confirmed SQUIT.  We recieve the SQUIT message from the server, which
+	//    will be the first notification on networks that support NOQUIT.
+	//    ACTION: Move the users into the second stage squit storage until the
+	//            longer squit timer times out.  If the server does not come back
+	//            in that time, or the users signs on in that time, Quit the user
+	//            normally.
+	// 3. End SQUIT.  We receive a reconnect from the server.
+	//    ACTION: Move all users in second stage squit storage to the third stage
+	//            stage squit storage for a short period of time until they sign
+	//            back on again.  If the timeout expires before they sign on or
+	//            the user signs back on with different information than they
+	//            signed off with, Quit the user normally.
+	RWNSYNC(SquitUsers_);
+	SquitUsers_t SquitUsers_[3];
 
 	StoredUsers_t RWSYNC(StoredUsers_);
 	StoredNicks_t RWSYNC(StoredNicks_);
@@ -145,6 +214,8 @@ class Storage
 
 	void Del(const boost::shared_ptr<LiveUser> &entry);
 	void Del(const boost::shared_ptr<LiveChannel> &entry);
+	void Del(const boost::shared_ptr<Server> &entry); // special case (squit)
+	void Del(const SquitEntry &entry);
 
 	void DelInternal(const boost::shared_ptr<StoredUser> &entry);
 	void Del(const boost::shared_ptr<StoredUser> &entry);
@@ -168,6 +239,7 @@ public:
 
 	void Load();
 	void Save();
+	boost::posix_time::ptime SaveTime() const;
 	std::string CryptPassword(const std::string &in) const;
 
 	void Add(const boost::shared_ptr<LiveUser> &entry);

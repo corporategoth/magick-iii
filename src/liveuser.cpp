@@ -513,6 +513,19 @@ void LiveUser::Name(const std::string &in)
 	MT_EE
 }
 
+void LiveUser::Squit()
+{
+	MT_EB
+	MT_FUNC("LiveUser::Squit");
+
+	SYNC_LOCK(channel_joined_);
+	channel_joined_t::const_iterator i;
+	for (i=channel_joined_.begin(); i!=channel_joined_.end(); ++i)
+		if_LiveChannel_LiveUser(*i).Squit(self.lock());
+
+	MT_EE
+}
+
 boost::shared_ptr<StoredNick> LiveUser::Stored() const
 {
 	MT_EB

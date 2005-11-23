@@ -45,16 +45,26 @@ RCSID(magick__server_h, "@(#) $Id$");
 #include <mantra/file/filebuffer.h>
 
 #include <boost/shared_ptr.hpp>
+#include <boost/weak_ptr.hpp>
 #include <boost/date_time/posix_time/ptime.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/thread/condition.hpp>
 
 class LiveUser;
 
-class Server
+class Server : private boost::noncopyable,
+			   public boost::totally_ordered1<Server>,
+			   public boost::totally_ordered2<Server, std::string>
 {
 	friend class if_Server_LiveUser;
+	friend class ChildrenAction;
+	friend class UsersAction;
 
+public:
+	typedef std::set<boost::shared_ptr<Server> > children_t;
+	typedef std::set<boost::shared_ptr<LiveUser> > users_t;
+
+private:
 	std::string name_;
 	std::string description_;
 	std::string id_;
@@ -64,65 +74,134 @@ class Server
 	boost::posix_time::ptime last_ping_;
 	unsigned int ping_event_;
 
-	Server *parent_;
-	std::list<boost::shared_ptr<Server> > SYNC(children_);
-	std::set<boost::shared_ptr<LiveUser> > RWSYNC(users_);
+	boost::shared_ptr<Server> parent_;
+	children_t SYNC(children_);
+	users_t RWSYNC(users_);
 
 	void Signon(const boost::shared_ptr<LiveUser> &lu);
 	void Signoff(const boost::shared_ptr<LiveUser> &lu);
 
 protected:
-	virtual void Disconnect();
+	boost::weak_ptr<Server> self;
 
-public:
 	Server(const std::string &name, const std::string &desc,
 			const std::string &id = std::string(),
 			const std::string &altname = std::string());
+
+	virtual void Disconnect();
+
+public:
+	static boost::shared_ptr<Server> create(const std::string &name,
+			const std::string &desc, const std::string &id = std::string(),
+			const std::string &altname = std::string())
+	{
+		boost::shared_ptr<Server> rv(new Server(name, desc, id, altname));
+		rv->self = rv;
+		return rv;
+	}
 	virtual ~Server();
+
+	inline bool operator<(const std::string &rhs) const
+	{
+#ifdef CASE_SPECIFIC_SORT
+		static mantra::less<std::string> cmp;
+#else
+		static mantra::iless<std::string> cmp;
+#endif
+		return cmp(Name(), rhs);
+	}
+	inline bool operator==(const std::string &rhs) const
+	{
+#ifdef CASE_SPECIFIC_SORT
+		static mantra::equal_to<std::string> cmp;
+#else
+		static mantra::iequal_to<std::string> cmp;
+#endif
+		return cmp(Name(), rhs);
+	}
+	inline bool operator<(const Server &rhs) const { return *this < rhs.Name(); }
+	inline bool operator==(const Server &rhs) const { return *this == rhs.Name(); }
+
+	class ChildrenAction
+	{
+		bool recursive_;
+	protected:
+		virtual bool visitor(const boost::shared_ptr<Server> &) = 0;
+
+	public:
+		ChildrenAction(bool recursive) : recursive_(recursive) {}
+		virtual ~ChildrenAction() {}
+
+		bool operator()(const boost::shared_ptr<Server> &start);
+	};
+
+	class UsersAction
+	{
+		bool recursive_;
+	protected:
+		virtual bool visitor(const boost::shared_ptr<LiveUser> &) = 0;
+
+	public:
+		UsersAction(bool recursive) : recursive_(recursive) {}
+		virtual ~UsersAction() {}
+
+		bool operator()(const boost::shared_ptr<Server> &start);
+	};
 
 	const std::string &Name() const { return name_; }
 	const std::string &ID() const { return id_; }
 	const std::string &AltName() const { return altname_; }
 	const std::string &Description() const { return description_; }
-	const Server *Parent() const { return parent_; }
+	const boost::shared_ptr<Server> Parent() const { return parent_; }
 
 	boost::posix_time::ptime Last_Ping() const;
 	boost::posix_time::time_duration Lag() const;
 	
-	const std::list<boost::shared_ptr<Server> > &Children() const { return children_; }
-
 	void Connect(const boost::shared_ptr<Server> &s);
-	void Disconnect(const std::string &name);
+	bool Disconnect(const boost::shared_ptr<Server> &s);
+	bool Disconnect(const std::string &name);
 
-	virtual void Ping();
-	void Pong();
-
+	size_t Children() const;
 	size_t Users() const;
 	size_t Opers() const;
+
+	children_t getChildren() const;
+	users_t getUsers() const;
+
+	virtual void PING();
+	virtual void PONG();
+	virtual void SQUIT(const std::string &reason = std::string());
 };
 
 class Jupe : public Server
 {
-	void Connect(const boost::shared_ptr<Server> &s);
+	Jupe(const std::string &name, const std::string &reason,
+		const std::string id = std::string())
+		: Server(name, "JUPED (" + reason + ")", id) {}
 protected:
+	using Server::self;
+
 	// Passthrough for Uplink :)
 	Jupe(const std::string &name, const std::string &desc,
 		 const std::string &id, const std::string &altname)
 		 : Server(name, desc, id, altname) {}
 
 public:
-	Jupe(const std::string &name, const std::string &reason,
-		const std::string id = std::string())
-		: Server(name, "JUPED (" + reason + ")", id) {}
+	static boost::shared_ptr<Server> create(const std::string &name,
+		const std::string &reason, const std::string id = std::string())
+	{
+		Jupe *j = new Jupe(name, reason, id);
+		boost::shared_ptr<Server> rv(j);
+		j->self = rv;
+		return rv;
+	}
 	virtual ~Jupe() {}
 
 	// PING is disabled for juped servers
-	virtual void Ping() {}
+	virtual void PING() {}
+	virtual void PONG() {}
+	virtual void SQUIT(const std::string &reason = std::string());
 
-	void Connect(const boost::shared_ptr<Jupe> &s)
-		{ Server::Connect(s); }
-
-	bool SQUIT(const std::string &reason = std::string()) const;
 	bool RAW(const std::string &cmd,
 			 const std::vector<std::string> &args,
 			 bool forcecolon = false) const;
@@ -137,7 +216,6 @@ public:
 
 };
 
-class LiveUser;
 class Uplink : public Jupe
 {
 	friend class Protocol;
@@ -156,19 +234,23 @@ class Uplink : public Jupe
 
 	void operator()();
 
+	Uplink(const std::string &password, const std::string &id = std::string());
+
 	// Assumes classification is done, and pushes it for processing.
 	void Push(const Message &in);
 public:
-	Uplink(const std::string &password,
-		   const std::string &id = std::string());
+	static boost::shared_ptr<Uplink> create(const std::string &password,
+		   const std::string &id = std::string())
+	{
+		boost::shared_ptr<Uplink> rv(new Uplink(password, id));
+		rv->self = rv;
+		return rv;
+	}
+
 	virtual ~Uplink() { this->Disconnect(); }
 
 	boost::shared_ptr<Server> Find(const std::string &name) const;
 	boost::shared_ptr<Server> FindID(const std::string &id) const;
-
-	virtual void Ping();
-	void Connect(const boost::shared_ptr<Server> &s)
-		{ Server::Connect(s); }
 
 	using Server::Disconnect;
 	void Disconnect();

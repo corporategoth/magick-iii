@@ -40,15 +40,16 @@ void Server::Disconnect()
 	MT_EB
 	MT_FUNC("Server::Disconnect");
 
-	parent_ = NULL;
+	parent_ = boost::shared_ptr<Server>();
 
 	SYNC_LOCK(children_);
-	std::list<boost::shared_ptr<Server> >::iterator i;
+	children_t::iterator i;
 	for (i=children_.begin(); i!=children_.end(); ++i)
 		(*i)->Disconnect();
 	children_.clear();
 
 	// Go through and mark users as SQUIT
+	users_.clear();
 
 	MT_EE
 }
@@ -58,8 +59,7 @@ Server::Server(const std::string &name, const std::string &desc,
 			  : name_(name), description_(desc), id_(id),
 				altname_(altname.empty() ? name : altname),
 				last_ping_(boost::date_time::not_a_date_time),
-				ping_event_(0), parent_(NULL),
-				SYNC_NRWINIT(users_, reader_priority)
+				ping_event_(0), SYNC_NRWINIT(users_, reader_priority)
 {
 	MT_EB
 	MT_FUNC("Server::Server" << name << desc << id << altname);
@@ -74,6 +74,55 @@ Server::~Server()
 	MT_FUNC("Server::~Server");
 
 
+	MT_EE
+}
+
+bool Server::ChildrenAction::operator()(const boost::shared_ptr<Server> &start)
+{
+	MT_EB
+	MT_FUNC("Server::ChildrenAction::operator()" << start);
+
+	SYNCP_LOCK(start, children_);
+	children_t::iterator i;
+	for (i = start->children_.begin(); i != start->children_.end(); ++i)
+	{
+		if (!this->visitor(*i))
+			MT_RET(false);
+		if (recursive_ && !this->operator()(*i))
+			MT_RET(false);
+	}
+
+	MT_RET(true);
+	MT_EE
+}
+
+bool Server::UsersAction::operator()(const boost::shared_ptr<Server> &start)
+{
+	MT_EB
+	MT_FUNC("Server::UserAction::operator()" << start);
+
+	{
+		SYNCP_RLOCK(start, users_);
+		users_t::iterator i;
+		for (i = start->users_.begin(); i != start->users_.end(); ++i)
+		{
+			if (!this->visitor(*i))
+				MT_RET(false);
+		}
+	}
+
+	if (recursive_)
+	{
+		SYNCP_LOCK(start, children_);
+		children_t::iterator i;
+		for (i = start->children_.begin(); i != start->children_.end(); ++i)
+		{
+			if (!this->operator()(*i))
+				MT_RET(false);
+		}
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -119,40 +168,86 @@ void Server::Signoff(const boost::shared_ptr<LiveUser> &lu)
 	MT_EE
 }
 
+Server::children_t Server::getChildren() const
+{
+	MT_EB
+	MT_FUNC("Server::getChildren");
+
+	SYNC_LOCK(children_);
+	MT_RET(children_);
+	MT_EE
+}
+
+Server::users_t Server::getUsers() const
+{
+	MT_EB
+	MT_FUNC("Server::getUsers");
+
+	SYNC_RLOCK(users_);
+	MT_RET(users_);
+	MT_EE
+}
+
 void Server::Connect(const boost::shared_ptr<Server> &s)
 {
 	MT_EB
 	MT_FUNC("Server::Connect" << s);
 
 	SYNC_LOCK(children_);
-	s->parent_ = this;
-	children_.push_back(s);
+	s->parent_ = self.lock();
+	children_.insert(s);
 
 	MT_EE
 }
 
-void Server::Disconnect(const std::string &name)
+static bool operator<(const Server::children_t::value_type &lhs,
+					  const std::string &rhs)
+{
+	return (*lhs < rhs);
+}
+
+bool Server::Disconnect(const boost::shared_ptr<Server> &s)
+{
+	MT_EB
+	MT_FUNC("Server::Disconnect" << s);
+
+	SYNC_LOCK(children_);
+	children_t::iterator i = children_.find(s);
+	if (i == children_.end())
+		MT_RET(false);
+
+	if_StorageDeleter<Server>(ROOT->data).Del(*i);
+	(*i)->Disconnect();
+	children_.erase(i);
+
+	MT_RET(true);
+	MT_EE
+}
+
+bool Server::Disconnect(const std::string &name)
 {
 	MT_EB
 	MT_FUNC("Server::Disconnect" << name);
 
 	SYNC_LOCK(children_);
-	std::list<boost::shared_ptr<Server> >::iterator i;
-	for (i=children_.begin(); i!=children_.end(); ++i)
-		if ((*i)->Name() == name)
-		{
-			(*i)->Disconnect();
-			children_.erase(i);
-			break;
-		}
+	children_t::iterator i = std::lower_bound(children_.begin(),
+											  children_.end(),
+											  name);
+	if (i == children_.end() || **i != name)
+		MT_RET(false);
 
+	if_StorageDeleter<Server>(ROOT->data).Del(*i);
+	(*i)->Disconnect();
+	children_.erase(i);
+
+	MT_RET(true);
 	MT_EE
 }
 
-void Server::Ping()
+void Server::PING()
 {
 	MT_EB
-	MT_FUNC("Server::Ping");
+	MT_FUNC("Server::PING");
 
 	SYNC_LOCK(lag_);
 	if (ping_event_)
@@ -161,8 +256,8 @@ void Server::Ping()
 		ping_event_ = 0;
 	}
 
-	const Server *p = this;
-	const Jupe *j = dynamic_cast<const Jupe *>(p);
+	boost::shared_ptr<Server> p = self.lock();
+	Jupe *j = dynamic_cast<Jupe *>(p.get());
 	// Do not do this if *WE* are a jupe.
 	if (j)
 		return;
@@ -170,7 +265,7 @@ void Server::Ping()
 	while (p && !j)
 	{
 		p = p->Parent();
-		j = dynamic_cast<const Jupe *>(p);
+		j = dynamic_cast<Jupe *>(p.get());
 	}
 
 	std::string out;
@@ -184,10 +279,10 @@ void Server::Ping()
 	MT_EE
 }
 
-void Server::Pong()
+void Server::PONG()
 {
 	MT_EB
-	MT_FUNC("Server::Pong");
+	MT_FUNC("Server::PONG");
 
 	SYNC_LOCK(lag_);
 	if (last_ping_.is_special())
@@ -195,8 +290,22 @@ void Server::Pong()
 
 	lag_ = mantra::GetCurrentDateTime() - last_ping_;
 	last_ping_ = boost::date_time::not_a_date_time;
-	ping_event_ = ROOT->event->Schedule(boost::bind(&Server::Ping, this),
+	ping_event_ = ROOT->event->Schedule(boost::bind(&Server::PING, this),
 										ROOT->ConfigValue<mantra::duration>("general.ping-frequency"));
+
+	MT_EE
+}
+
+// This is a REQUEST ...
+void Server::SQUIT(const std::string &reason)
+{
+	MT_EB
+	MT_FUNC("Server::SQUIT" << reason);
+
+	std::string out;
+	ROOT->proto.addline(out, ROOT->proto.tokenise("SQUIT") +
+						' ' + Name() + " :" + reason);
+	ROOT->proto.send(out);
 
 	MT_EE
 }
@@ -226,17 +335,25 @@ size_t Server::Opers() const
 	MT_EE
 }
 
-bool Jupe::SQUIT(const std::string &reason) const
+void Jupe::SQUIT(const std::string &reason)
 {
 	MT_EB
 	MT_FUNC("Jupe::SQUIT" << reason);
 
-
 	std::string out;
-	ROOT->proto.addline(*this, out, ROOT->proto.tokenise("SQUIT") +
-						" :" + reason);
-	bool rv = ROOT->proto.send(out);
-	MT_RET(rv);
+
+	boost::shared_ptr<Server> p = Parent();
+	Jupe *j = ((p && p->Parent()) ? dynamic_cast<Jupe *>(p.get()) : NULL);
+	if (j)
+		ROOT->proto.addline(*j, out, ROOT->proto.tokenise("SQUIT") + Name() +
+							" :" + reason);
+	else
+		ROOT->proto.addline(out, ROOT->proto.tokenise("SQUIT") + Name() +
+							" :" + reason);
+
+	ROOT->proto.send(out);
+	if (p)
+		p->Disconnect(self.lock());
 
 	MT_EE
 }
@@ -382,57 +499,7 @@ void Uplink::operator()()
 	MT_FLUSH();
 }
 
-class RecursiveOperation
-{
-protected:
-	virtual bool visitor(const boost::shared_ptr<Server> &) = 0;
-
-public:
-	RecursiveOperation() {}
-	virtual ~RecursiveOperation() {}
-
-	void operator()(const Uplink &start)
-	{
-		MT_EB
-		MT_FUNC("RecursiveOperation::operator()" << start);
-
-		std::stack<std::pair<std::list<boost::shared_ptr<Server> >::const_iterator,
-					std::list<boost::shared_ptr<Server> >::const_iterator> > is;
-
-		std::list<boost::shared_ptr<Server> >::const_iterator i = start.Children().begin();
-		std::list<boost::shared_ptr<Server> >::const_iterator ie = start.Children().end();
-
-		while (true)
-		{
-			if (i == ie)
-			{
-				if (is.empty())
-					break;
-				i = is.top().first;
-				ie = is.top().second;
-				is.pop();
-				++i;
-			}
-
-			if (!this->visitor(*i))
-				break;
-
-			if (!(*i)->Children().empty())
-			{
-				is.push(make_pair(i, ie));
-				i = (*i)->Children().begin();
-				ie = (*i)->Children().end();
-				continue;
-			}
-
-			++i;
-		}
-
-		MT_EE
-	}
-};
-
-class FindServer : public RecursiveOperation
+class FindServer : public Server::ChildrenAction
 {
 	std::string name_;
 	boost::shared_ptr<Server> result_;
@@ -447,12 +514,13 @@ class FindServer : public RecursiveOperation
 			result_ = s;
 			MT_RET(false);
 		}
+
 		MT_RET(true);
 		MT_EE
 	}
 
 public:
-	FindServer(const std::string &name) : name_(name) {}
+	FindServer(const std::string &name) : Server::ChildrenAction(true), name_(name) {}
 	virtual ~FindServer() {}
 	const boost::shared_ptr<Server> &Result() const { return result_; }
 };
@@ -466,14 +534,14 @@ boost::shared_ptr<Server> Uplink::Find(const std::string &name) const
 		MT_RET(ROOT->getUplink());
 
 	FindServer fs(name);
-	fs(*this);
+	fs(self.lock());
 	boost::shared_ptr<Server> rv = fs.Result();
 	MT_RET(rv);
 
 	MT_EE
 }
 
-class FindServerID : public RecursiveOperation
+class FindServerID : public Server::ChildrenAction
 {
 	std::string id_;
 	boost::shared_ptr<Server> result_;
@@ -493,7 +561,7 @@ class FindServerID : public RecursiveOperation
 	}
 
 public:
-	FindServerID(const std::string &id) : id_(id) {}
+	FindServerID(const std::string &id) : Server::ChildrenAction(true), id_(id) {}
 	virtual ~FindServerID() {}
 	const boost::shared_ptr<Server> &Result() const { return result_; }
 };
@@ -507,37 +575,9 @@ boost::shared_ptr<Server> Uplink::FindID(const std::string &id) const
 		MT_RET(ROOT->getUplink());
 
 	FindServerID fs(id);
-	fs(*this);
+	fs(self.lock());
 	boost::shared_ptr<Server> rv = fs.Result();
 	MT_RET(rv);
-
-	MT_EE
-}
-
-class ServerPing : public RecursiveOperation
-{
-	virtual bool visitor(const boost::shared_ptr<Server> &s)
-	{
-		MT_EB
-		MT_FUNC("ServerPing::visitor" << s);
-
-		s->Ping();
-		MT_RET(true);
-
-		MT_EE
-	}
-public:
-	ServerPing() {}
-	virtual ~ServerPing() {}
-};
-
-void Uplink::Ping()
-{
-	MT_EB
-	MT_FUNC("Uplink::Ping");
-
-	ServerPing sp;
-	sp(*this);
 
 	MT_EE
 }

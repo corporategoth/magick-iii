@@ -157,6 +157,7 @@ private:
 
 	// use if_LiveUser_Storage
 	void Name(const std::string &in);
+	void Squit();
 
 	// use if_LiveUser_StoredNick
 	void Stored(const boost::shared_ptr<StoredNick> &nick);
@@ -320,6 +321,8 @@ class if_LiveUser_Storage
 
 	inline void Name(const std::string &in)
 		{ base.Name(in); }
+	inline void Squit()
+		{ base.Squit(); }
 };
 
 // Special interface used by StoredNick.

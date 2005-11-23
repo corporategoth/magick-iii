@@ -116,8 +116,14 @@ private:
 	void PRIVMSG(const ServiceUser *source,
 				 const boost::shared_ptr<LiveUser> &target,
 				 const boost::format &message) const;
+	void PRIVMSG(const ServiceUser *source,
+				 const boost::shared_ptr<Server> &target,
+				 const boost::format &message) const;
 	void NOTICE(const ServiceUser *source,
 				const boost::shared_ptr<LiveUser> &target,
+				const boost::format &message) const;
+	void NOTICE(const ServiceUser *source,
+				const boost::shared_ptr<Server> &target,
 				const boost::format &message) const;
 	void HELPOP(const ServiceUser *source,
 				  const boost::format &message) const;
@@ -221,7 +227,11 @@ public:
 			  const std::string &message = std::string()) const;
 	void PRIVMSG(const boost::shared_ptr<LiveUser> &target,
 				 const boost::format &message);
+	void PRIVMSG(const boost::shared_ptr<Server> &target,
+				 const boost::format &message);
 	void NOTICE(const boost::shared_ptr<LiveUser> &target,
+				const boost::format &message);
+	void NOTICE(const boost::shared_ptr<Server> &target,
 				const boost::format &message);
 	void HELPOP(const boost::format &message) const;
 	void WALLOP(const boost::format &message) const;

@@ -62,6 +62,88 @@ RCSID(magick__storage_cpp, "@(#)$Id$");
 
 namespace po = boost::program_options;
 
+void Storage::SquitEntry::swap(Storage::LiveUsers_t &users)
+{
+	MT_EB
+	MT_FUNC("Storage::SquitEntry::swap" << users);
+
+	if (event_)
+		ROOT->event->Cancel(event_);
+
+	users_.swap(users);
+
+	MT_EE
+}
+
+void Storage::SquitEntry::swap(Storage::LiveUsers_t &users, const mantra::duration &duration)
+{
+	MT_EB
+	MT_FUNC("Storage::SquitEntry::swap" << users << duration);
+
+	swap(users);
+	event_ = ROOT->event->Schedule(boost::bind(&Storage::SquitEntry::operator(), this), duration);
+
+	MT_EE
+}
+
+void Storage::SquitEntry::remove(const boost::shared_ptr<LiveUser> &user)
+{
+	MT_EB
+	MT_FUNC("Storage::SquitEntry::remove" << user);
+
+	users_.erase(user);
+
+	MT_EE
+}
+
+boost::shared_ptr<LiveUser> Storage::SquitEntry::remove(const std::string &user)
+{
+	MT_EB
+	MT_FUNC("Storage::SquitEntry::remove" << user);
+
+	boost::shared_ptr<LiveUser> rv;
+	Storage::LiveUsers_t::iterator i = std::lower_bound(users_.begin(),
+														users_.end(), user);
+	if (i == users_.end() || **i != user)
+		MT_RET(rv);
+
+	rv = *i;
+	users_.erase(i);
+
+	MT_RET(rv);
+	MT_EE
+}
+
+Storage::SquitEntry::~SquitEntry()
+{
+	MT_EB
+	MT_FUNC("Storage::SquitEntry::~SquitEntry");
+
+	if (event_)
+		ROOT->event->Cancel(event_);
+
+	Storage::LiveUsers_t::iterator i;
+	if (stage_ == 1)
+		for (i = users_.begin(); i != users_.end(); ++i)
+			(*i)->Quit((format(_("%1% %2%")) % uplink_ % server_).str());
+	else
+		for (i = users_.begin(); i != users_.end(); ++i)
+			(*i)->Quit((format(_("SQUIT server %1% (%2%)")) % server_ % uplink_).str());
+
+	MT_EE
+}
+
+void Storage::SquitEntry::operator()()
+{
+	MT_EB
+	MT_FUNC("Storage::SquitEntry::operator()");
+
+	SYNCR_WLOCK(ROOT->data, SquitUsers_);
+	ROOT->data.SquitUsers_[stage_].erase(*this);
+
+	MT_EE
+}
+
 Storage::Storage()
 	: finalstage_(std::pair<mantra::FinalStage *, void (*)(mantra::FinalStage *)>(NULL, NULL)),
 	  backend_(std::pair<mantra::Storage *, void (*)(mantra::Storage *)>(NULL, NULL)),
@@ -69,6 +151,7 @@ Storage::Storage()
 	  handle_(NULL), crypt_handle_(NULL), compress_handle_(NULL),
 	  hasher(mantra::Hasher::NONE), SYNC_NRWINIT(LiveUsers_, reader_priority),
 	  SYNC_NRWINIT(LiveChannels_, reader_priority),
+	  SYNC_NRWINIT(SquitUsers_, reader_priority),
 	  SYNC_NRWINIT(StoredUsers_, reader_priority),
 	  SYNC_NRWINIT(StoredNicks_, reader_priority),
 	  SYNC_NRWINIT(StoredChannels_, reader_priority),
@@ -875,9 +958,13 @@ bool Storage::init(const po::variables_map &vm,
 			init();
 			if (event_)
 			{
+				ROOT->event->Cancel(event_);
 				backend_.first->Refresh();
-				event_ = ROOT->event->Schedule(boost::bind(&Storage::Save, this),
-											   ROOT->ConfigValue<mantra::duration>("save-time"));
+				if (backend_.first->require_commit())
+					event_ = ROOT->event->Schedule(boost::bind(&Storage::Save, this),
+												   ROOT->ConfigValue<mantra::duration>("save-time"));
+				else
+					event_ = 0;
 			}
 		}
 	}
@@ -926,9 +1013,13 @@ bool Storage::init(const po::variables_map &vm,
 			init();
 			if (event_)
 			{
+				ROOT->event->Cancel(event_);
 				backend_.first->Refresh();
-				event_ = ROOT->event->Schedule(boost::bind(&Storage::Save, this),
-											   ROOT->ConfigValue<mantra::duration>("save-time"));
+				if (backend_.first->require_commit())
+					event_ = ROOT->event->Schedule(boost::bind(&Storage::Save, this),
+												   ROOT->ConfigValue<mantra::duration>("save-time"));
+				else
+					event_ = 0;
 			}
 		}
 	}
@@ -1233,9 +1324,13 @@ bool Storage::init(const po::variables_map &vm,
 			init();
 			if (event_)
 			{
+				ROOT->event->Cancel(event_);
 				backend_.first->Refresh();
-				event_ = ROOT->event->Schedule(boost::bind(&Storage::Save, this),
-											   ROOT->ConfigValue<mantra::duration>("save-time"));
+				if (backend_.first->require_commit())
+					event_ = ROOT->event->Schedule(boost::bind(&Storage::Save, this),
+												   ROOT->ConfigValue<mantra::duration>("save-time"));
+				else
+					event_ = 0;
 			}
 		}
 	}
@@ -1315,9 +1410,13 @@ bool Storage::init(const po::variables_map &vm,
 			init();
 			if (event_)
 			{
+				ROOT->event->Cancel(event_);
 				backend_.first->Refresh();
-				event_ = ROOT->event->Schedule(boost::bind(&Storage::Save, this),
-											   ROOT->ConfigValue<mantra::duration>("save-time"));
+				if (backend_.first->require_commit())
+					event_ = ROOT->event->Schedule(boost::bind(&Storage::Save, this),
+												   ROOT->ConfigValue<mantra::duration>("save-time"));
+				else
+					event_ = 0;
 			}
 		}
 	}
@@ -1397,9 +1496,13 @@ bool Storage::init(const po::variables_map &vm,
 			init();
 			if (event_)
 			{
+				ROOT->event->Cancel(event_);
 				backend_.first->Refresh();
-				event_ = ROOT->event->Schedule(boost::bind(&Storage::Save, this),
-											   ROOT->ConfigValue<mantra::duration>("save-time"));
+				if (backend_.first->require_commit())
+					event_ = ROOT->event->Schedule(boost::bind(&Storage::Save, this),
+												   ROOT->ConfigValue<mantra::duration>("save-time"));
+				else
+					event_ = 0;
 			}
 		}
 	}
@@ -1447,9 +1550,13 @@ bool Storage::init(const po::variables_map &vm,
 			init();
 			if (event_)
 			{
+				ROOT->event->Cancel(event_);
 				backend_.first->Refresh();
-				event_ = ROOT->event->Schedule(boost::bind(&Storage::Save, this),
-											   ROOT->ConfigValue<mantra::duration>("save-time"));
+				if (backend_.first->require_commit())
+					event_ = ROOT->event->Schedule(boost::bind(&Storage::Save, this),
+												   ROOT->ConfigValue<mantra::duration>("save-time"));
+				else
+					event_ = 0;
 			}
 		}
 	}
@@ -2069,8 +2176,9 @@ void Storage::Load()
 	}
 
 	LOG(Info, _("Database loaded in %1% seconds."), t.elapsed());
-	event_ = ROOT->event->Schedule(boost::bind(&Storage::Save, this),
-								   ROOT->ConfigValue<mantra::duration>("save-time"));
+	if (backend_.first->require_commit())
+		event_ = ROOT->event->Schedule(boost::bind(&Storage::Save, this),
+									   ROOT->ConfigValue<mantra::duration>("save-time"));
 	expire_event_ = ROOT->event->Schedule(boost::bind(&Storage::ExpireCheck, this),
 								   ROOT->ConfigValue<mantra::duration>("general.expire-check"));
 
@@ -2086,19 +2194,40 @@ void Storage::Save()
 	boost::timer t;
 	boost::mutex::scoped_lock scoped_lock(lock_);
 	if (event_)
-		ROOT->event->Cancel(event_);
-	backend_.first->Commit();
-	LOG(Info, _("Database saved in %1% seconds."), t.elapsed());
-	if (ROOT->ConfigValue<bool>("storage.load-after-save"))
 	{
-		scoped_lock.unlock();
-		Load();
+		ROOT->event->Cancel(event_);
+		event_ = 0;
 	}
-	else
-		event_ = ROOT->event->Schedule(boost::bind(&Storage::Save, this),
-									   ROOT->ConfigValue<mantra::duration>("save-time"));
+
+	if (backend_.first->require_commit())
+	{
+		backend_.first->Commit();
+		LOG(Info, _("Database saved in %1% seconds."), t.elapsed());
+		if (ROOT->ConfigValue<bool>("storage.load-after-save"))
+		{
+			scoped_lock.unlock();
+			Load();
+		}
+		else
+			event_ = ROOT->event->Schedule(boost::bind(&Storage::Save, this),
+										   ROOT->ConfigValue<mantra::duration>("save-time"));
+	}
 
 	MT_ASSIGN(codetype);
+	MT_EE
+}
+
+boost::posix_time::ptime Storage::SaveTime() const
+{
+	MT_EB
+	MT_FUNC("Storage::SaveTime");
+
+	boost::mutex::scoped_lock scoped_lock(lock_);
+	boost::posix_time::ptime rv(event_
+			? ROOT->event->ScheduledTime(event_)
+			: boost::posix_time::not_a_date_time);
+
+	MT_RET(rv);
 	MT_EE
 }
 
@@ -2123,7 +2252,7 @@ void Storage::Add(const boost::shared_ptr<LiveUser> &entry)
 	MT_FUNC("Storage::Add" << entry);
 
 	SYNC_WLOCK(LiveUsers_);
-	LiveUsers_[entry->Name()] = entry;
+	LiveUsers_.insert(entry);
 
 	MT_EE
 }
@@ -2134,7 +2263,7 @@ void Storage::Add(const boost::shared_ptr<LiveChannel> &entry)
 	MT_FUNC("Storage::Add" << entry);
 
 	SYNC_WLOCK(LiveChannels_);
-	LiveChannels_[entry->Name()] = entry;
+	LiveChannels_.insert(entry);
 
 	MT_EE
 }
@@ -2195,7 +2324,7 @@ void Storage::Rename(const boost::shared_ptr<LiveUser> &entry,
 	else
 	{
 		SYNC_WLOCK(LiveUsers_);
-		LiveUsers_t::iterator i = LiveUsers_.find(entry->Name());
+		LiveUsers_t::iterator i = LiveUsers_.find(entry);
 		if (i != LiveUsers_.end())
 			LiveUsers_.erase(i);
 		SYNC_UNLOCK(LiveUsers_);
@@ -2214,11 +2343,12 @@ boost::shared_ptr<LiveUser> Storage::Get_LiveUser(const std::string &name) const
 	MT_FUNC("Storage::Get_LiveUser" << name);
 
 	SYNC_RLOCK(LiveUsers_);
-	LiveUsers_t::const_iterator i = LiveUsers_.find(name);
+	LiveUsers_t::const_iterator i = std::lower_bound(LiveUsers_.begin(),
+													 LiveUsers_.end(), name);
 	boost::shared_ptr<LiveUser> ret;
-	if (i == LiveUsers_.end())
+	if (i == LiveUsers_.end() || **i != name)
 		MT_RET(ret);
-	ret = i->second;
+	ret = *i;
 	MT_RET(ret);
 
 	MT_EE
@@ -2230,11 +2360,12 @@ boost::shared_ptr<LiveChannel> Storage::Get_LiveChannel(const std::string &name)
 	MT_FUNC("Storage::Get_LiveChannel" << name);
 
 	SYNC_RLOCK(LiveChannels_);
-	LiveChannels_t::const_iterator i = LiveChannels_.find(name);
+	LiveChannels_t::const_iterator i = std::lower_bound(LiveChannels_.begin(),
+														LiveChannels_.end(), name);
 	boost::shared_ptr<LiveChannel> ret;
-	if (i == LiveChannels_.end())
+	if (i == LiveChannels_.end() || **i != name)
 		MT_RET(ret);
-	ret = i->second;
+	ret = *i;
 	MT_RET(ret);
 
 	MT_EE
@@ -2400,9 +2531,7 @@ void Storage::Del(const boost::shared_ptr<LiveUser> &entry)
 	MT_FUNC("Storage::Del" << entry);
 
 	SYNC_WLOCK(LiveUsers_);
-	LiveUsers_t::iterator i = LiveUsers_.find(entry->Name());
-	if (i != LiveUsers_.end() && i->second == entry)
-		LiveUsers_.erase(i);
+	LiveUsers_.erase(entry);
 
 	MT_EE
 }
@@ -2413,9 +2542,103 @@ void Storage::Del(const boost::shared_ptr<LiveChannel> &entry)
 	MT_FUNC("Storage::Del" << entry);
 
 	SYNC_WLOCK(LiveChannels_);
-	LiveChannels_t::iterator i = LiveChannels_.find(entry->Name());
-	if (i != LiveChannels_.end() && i->second == entry)
-		LiveChannels_.erase(i);
+	LiveChannels_.erase(entry);
+
+	MT_EE
+}
+
+class SquitUsers : public Server::ChildrenAction
+{
+	Storage::LiveUsers_t users_, &live_;
+
+	static bool IsServer(const boost::shared_ptr<Server> &s,
+						 const boost::shared_ptr<LiveUser> &u)
+	{
+		return (u->GetServer() == s);
+	}
+
+	virtual bool visitor(const boost::shared_ptr<Server> &s)
+	{
+		MT_EB
+		MT_FUNC("CollectUsers::visitor" << s);
+
+		Storage::LiveUsers_t u = s->getUsers();
+		users_.insert(u.begin(), u.end());
+
+		/*
+		boost::function1<bool, const boost::shared_ptr<LiveUser> &> pred =
+				boost::bind(&SquitUsers::IsServer, s, _1);
+		std::remove_if(live_.begin(), live_.end(), pred);
+		*/
+		Storage::LiveUsers_t::iterator i = live_.begin();
+		while (i != live_.end())
+		{
+			if (IsServer(s, *i))
+				live_.erase(i++);
+			else
+				++i;
+		}
+
+		MT_RET(true);
+		MT_EE
+	}
+public:
+	SquitUsers(Storage::LiveUsers_t &live) : Server::ChildrenAction(true), live_(live) {}
+
+	Storage::LiveUsers_t &Users() { return users_; }
+};
+
+void Storage::Del(const boost::shared_ptr<Server> &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Del" << entry);
+
+	LiveUsers_t users;
+	{
+		SYNC_WLOCK(LiveUsers_);
+		SquitUsers cu(LiveUsers_);;
+		cu(entry);
+		users.swap(cu.Users());
+	}
+
+	Storage::LiveUsers_t::const_iterator i;
+	Jupe *j = dynamic_cast<Jupe *>(entry.get());
+	if (j)
+	{
+		for (i = users.begin(); i != users.end(); ++i)
+			(*i)->Quit();
+	}
+	else
+	{
+		for (i = users.begin(); i != users.end(); ++i)
+			if_LiveUser_Storage(*i).Squit();
+
+		SYNC_WLOCK(SquitUsers_);
+		SquitUsers_t::iterator j = std::lower_bound(SquitUsers_[0].begin(),
+													SquitUsers_[0].end(),
+													entry->Name());
+
+		// I guess these users told the truth!.
+		if (j != SquitUsers_[0].end() && *entry == j->Server())
+		{
+			SquitEntry *se = const_cast<SquitEntry *>(&(*j));
+			LiveUsers_t tmp;
+			se->swap(tmp);
+			users.insert(tmp.begin(), tmp.end());
+			SquitUsers_[0].erase(j);
+		}
+
+		std::pair<SquitUsers_t::iterator, bool> rv = 
+				SquitUsers_[1].insert(SquitEntry(entry->Name(), entry->Parent()->Name()));
+		SquitEntry *se = const_cast<SquitEntry *>(&(*rv.first));
+		if (!rv.second)
+		{
+			LiveUsers_t tmp;
+			se->swap(tmp);
+			users.insert(tmp.begin(), tmp.end());
+		}
+		se->swap(users, ROOT->ConfigValue<mantra::duration>("general.squit-protect"));
+	}
 
 	MT_EE
 }

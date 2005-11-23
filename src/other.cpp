@@ -63,7 +63,11 @@ static bool biASK(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biASK" << service << user << params);
 
-	service->HELPOP(format("[ASK from %1%]: %2%") % user->Name() % params[1]);
+	std::string message(params[1]);
+	for (size_t i = 2; i < params.size(); ++i)
+		message += ' ' + params[i];
+
+	service->HELPOP(format("[ASK from %1%]: %2%") % user->Name() % message);
 
 	MT_RET(true);
 	MT_EE
@@ -73,14 +77,15 @@ static void GraphChildren(const ServiceUser *service,
 						  const boost::shared_ptr<LiveUser> &user, size_t count,
 						  const Server &server, const std::string &prefix)
 {
-	std::list<boost::shared_ptr<Server> >::const_iterator i = server.Children().begin();
-	while (i != server.Children().end())
+	std::set<boost::shared_ptr<Server> > children = server.getChildren();
+	std::set<boost::shared_ptr<Server> >::iterator i = children.begin();
+	while (i != children.end())
 	{
 		// Increment and get the current one back, so we can check if the next
 		// entry is end() but keep working on the current entry.
-		std::list<boost::shared_ptr<Server> >::const_iterator work = i++;
+		std::set<boost::shared_ptr<Server> >::iterator work = i++;
 
-		if (i != server.Children().end())
+		if (i != children.end())
 		{
 			SEND(service, user, _("%1$-50s %2$ 3.03fs %3$ 5u (%4$ 3u) %5$ 3.2f%%"),
 				 (prefix + "|- " + (*work)->Name()) %
@@ -124,17 +129,64 @@ static bool biMAP(const ServiceUser *service,
 	MT_EE
 }
 
+class SendMessage : public Server::ChildrenAction
+{
+	const ServiceUser *service_;
+	boost::shared_ptr<LiveUser> user_;
+	std::string message_;
+
+	virtual bool visitor(const boost::shared_ptr<Server> &s)
+	{
+		MT_EB
+		MT_FUNC("SendMessage::visitor" << s);
+
+		service_->NOTICE(s, format(_("[\002GLOBAL\017 from %1%] %2%")) %
+								   user_->Name() % message_);
+
+		MT_RET(true);
+		MT_EE
+	}
+
+public:
+	SendMessage(const ServiceUser *service,
+				const boost::shared_ptr<LiveUser> &user,
+				const std::string &message)
+		: Server::ChildrenAction(true), service_(service),
+		  user_(user), message_(message) {}
+	virtual ~SendMessage() {}
+};
+
+static bool biGLOBAL(const ServiceUser *service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("biGLOBAL" << service << user << params);
+
+	std::string message(params[1]);
+	for (size_t i = 2; i < params.size(); ++i)
+		message += ' ' + params[i];
+
+	SendMessage sm(service, user, message);
+	sm(ROOT->getUplink());
+
+	MT_RET(true);
+	MT_EE
+}
+
 void init_other_functions(Service &serv)
 {
 	MT_EB
 	MT_FUNC("init_other_functions" << serv);
 
+    std::vector<std::string> comm_admin;
 //    std::vector<std::string> comm_regd, comm_oper, comm_sop, comm_opersop;
 //    comm_regd.push_back(ROOT->ConfigValue<std::string>("commserv.regd.name"));
 //    comm_oper.push_back(ROOT->ConfigValue<std::string>("commserv.oper.name"));
 //    comm_sop.push_back(ROOT->ConfigValue<std::string>("commserv.sop.name"));
 //    comm_opersop.push_back(ROOT->ConfigValue<std::string>("commserv.oper.name"));
 //    comm_opersop.push_back(ROOT->ConfigValue<std::string>("commserv.sop.name"));
+    comm_admin.push_back(ROOT->ConfigValue<std::string>("commserv.admin.name"));
 
 	serv.PushCommand("^HELP$", boost::bind(&Service::Help, &serv,
 										   _1, _2, _3));
@@ -142,6 +194,7 @@ void init_other_functions(Service &serv)
 	serv.PushCommand("^(CONTRIB|CREDITS?)$", &biCONTRIB);
 	serv.PushCommand("^(ASK|QUSTION)$", &biASK, 1);
 	serv.PushCommand("^(MAP|BREAKDOWN)$", &biMAP);
+	serv.PushCommand("^GLOBAL$", &biGLOBAL, 1, comm_admin);
 
 	MT_EE
 }

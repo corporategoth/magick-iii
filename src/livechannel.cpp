@@ -492,6 +492,22 @@ bool operator<(const boost::shared_ptr<LiveChannel::PendingModes> &lhs,
 	return (*lhs < rhs);
 }
 
+void LiveChannel::Squit(const boost::shared_ptr<LiveUser> &user)
+{
+	MT_EB
+	MT_FUNC("LiveChannel::Split" << user);
+
+	SYNC_WLOCK(users_);
+	users_t::iterator i = users_.find(user);
+	if (i == users_.end())
+		return;
+
+	splits_[i->first] = i->second;
+	users_.erase(i);
+
+	MT_EE
+}
+
 void LiveChannel::Quit(const boost::shared_ptr<LiveUser> &user)
 {
 	MT_EB
@@ -500,6 +516,7 @@ void LiveChannel::Quit(const boost::shared_ptr<LiveUser> &user)
 	{
 		SYNC_WLOCK(users_);
 		users_.erase(user);
+		splits_.erase(user);
 	}
 	{
 		SYNC_LOCK(recent_parts_);

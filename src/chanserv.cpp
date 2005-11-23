@@ -234,6 +234,11 @@ static bool biINFO(const ServiceUser *service,
 	}
 
 	channel->SendInfo(service, user);
+	boost::posix_time::ptime next_update = ROOT->data.SaveTime();
+	if (!next_update.is_special())
+		SEND(service, user, N_("Next database save is in %1%."),
+				 DurationToString(mantra::duration(next_update,
+								  mantra::GetCurrentDateTime()), mantra::Second));
 
 	MT_RET(true);
 	MT_EE

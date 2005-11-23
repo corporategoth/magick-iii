@@ -73,7 +73,13 @@ public:
 	void PRIVMSG(const boost::shared_ptr<LiveUser> &target,
 				 const boost::format &message) const
 		{ service_->PRIVMSG(this, target, message); }
+	void PRIVMSG(const boost::shared_ptr<Server> &target,
+				 const boost::format &message) const
+		{ service_->PRIVMSG(this, target, message); }
 	void NOTICE(const boost::shared_ptr<LiveUser> &target,
+				const boost::format &message) const
+		{ service_->NOTICE(this, target, message); }
+	void NOTICE(const boost::shared_ptr<Server> &target,
 				const boost::format &message) const
 		{ service_->NOTICE(this, target, message); }
 	void HELPOP(const boost::format &message) const // umode +h (-> WALLOP)

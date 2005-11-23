@@ -1015,8 +1015,8 @@ static bool biPONG(const Message &m)
 		MT_RET(false);
 	}
 
-	remote->Pong();
-	if (uplink.get() == remote->Parent() &&
+	remote->PONG();
+	if (uplink == remote->Parent() &&
 		ROOT->proto.ConfigValue<std::string>("burst-end").empty())
 		ROOT->proto.BurstEnd();
 
@@ -1105,7 +1105,7 @@ static bool biQUIT(const Message &m)
 	{
 		boost::shared_ptr<Server> s = ROOT->getUplink()->Find(m.Source());
 		if (s && s->Parent())
-			const_cast<Server *>(s->Parent())->Disconnect(s->Name());
+			s->Parent()->Disconnect(s->Name());
 	}
 
 	MT_RET(true);
@@ -1175,7 +1175,7 @@ static bool biSERVER(const Message &m)
 	}
 
 	uplink->de.Satisfy(Dependency::ServerExists, serv->Name());
-	serv->Ping();
+	serv->PING();
 
 	MT_RET(true);
 	MT_EE
@@ -1388,7 +1388,7 @@ static bool biSQUIT(const Message &m)
 	}
 
 	if (s->Parent())
-		const_cast<Server *>(s->Parent())->Disconnect(s->Name());
+		s->Parent()->Disconnect(s->Name());
 
 	MT_RET(true);
 	MT_EE

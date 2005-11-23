@@ -515,6 +515,39 @@ void Protocol::Decode(std::string &in, std::deque<Message> &out) const
 	MT_EE
 }
 
+bool Protocol::Connect(const Jupe &s)
+{
+	MT_EB
+	MT_FUNC("Protocol::Connect" << s);
+
+	std::string out;
+
+	boost::shared_ptr<Server> up = s.Parent();
+	Jupe *j = dynamic_cast<Jupe *>(up.get());
+	if (!j)
+		MT_RET(false);
+
+	size_t count = 1;
+	while (up)
+	{
+		++count;
+		up = s.Parent();
+	}
+
+	boost::posix_time::ptime curr = boost::posix_time::second_clock::local_time();
+	struct tm tm_curr = boost::posix_time::to_tm(curr);
+	struct tm tm_start = boost::posix_time::to_tm(ROOT->Start());
+
+	addline(*j, out, (format(opt_protocol["server"].as<std::string>()) % s.Name() % count %
+				  s.Description() % (opt_protocol["numeric.server-numeric"].as<bool>()
+					? boost::lexical_cast<std::string>(IDToNumeric(s.ID()))
+					: s.ID()) % std::mktime(&tm_curr) % std::mktime(&tm_start)).str());
+
+	bool rv = send(out);
+	MT_RET(rv);
+	MT_EE
+}
+
 bool Protocol::Connect(const Uplink &s)
 {
 	MT_EB
@@ -640,7 +673,7 @@ boost::shared_ptr<Server> Protocol::ParseServer(const Message &in) const
 			id = i->second;
 	}
 
-	serv.reset(new Server(name, desc, id));
+	serv = Server::create(name, desc, id);
 	MT_RET(serv);
 	MT_EE
 }

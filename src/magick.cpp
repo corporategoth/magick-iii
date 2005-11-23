@@ -221,8 +221,8 @@ void Magick::run(const boost::function0<bool> &check)
 							LOG(Info, _("Connection established to %1%[%2%]."),
 										remote.host % remote.port);
 
-							uplink.reset(new Uplink(remote.password,
-													proto.NumericToID(remote.numeric)));
+							uplink = Uplink::create(remote.password,
+													proto.NumericToID(remote.numeric));
 							sg.SetRead(sock, true);
 							proto.Connect(*uplink);
 						}

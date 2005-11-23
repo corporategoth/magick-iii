@@ -323,6 +323,23 @@ void Service::PRIVMSG(const ServiceUser *source,
 	MT_EE
 }
 
+void Service::PRIVMSG(const ServiceUser *source,
+					  const boost::shared_ptr<Server> &target,
+					  const boost::format &message) const
+{
+	MT_EB
+	MT_FUNC("Service::PRIVMSG" << source << target << message);
+
+	if (!source || source->GetService() != this)
+		return;
+
+	std::string out;
+	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("PRIVMSG") +
+						" $" + target->Name() + " :" + message.str());
+	ROOT->proto.send(out);
+
+	MT_EE
+}
 
 void Service::PRIVMSG(const boost::shared_ptr<LiveUser> &target,
 					  const boost::format &message)
@@ -345,6 +362,24 @@ void Service::PRIVMSG(const boost::shared_ptr<LiveUser> &target,
 	MT_EE
 }
 
+void Service::PRIVMSG(const boost::shared_ptr<Server> &target,
+					  const boost::format &message)
+{
+	MT_EB
+	MT_FUNC("Service::PRIVMSG" << target << message);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator j = std::lower_bound(users_.begin(),
+												 users_.end(),
+												 primary_);
+	if (j == users_.end() || **j != primary_)
+		return;
+
+	PRIVMSG(dynamic_cast<ServiceUser *>(j->get()), target, message);
+
+	MT_EE
+}
+
 void Service::NOTICE(const ServiceUser *source,
 					 const boost::shared_ptr<LiveUser> &target,
 					 const boost::format &message) const
@@ -358,6 +393,24 @@ void Service::NOTICE(const ServiceUser *source,
 	std::string out;
 	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("NOTICE") +
 						" " + target->Name() + " :" + message.str());
+	ROOT->proto.send(out);
+
+	MT_EE
+}
+
+void Service::NOTICE(const ServiceUser *source,
+					 const boost::shared_ptr<Server> &target,
+					 const boost::format &message) const
+{
+	MT_EB
+	MT_FUNC("Service::NOTICE" << source << target << message);
+
+	if (!source || source->GetService() != this)
+		return;
+
+	std::string out;
+	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("NOTICE") +
+						" $" + target->Name() + " :" + message.str());
 	ROOT->proto.send(out);
 
 	MT_EE
@@ -381,6 +434,25 @@ void Service::NOTICE(const boost::shared_ptr<LiveUser> &target,
 	}
 	else
 		NOTICE(dynamic_cast<ServiceUser *>(j->get()), target, message);
+
+	MT_EE
+}
+
+void Service::NOTICE(const boost::shared_ptr<Server> &target,
+					 const boost::format &message)
+{
+	MT_EB
+	MT_FUNC("Service::NOTICE" << target << message);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator j = std::lower_bound(users_.begin(),
+												 users_.end(),
+												 primary_);
+
+	if (j == users_.end() || **j != primary_)
+		return;
+
+	NOTICE(dynamic_cast<ServiceUser *>(j->get()), target, message);
 
 	MT_EE
 }
