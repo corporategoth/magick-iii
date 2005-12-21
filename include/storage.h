@@ -84,7 +84,7 @@ public:
 
 		void operator()();
 	public:
-		SquitEntry(const std::string &server, const std::string &uplink, size_t stage = 1)
+		SquitEntry(const std::string &server, const std::string &uplink, size_t stage)
 			: stage_(stage), server_(server), uplink_(uplink), event_(0){}
 		~SquitEntry();
 
@@ -99,6 +99,7 @@ public:
 		void swap(Storage::LiveUsers_t &users, const mantra::duration &duration);
 
 		// Remove a single user from the users DB (for cleanup).
+		void add(const boost::shared_ptr<LiveUser> &user);
 		void remove(const boost::shared_ptr<LiveUser> &user);
 		boost::shared_ptr<LiveUser> remove(const std::string &user);
 
@@ -146,6 +147,7 @@ public:
 	typedef Committees_t::index<id>::type Committees_by_id_t;
 	typedef Committees_t::index<name>::type Committees_by_name_t;
 
+	// If these change from 'set' you must update otherdata.h's sync()
 	typedef std::set<Forbidden> Forbiddens_t;
 	typedef std::set<Akill> Akills_t;
 	typedef std::set<Clone> Clones_t;
@@ -210,7 +212,7 @@ private:
 
 	void init();
 	void reset();
-	void sync();
+	template<typename T> void sync();
 
 	void Del(const boost::shared_ptr<LiveUser> &entry);
 	void Del(const boost::shared_ptr<LiveChannel> &entry);
@@ -242,6 +244,9 @@ public:
 	boost::posix_time::ptime SaveTime() const;
 	std::string CryptPassword(const std::string &in) const;
 
+	// The 'server' entry does not actually store data here, merely
+	// fixes up the SQUIT protection.
+	void Add(const boost::shared_ptr<Server> &entry);
 	void Add(const boost::shared_ptr<LiveUser> &entry);
 	void Add(const boost::shared_ptr<LiveChannel> &entry);
 	void Add(const boost::shared_ptr<StoredUser> &entry);
@@ -251,6 +256,8 @@ public:
 
 	void Rename(const boost::shared_ptr<LiveUser> &entry,
 				const std::string &newname);
+	void Squit(const boost::shared_ptr<LiveUser> &entry,
+			   const boost::shared_ptr<Server> &server); // Level 1
 
 	boost::shared_ptr<LiveUser> Get_LiveUser(const std::string &name) const;
 	boost::shared_ptr<LiveChannel> Get_LiveChannel(const std::string &name) const;
@@ -269,12 +276,53 @@ public:
 
 	void Add(const Forbidden &entry);
 	void Del(const Forbidden &entry);
+	bool Reindex(const Forbidden &entry, boost::uint32_t num);
 	Forbidden Get_Forbidden(boost::uint32_t in,
 			boost::logic::tribool deep = boost::logic::indeterminate);
-	void Get_Forbidden(std::vector<Forbidden> &fill,
+	void Get_Forbidden(std::set<Forbidden> &fill,
 			boost::logic::tribool channel = boost::logic::indeterminate) const;
-	bool Matches_Forbidden(const std::string &in,
+	Forbidden Matches_Forbidden(const std::string &in,
 			boost::logic::tribool channel = boost::logic::indeterminate) const;
+
+	void Add(const Akill &entry);
+	void Del(const Akill &entry);
+	bool Reindex(const Akill &entry, boost::uint32_t num);
+	Akill Get_Akill(boost::uint32_t in,
+			boost::logic::tribool deep = boost::logic::indeterminate);
+	void Get_Akill(std::set<Akill> &fill) const;
+	Akill Matches_Akill(const std::string &in) const;
+
+	void Add(const Clone &entry);
+	void Del(const Clone &entry);
+	bool Reindex(const Clone &entry, boost::uint32_t num);
+	Clone Get_Clone(boost::uint32_t in,
+			boost::logic::tribool deep = boost::logic::indeterminate);
+	void Get_Clone(std::set<Clone> &fill) const;
+	Clone Matches_Clone(const std::string &in) const;
+
+	void Add(const OperDeny &entry);
+	void Del(const OperDeny &entry);
+	bool Reindex(const OperDeny &entry, boost::uint32_t num);
+	OperDeny Get_OperDeny(boost::uint32_t in,
+			boost::logic::tribool deep = boost::logic::indeterminate);
+	void Get_OperDeny(std::set<OperDeny> &fill) const;
+	OperDeny Matches_OperDeny(const std::string &in) const;
+
+	void Add(const Ignore &entry);
+	void Del(const Ignore &entry);
+	bool Reindex(const Ignore &entry, boost::uint32_t num);
+	Ignore Get_Ignore(boost::uint32_t in,
+			boost::logic::tribool deep = boost::logic::indeterminate);
+	void Get_Ignore(std::set<Ignore> &fill) const;
+	Ignore Matches_Ignore(const std::string &in) const;
+
+	void Add(const KillChannel &entry);
+	void Del(const KillChannel &entry);
+	bool Reindex(const KillChannel &entry, boost::uint32_t num);
+	KillChannel Get_KillChannel(boost::uint32_t in,
+			boost::logic::tribool deep = boost::logic::indeterminate);
+	void Get_KillChannel(std::set<KillChannel> &fill) const;
+	KillChannel Matches_KillChannel(const std::string &in) const;
 
 	// Check on ALL kinds of expirations ...
 	void ExpireCheck();

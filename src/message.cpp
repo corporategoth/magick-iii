@@ -1099,7 +1099,21 @@ static bool biQUIT(const Message &m)
 		if (m.Params().empty())
 			user->Quit();
 		else
+		{
+			if (m.Params().size() == 2)
+			{
+				static mantra::iless<std::string> cmp;
+				boost::shared_ptr<Server> server = user->GetServer();
+				if (server->Parent() && cmp(server->Name(), m.Params()[1]) &&
+					cmp(server->Parent()->Name(), m.Params()[0]))
+				{
+					ROOT->data.Squit(user, user->GetServer());
+					MT_RET(true);
+				}
+			}
+
 			user->Quit(m.Params()[m.Params().size()-1]);
+		}
 	}
 	else
 	{

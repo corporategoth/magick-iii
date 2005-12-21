@@ -53,6 +53,7 @@ class Committee : private boost::noncopyable,
 				  public boost::totally_ordered2<Committee, std::string>
 {
 	friend class if_Committee_LiveUser;
+	friend class if_Committee_StoredNick;
 	friend class if_Committee_Storage;
 
 	typedef std::set<boost::shared_ptr<LiveUser> > online_members_t;
@@ -72,6 +73,9 @@ class Committee : private boost::noncopyable,
 	// use if_Committee_LiveUser
 	void Online(const boost::shared_ptr<LiveUser> &in);
 	void Offline(const boost::shared_ptr<LiveUser> &in);
+
+	// use if_Committee_StoredNick
+	void MEMBER_Add(const boost::shared_ptr<StoredUser> &entry);
 
 	// use if_Committee_Storage
 	static boost::shared_ptr<Committee> load(boost::uint32_t id, const std::string &name);
@@ -268,6 +272,20 @@ class if_Committee_LiveUser
 		{ base.Online(user); }
 	inline void Offline(const boost::shared_ptr<LiveUser> &user)
 		{ base.Offline(user); }
+};
+
+// Special interface used by StoredNick.
+class if_Committee_StoredNick
+{
+	friend class StoredNick;
+	Committee &base;
+
+	// This is INTENTIONALLY private ...
+	if_Committee_StoredNick(Committee &b) : base(b) {}
+	if_Committee_StoredNick(const boost::shared_ptr<Committee> &b) : base(*(b.get())) {}
+
+	inline void MEMBER_Add(const boost::shared_ptr<StoredUser> &user)
+		{ base.MEMBER_Add(user); }
 };
 
 // Special interface used by Storage.

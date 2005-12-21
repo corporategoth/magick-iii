@@ -106,6 +106,7 @@ class Magick
 	boost::posix_time::ptime start;
 	pid_t pid;
 	unsigned int level;
+	mantra::duration htm_gap;
 
 	boost::program_options::options_description opt_command_line_only;
 	boost::program_options::options_description opt_common;
@@ -155,6 +156,13 @@ public:
 	void Disconnect() { disconnect = true; }
 	bool Shutdown() const { return shutdown; }
 	void Shutdown(bool in) { shutdown = in; }
+
+	size_t Level() const;
+	void IncLevel();
+	void DecLevel();
+
+	mantra::duration HTM_Gap() const;
+	void HTM_Gap(mantra::duration in);
 };
 
 extern Magick *ROOT;

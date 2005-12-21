@@ -88,6 +88,8 @@ bool Magick::set_config(const po::variables_map &vm)
 	if (!vm["autoflush"].empty())
 		MT_AUTOFLUSH(true);
 
+	static mantra::iequal_to<std::string> iequal_to;
+
 	if (!vm["trace"].empty())
 	{
 		std::vector<std::string> traces = vm["trace"].as<std::vector<std::string> >();
@@ -95,20 +97,28 @@ bool Magick::set_config(const po::variables_map &vm)
 		{
 			std::string::size_type pos = traces[i].find(":");
 			std::string type = traces[i].substr(0, pos);
-			boost::algorithm::to_upper(type);
 			std::string svalue = mantra::dehex(traces[i].substr(pos + 1));
 			boost::uint16_t value = ((unsigned char) svalue[0] << 8) + (unsigned char) svalue[1];
-			if (type == "ALL")
+
+			if (iequal_to(type, "ALL"))
 			{
-				for (size_t j=0; j<(size_t) MAGICK_TRACE_SIZE; ++j)
+				for (size_t j = 0; j < (size_t) MAGICK_TRACE_SIZE; ++j)
 					mantra::mtrace::instance().TurnSet(j, value);
 			}
-			else if (type == "MAIN")
-				mantra::mtrace::instance().TurnSet(MAGICK_TRACE_MAIN, value);
 			else
 			{
-				LOG(Error, _("Unknown trace level %1% specified."), type);
-				MT_RET(false);
+				size_t j;
+				for (j = 0; j < (size_t) MAGICK_TRACE_SIZE; ++j)
+					if (boost::regex_match(type, TraceTypeRegex[j]))
+					{
+						mantra::mtrace::instance().TurnSet(j, value);
+						break;
+					}
+				if (j >= (size_t) MAGICK_TRACE_SIZE)
+				{
+					LOG(Error, _("Unknown trace level %1% specified."), type);
+					MT_RET(false);
+				}
 			}
 		}
 	}
@@ -497,10 +507,10 @@ bool Magick::set_config(const po::variables_map &vm)
 							delete l;
 
 							std::string name = vm["log.simple.name"].as<std::string>();
-							if (boost::algorithm::iequals(name, "stdout"))
+							if (iequal_to(name, "stdout"))
 								l = new mantra::SimpleLogger<char>(std::cout, level,
 										vm["log.simple.utc"].as<bool>());
-							else if (boost::algorithm::iequals(name, "stderr"))
+							else if (iequal_to(name, "stderr"))
 								l = new mantra::SimpleLogger<char>(std::cerr, level,
 										vm["log.simple.utc"].as<bool>());
 							else

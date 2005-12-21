@@ -2024,7 +2024,6 @@ static bool biFORBID_ADD(const ServiceUser *service,
 		reason += ' ' + params[i];
 
 	Forbidden f = Forbidden::create(params[1], reason, nick);
-	ROOT->data.Add(f);
 	SEND(service, user,
 		 N_("Channel mask \002%1%\017 has been added to the forbidden list."),
 		 params[1]);
@@ -2048,7 +2047,7 @@ static bool biFORBID_DEL(const ServiceUser *service,
 	std::vector<unsigned int> v;
 	if (!mantra::ParseNumbers(numbers, v))
 	{
-		std::vector<Forbidden> ent;
+		std::set<Forbidden> ent;
 		ROOT->data.Get_Forbidden(ent, true);
 
 		for (size_t i = 1; i < params.size(); ++i)
@@ -2060,7 +2059,7 @@ static bool biFORBID_DEL(const ServiceUser *service,
 			}
 
 			bool found = false;
-			std::vector<Forbidden>::iterator j;
+			std::set<Forbidden>::iterator j;
 			for (j = ent.begin(); j != ent.end(); ++j)
 			{
 				if (mantra::glob_match(params[i], j->Mask(), true))
@@ -2119,7 +2118,7 @@ static bool biFORBID_LIST(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biFORBID_LIST" << service << user << params);
 
-	std::vector<Forbidden> ent;
+	std::set<Forbidden> ent;
 	ROOT->data.Get_Forbidden(ent, true);
 
 	if (ent.empty())
@@ -2127,7 +2126,7 @@ static bool biFORBID_LIST(const ServiceUser *service,
 	else
 	{
 		NSEND(service, user, N_("Forbidden Channels:"));
-		std::vector<Forbidden>::const_iterator i;
+		std::set<Forbidden>::const_iterator i;
 		for (i = ent.begin(); i != ent.end(); ++i)
 		{
 			SEND(service, user, N_("%1$ 3d. %2$s [Added by %3$s, %4$s ago]"),

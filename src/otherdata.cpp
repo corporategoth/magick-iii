@@ -37,33 +37,82 @@ RCSID(magick__otherdata_cpp, "@(#)$Id$");
 
 #include <mantra/core/trace.h>
 
-template<> StorageInterface generic_data_base<Forbidden>::storage("forbidden", "number", "last_update");
-template boost::mutex generic_data_base<Forbidden>::number_lock;
-template<> boost::mutex generic_data_base<Forbidden>::number_lock;
+template<> StorageInterface generic_data_base_tmpl<Forbidden>::storage("forbidden", "number", "last_update");
+template boost::mutex generic_data_base_tmpl<Forbidden>::number_lock;
+template<> boost::mutex generic_data_base_tmpl<Forbidden>::number_lock;
 
-template<> StorageInterface generic_data_base<Akill>::storage("akills", "number", "last_update");
-template boost::mutex generic_data_base<Akill>::number_lock;
-template<> boost::mutex generic_data_base<Akill>::number_lock;
+template<> StorageInterface generic_data_base_tmpl<Akill>::storage("akills", "number", "last_update");
+template boost::mutex generic_data_base_tmpl<Akill>::number_lock;
+template<> boost::mutex generic_data_base_tmpl<Akill>::number_lock;
 
-template<> StorageInterface generic_data_base<Clone>::storage("clones", "number", "last_update");
-template boost::mutex generic_data_base<Clone>::number_lock;
-template<> boost::mutex generic_data_base<Clone>::number_lock;
+template<> StorageInterface generic_data_base_tmpl<Clone>::storage("clones", "number", "last_update");
+template boost::mutex generic_data_base_tmpl<Clone>::number_lock;
+template<> boost::mutex generic_data_base_tmpl<Clone>::number_lock;
 
-template<> StorageInterface generic_data_base<OperDeny>::storage("operdenies", "number", "last_update");
-template boost::mutex generic_data_base<OperDeny>::number_lock;
-template<> boost::mutex generic_data_base<OperDeny>::number_lock;
+template<> StorageInterface generic_data_base_tmpl<OperDeny>::storage("operdenies", "number", "last_update");
+template boost::mutex generic_data_base_tmpl<OperDeny>::number_lock;
+template<> boost::mutex generic_data_base_tmpl<OperDeny>::number_lock;
 
-template<> StorageInterface generic_data_base<Ignore>::storage("ignores", "number", "last_update");
-template boost::mutex generic_data_base<Ignore>::number_lock;
-template<> boost::mutex generic_data_base<Ignore>::number_lock;
+template<> StorageInterface generic_data_base_tmpl<Ignore>::storage("ignores", "number", "last_update");
+template boost::mutex generic_data_base_tmpl<Ignore>::number_lock;
+template<> boost::mutex generic_data_base_tmpl<Ignore>::number_lock;
 
-template<> StorageInterface generic_data_base<KillChannel>::storage("killchans", "number", "last_update");
-template boost::mutex generic_data_base<KillChannel>::number_lock;
-template<> boost::mutex generic_data_base<KillChannel>::number_lock;
+template<> StorageInterface generic_data_base_tmpl<KillChannel>::storage("killchans", "number", "last_update");
+template boost::mutex generic_data_base_tmpl<KillChannel>::number_lock;
+template<> boost::mutex generic_data_base_tmpl<KillChannel>::number_lock;
 
-boost::shared_ptr<StoredUser> generic_data_base_proxy::lookup_user(boost::uint32_t id)
+generic_data_base::generic_data_base(StorageInterface &storage,
+									 boost::uint32_t number)
+	: number_(number), cache(storage,
+			ROOT->ConfigValue<mantra::duration>("storage.cache-expire"),
+			mantra::Comparison<mantra::C_EqualTo>::make("number", number))
 {
-	return ROOT->data.Get_StoredUser(id);
+	MT_EB
+	MT_FUNC("generic_data_base::generic_data_base" << storage << number);
+
+	MT_EE
+}
+
+void generic_data_base::Mask(const std::string &in, const boost::shared_ptr<StoredNick> &nick)
+{
+	MT_EB
+	MT_FUNC("generic_data_base::Mask" << in << nick);
+
+	mantra::Storage::RecordMap rec;
+	rec["mask"] = in;
+	rec["last_updater"] = nick->Name();
+	rec["last_updater_id"] = nick->User()->ID();
+	cache.Put(rec);
+
+	MT_EE
+}
+
+void generic_data_base::Reason(const std::string &in, const boost::shared_ptr<StoredNick> &nick)
+{
+	MT_EB
+	MT_FUNC("generic_data_base::Reason" << in << nick);
+
+	mantra::Storage::RecordMap rec;
+	rec["reason"] = in;
+	rec["last_updater"] = nick->Name();
+	rec["last_updater_id"] = nick->User()->ID();
+	cache.Put(rec);
+
+	MT_EE
+}
+
+boost::shared_ptr<StoredUser> generic_data_base::Last_Updater() const
+{
+	MT_EB
+	MT_FUNC("generic_data_base::Last_Updater");
+
+	boost::shared_ptr<StoredUser> rv;
+	mantra::StorageValue v = cache.Get("last_updater_id");
+	if (v.type() != typeid(mantra::NullValue))
+		rv = ROOT->data.Get_StoredUser(boost::get<boost::uint32_t>(v));
+
+	MT_RET(rv);
+	MT_EE
 }
 
 Forbidden Forbidden::create(const std::string &mask, const std::string &reason,
@@ -95,7 +144,7 @@ Forbidden Forbidden::create(const std::string &mask, const std::string &reason,
 	}
 
 	Forbidden rv(id);
-//    ROOT->data.Add(rv);
+	ROOT->data.Add(rv);
 
 	MT_RET(rv);
 	MT_EE
@@ -132,7 +181,7 @@ Akill Akill::create(const std::string &mask, const std::string &reason,
 	}
 
 	Akill rv(id);
-//    ROOT->data.Add(rv);
+	ROOT->data.Add(rv);
 
 	MT_RET(rv);
 	MT_EE
@@ -167,9 +216,23 @@ Akill Akill::create(const std::string &mask, const std::string &reason,
 	}
 
 	Akill rv(id);
-//    ROOT->data.Add(rv);
+	ROOT->data.Add(rv);
 
 	MT_RET(rv);
+	MT_EE
+}
+
+void Akill::Length(const mantra::duration &in, const boost::shared_ptr<StoredNick> &nick)
+{
+	MT_EB
+	MT_FUNC("Akill::Length" << in << nick);
+
+	mantra::Storage::RecordMap rec;
+	rec["length"] = in;
+	rec["last_updater"] = nick->Name();
+	rec["last_updater_id"] = nick->User()->ID();
+	cache.Put(rec);
+
 	MT_EE
 }
 
@@ -203,9 +266,23 @@ Clone Clone::create(const std::string &mask, const std::string &reason,
 	}
 
 	Clone rv(id);
-//    ROOT->data.Add(rv);
+	ROOT->data.Add(rv);
 
 	MT_RET(rv);
+	MT_EE
+}
+
+void Clone::Value(boost::uint32_t in, const boost::shared_ptr<StoredNick> &nick)
+{
+	MT_EB
+	MT_FUNC("Clone::Value" << in << nick);
+
+	mantra::Storage::RecordMap rec;
+	rec["value"] = in;
+	rec["last_updater"] = nick->Name();
+	rec["last_updater_id"] = nick->User()->ID();
+	cache.Put(rec);
+
 	MT_EE
 }
 
@@ -238,7 +315,7 @@ OperDeny OperDeny::create(const std::string &mask, const std::string &reason,
 	}
 
 	OperDeny rv(id);
-//    ROOT->data.Add(rv);
+	ROOT->data.Add(rv);
 
 	MT_RET(rv);
 	MT_EE
@@ -273,7 +350,7 @@ Ignore Ignore::create(const std::string &mask, const std::string &reason,
 	}
 
 	Ignore rv(id);
-//    ROOT->data.Add(rv);
+	ROOT->data.Add(rv);
 
 	MT_RET(rv);
 	MT_EE
@@ -307,7 +384,7 @@ Ignore Ignore::create(const std::string &mask, const std::string &reason,
 	}
 
 	Ignore rv(id);
-//    ROOT->data.Add(rv);
+	ROOT->data.Add(rv);
 
 	MT_RET(rv);
 	MT_EE
@@ -342,7 +419,7 @@ KillChannel KillChannel::create(const std::string &mask, const std::string &reas
 	}
 
 	KillChannel rv(id);
-//    ROOT->data.Add(rv);
+	ROOT->data.Add(rv);
 
 	MT_RET(rv);
 	MT_EE

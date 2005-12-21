@@ -35,6 +35,7 @@ RCSID(magick__storednick_cpp, "@(#)$Id$");
 #include "magick.h"
 #include "storednick.h"
 #include "storeduser.h"
+#include "committee.h"
 #include "liveuser.h"
 
 #include <mantra/core/trace.h>
@@ -77,6 +78,21 @@ boost::shared_ptr<StoredNick> StoredNick::create(const std::string &name,
 	rec["name"] = name;
 	rec["id"] = user->ID();
 	storage.InsertRow(rec);
+
+	// We have to do this registration check to ensure that we recognize
+	// sadmins on their first registration.  We must also do it before 'load'
+	// since that is where we call LiveUser's 'Online' call.
+	std::vector<std::string> members = ROOT->ConfigValue<std::vector<std::string> >("operserv.services-admin");
+	static mantra::iequal_to<std::string> cmp;
+	for (size_t i = 0; i < members.size(); ++i)
+		if (cmp(name, members[i]))
+		{
+			boost::shared_ptr<Committee> sadmin = ROOT->data.Get_Committee(
+					ROOT->ConfigValue<std::string>("commserv.sadmin.name"));
+			if (sadmin)
+				if_Committee_StoredNick(sadmin).MEMBER_Add(user);
+			break;
+		}
 
 	boost::shared_ptr<StoredNick> rv = load(name, user);
 	if (rv->live_)

@@ -65,6 +65,8 @@ enum TraceTypes_t
 		MAGICK_TRACE_EVENT,
 		MAGICK_TRACE_SIZE
 	};
+extern boost::regex TraceTypeRegex[MAGICK_TRACE_SIZE];
+extern std::string TraceTypes[MAGICK_TRACE_SIZE];
 
 class Service
 {
@@ -92,6 +94,7 @@ private:
 	typedef std::deque<Command_t> func_map_t;
 
 	TraceTypes_t trace_;
+	bool processing_;
 	std::string real_;
 	std::string primary_;
 	nicks_t nicks_;
@@ -179,6 +182,9 @@ public:
 	virtual ~Service();
 
 	void Check();
+
+	bool Processing() const { return processing_; }
+	void Processing(bool in) { processing_ = in; }
 
 	const std::string &Primary() const { return primary_; }
 	const nicks_t &Nicks() const { return nicks_; }

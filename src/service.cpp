@@ -39,8 +39,38 @@ RCSID(magick__service_cpp, "@(#)$Id$");
 #include "storednick.h"
 #include "storeduser.h"
 
+boost::regex TraceTypeRegex[MAGICK_TRACE_SIZE] =
+	{
+		boost::regex("^LOST$", boost::regex_constants::icase),
+		boost::regex("^MAIN$", boost::regex_constants::icase),
+		boost::regex("^WORKER$", boost::regex_constants::icase),
+		boost::regex("^NICKSERV$", boost::regex_constants::icase),
+		boost::regex("^CHANSERV$", boost::regex_constants::icase),
+		boost::regex("^MEMOSERV$", boost::regex_constants::icase),
+		boost::regex("^COMMSERV$", boost::regex_constants::icase),
+		boost::regex("^OPERSERV$", boost::regex_constants::icase),
+		boost::regex("^OTHER$", boost::regex_constants::icase),
+		boost::regex("^DCC$", boost::regex_constants::icase),
+		boost::regex("^EVENT$", boost::regex_constants::icase)
+	};
+std::string TraceTypes[MAGICK_TRACE_SIZE] =
+	{
+		std::string("Lost"),
+		std::string("Main"),
+		std::string("Worker"),
+		std::string("NickServ"),
+		std::string("ChanServ"),
+		std::string("MemoServ"),
+		std::string("CommServ"),
+		std::string("OperServ"),
+		std::string("Other"),
+		std::string("DCC"),
+		std::string("Event")
+	};
+
 Service::Service(TraceTypes_t trace)
-	: trace_(trace), SYNC_NRWINIT(users_, reader_priority),
+	: trace_(trace), processing_(true),
+	  SYNC_NRWINIT(users_, reader_priority),
 	  SYNC_NRWINIT(func_map_, reader_priority)
 {
 }
@@ -1028,7 +1058,7 @@ bool Service::Execute(const ServiceUser *service,
 					  unsigned int key) const
 {
 	MT_EB
-	MT_FUNC("ServiceExecute" << service << user << params << key);
+	MT_FUNC("Service::Execute" << service << user << params << key);
 
 	if (!user)
 	{
@@ -1043,6 +1073,9 @@ bool Service::Execute(const ServiceUser *service,
 			boost::algorithm::to_upper_copy(params[key]) % user->Name());
 		MT_RET(false);
 	}
+
+	if (!Processing())
+		MT_RET(false);
 
 	unsigned int codetype = MT_ASSIGN(trace_);
 	try

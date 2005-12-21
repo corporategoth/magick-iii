@@ -72,24 +72,29 @@ public:
 	virtual mantra::StorageValue Maximum(const std::string &column,
 				const mantra::ComparisonSet &search = mantra::ComparisonSet()) throw(mantra::storage_exception);
 
+	inline unsigned int Exists(std::string &key)
+		{ return RowExists(mantra::Comparison<mantra::C_EqualToNC>::make(key_, key)); }
+	inline unsigned int Exists(boost::uint32_t key)
+		{ return RowExists(mantra::Comparison<mantra::C_EqualTo>::make(key_, key)); }
+
 	// Aliases that use the above.
 	inline bool GetRow(const std::string &key, mantra::Storage::RecordMap &data)
 		{ return GetRow(mantra::Comparison<mantra::C_EqualToNC>::make(key_, key), data); }
-	inline bool GetRow(const boost::uint32_t &key, mantra::Storage::RecordMap &data)
+	inline bool GetRow(boost::uint32_t key, mantra::Storage::RecordMap &data)
 		{ return GetRow(mantra::Comparison<mantra::C_EqualTo>::make(key_, key), data); }
 	inline unsigned int PutRow(const std::string &key, const mantra::Storage::RecordMap &data)
 		{ return ChangeRow(data, mantra::Comparison<mantra::C_EqualToNC>::make(key_, key)); }
-	inline unsigned int PutRow(const boost::uint32_t &key, const mantra::Storage::RecordMap &data)
+	inline unsigned int PutRow(boost::uint32_t key, const mantra::Storage::RecordMap &data)
 		{ return ChangeRow(data, mantra::Comparison<mantra::C_EqualTo>::make(key_, key)); }
 
 	// Single field gets/puts, using the pre-defined key.
 	inline mantra::StorageValue GetField(const std::string &key, const std::string &column)
 		{ return GetField(mantra::Comparison<mantra::C_EqualToNC>::make(key_, key), column); }
-	inline mantra::StorageValue GetField(const boost::uint32_t &key, const std::string &column)
+	inline mantra::StorageValue GetField(boost::uint32_t key, const std::string &column)
 		{ return GetField(mantra::Comparison<mantra::C_EqualTo>::make(key_, key), column); }
 	inline unsigned int PutField(const std::string &key, const std::string &column, const mantra::StorageValue &value)
 		{ return PutField(mantra::Comparison<mantra::C_EqualToNC>::make(key_, key), column, value); }
-	inline unsigned int PutField(const boost::uint32_t &key, const std::string &column, const mantra::StorageValue &value)
+	inline unsigned int PutField(boost::uint32_t key, const std::string &column, const mantra::StorageValue &value)
 		{ return PutField(mantra::Comparison<mantra::C_EqualTo>::make(key_, key), column, value); }
 };
 

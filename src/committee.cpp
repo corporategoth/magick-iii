@@ -840,11 +840,48 @@ bool Committee::MEMBER_Exists(const boost::shared_ptr<StoredUser> &entry) const
 	MT_EE
 }
 
+void Committee::MEMBER_Add(const boost::shared_ptr<StoredUser> &entry)
+{
+	MT_EB
+	MT_FUNC("Committee::MEMBER_Add" << entry);
+
+	if (!entry)
+		return;
+
+	if (*this != ROOT->ConfigValue<std::string>("commserv.sadmin.name"))
+		return;
+
+	boost::uint32_t number = 0;
+
+	SYNC_LOCK(member_number);
+	mantra::StorageValue rv = Member::storage.Maximum("number",
+				mantra::Comparison<mantra::C_EqualTo>::make("id", id_));
+	if (rv.type() == typeid(mantra::NullValue))
+		number = 1;
+	else
+		number = boost::get<boost::uint32_t>(rv) + 1;
+
+	mantra::Storage::RecordMap rec;
+	rec["id"] = id_;
+	rec["number"] = number;
+	rec["entry"] = entry->ID();
+	rec["last_updater"] = ROOT->operserv.Primary();
+	Member::storage.InsertRow(rec);
+
+	MT_EE
+}
+
 Committee::Member Committee::MEMBER_Add(const boost::shared_ptr<StoredUser> &entry,
 										const boost::shared_ptr<StoredNick> &updater)
 {
 	MT_EB
 	MT_FUNC("Committee::MEMBER_Add" << entry << updater);
+
+	if (!entry || !updater)
+	{
+		Member m;
+		MT_RET(m);
+	}
 
 	if (*this == ROOT->ConfigValue<std::string>("commserv.all.name") ||
 		*this == ROOT->ConfigValue<std::string>("commserv.regd.name") ||
@@ -870,6 +907,7 @@ Committee::Member Committee::MEMBER_Add(const boost::shared_ptr<StoredUser> &ent
 	rec["entry"] = entry->ID();
 	rec["last_updater"] = updater->Name();
 	rec["last_updater_id"] = updater->User()->ID();
+
 	if (Member::storage.InsertRow(rec))
 	{
 		Member m(self.lock(), number);

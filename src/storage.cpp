@@ -86,6 +86,16 @@ void Storage::SquitEntry::swap(Storage::LiveUsers_t &users, const mantra::durati
 	MT_EE
 }
 
+void Storage::SquitEntry::add(const boost::shared_ptr<LiveUser> &user)
+{
+	MT_EB
+	MT_FUNC("Storage::SquitEntry::add" << user);
+
+	users_.insert(user);
+
+	MT_EE
+}
+
 void Storage::SquitEntry::remove(const boost::shared_ptr<LiveUser> &user)
 {
 	MT_EB
@@ -269,154 +279,120 @@ bool nameless(const mantra::Storage::RecordMap &lhs,
 			boost::get<boost::uint32_t>(j->second));
 }
 
-void Storage::sync()
+template<>
+void Storage::sync<StoredUser>()
 {
 	MT_EB
-	MT_FUNC("Storage::sync");
+	MT_FUNC("Storage::sync<StoredUser>");
 
 	mantra::Storage::DataSet data;
 	mantra::Storage::FieldSet fields;
+	fields.insert("id");
+
+	SYNC_WLOCK(StoredUsers_);
+	std::vector<boost::shared_ptr<StoredUser> > newentries;
+	backend_.first->RetrieveRow("users", data, mantra::ComparisonSet(), fields);
+	std::sort(data.begin(), data.end(), idless);
+
+	StoredUsers_t::iterator i = StoredUsers_.begin();
+	mantra::Storage::DataSet::const_iterator j = data.begin();
+	mantra::Storage::RecordMap::const_iterator k;
+	while (i != StoredUsers_.end() && j != data.end())
 	{
-		data.clear();
-		fields.clear();
-		fields.insert("id");
-
-		SYNC_WLOCK(StoredUsers_);
-		std::queue<boost::shared_ptr<StoredUser> > newentries;
-		backend_.first->RetrieveRow("users", data, mantra::ComparisonSet(), fields);
-		std::sort(data.begin(), data.end(), idless);
-		StoredUsers_t::iterator i = StoredUsers_.begin();
-		mantra::Storage::DataSet::const_iterator j = data.begin();
-		mantra::Storage::RecordMap::const_iterator k;
-		while (i != StoredUsers_.end() && j != data.end())
+		k = j->find("id");
+		if (k == j->end() || k->second.type() != typeid(boost::uint32_t))
 		{
-			k = j->find("id");
-			if (k == j->end() || k->second.type() != typeid(boost::uint32_t))
-			{
-				// This should never happen!
-				++j;
-				continue;
-			}
-			boost::uint32_t id = boost::get<boost::uint32_t>(k->second);
-
-			while (**i < id)
-			{
-				// Old entry, delete it.
-				DelInternal(*i);
-				StoredUsers_.erase(i++);
-			}
-			if (**i != id)
-			{
-				// New entry, add it.
-				newentries.push(if_StoredUser_Storage::load(id));
-			}
-			else
-				++i;
+			// This should never happen!
 			++j;
-
+			continue;
 		}
-		// Old entries, remove them.
-		while (i != StoredUsers_.end())
+		boost::uint32_t id = boost::get<boost::uint32_t>(k->second);
+
+		while (**i < id)
 		{
+			// Old entry, delete it.
 			DelInternal(*i);
 			StoredUsers_.erase(i++);
 		}
 
-		// New entries, add them.
-		while (j != data.end())
-		{
-			k = j->find("id");
-			if (k == j->end() || k->second.type() != typeid(boost::uint32_t))
-			{
-				// This should never happen!
-				++j;
-				continue;
-			}
-			boost::uint32_t id = boost::get<boost::uint32_t>(k->second);
+		if (**i != id)
+			newentries.push_back(if_StoredUser_Storage::load(id));
+		else
+			++i;
+		++j;
 
-			newentries.push(if_StoredUser_Storage::load(id));
-			++j;
-		}
-
-		// Add the entries from above ...
-		while (!newentries.empty())
-		{
-			StoredUsers_.insert(newentries.front());
-			newentries.pop();
-		}
 	}
 
+	// Old entries, remove them.
+	while (i != StoredUsers_.end())
 	{
-		data.clear();
-		fields.clear();
-		fields.insert("name");
-		fields.insert("id");
+		DelInternal(*i);
+		StoredUsers_.erase(i++);
+	}
 
-		SYNC_WLOCK(StoredNicks_);
-		std::queue<boost::shared_ptr<StoredNick> > newentries;
-		backend_.first->RetrieveRow("nicks", data, mantra::ComparisonSet(), fields);
-		std::sort(data.begin(), data.end(), idless);
-		StoredNicks_t::iterator i = StoredNicks_.begin();
-		mantra::Storage::DataSet::const_iterator j = data.begin();
-		mantra::Storage::RecordMap::const_iterator k;
-		while (i != StoredNicks_.end() && j != data.end())
+	// Add the entries from above ...
+	if (!newentries.empty())
+		StoredUsers_.insert(newentries.begin(), newentries.end());
+
+	// New entries, add them.
+	while (j != data.end())
+	{
+		k = j->find("id");
+		if (k == j->end() || k->second.type() != typeid(boost::uint32_t))
 		{
-			k = j->find("name");
-			if (k == j->end() || k->second.type() != typeid(std::string))
-			{
-				// This should never happen!
-				++j;
-				continue;
-			}
-			std::string name = boost::get<std::string>(k->second);
-
-			while (**i < name)
-			{
-				// Old entry, delete it.
-				DelInternal(*i);
-				StoredNicks_.erase(i++);
-			}
-			if (**i != name)
-			{
-				k = j->find("id");
-				if (k == j->end() || k->second.type() != typeid(boost::uint32_t))
-				{
-					// This should never happen!
-					++j;
-					continue;
-				}
-				boost::shared_ptr<StoredUser> user = Get_StoredUser(
-								boost::get<boost::uint32_t>(k->second));
-				if (user)
-				{
-					// New entry, add it.
-					newentries.push(if_StoredNick_Storage::load(name, user));
-				}
-			}
-			else
-				++i;
+			// This should never happen!
 			++j;
-
+			continue;
 		}
-		// Old entries, remove them.
-		while (i != StoredNicks_.end())
+		boost::uint32_t id = boost::get<boost::uint32_t>(k->second);
+
+		// New entry, add it.
+		StoredUsers_.insert(if_StoredUser_Storage::load(id));
+		++j;
+	}
+
+	MT_EE
+}
+
+template<>
+void Storage::sync<StoredNick>()
+{
+	MT_EB
+	MT_FUNC("Storage::sync<StoredNick>");
+
+	mantra::Storage::DataSet data;
+	mantra::Storage::FieldSet fields;
+	fields.insert("name");
+	fields.insert("id");
+
+	SYNC_WLOCK(StoredNicks_);
+	std::vector<boost::shared_ptr<StoredNick> > newentries;
+	backend_.first->RetrieveRow("nicks", data, mantra::ComparisonSet(), fields);
+	std::sort(data.begin(), data.end(), idless);
+
+	StoredNicks_t::iterator i = StoredNicks_.begin();
+	mantra::Storage::DataSet::const_iterator j = data.begin();
+	mantra::Storage::RecordMap::const_iterator k;
+	while (i != StoredNicks_.end() && j != data.end())
+	{
+		k = j->find("name");
+		if (k == j->end() || k->second.type() != typeid(std::string))
 		{
+			// This should never happen!
+			++j;
+			continue;
+		}
+		std::string name = boost::get<std::string>(k->second);
+
+		while (**i < name)
+		{
+			// Old entry, delete it.
 			DelInternal(*i);
 			StoredNicks_.erase(i++);
 		}
 
-		// New entries, add them.
-		while (j != data.end())
+		if (**i != name)
 		{
-			k = j->find("name");
-			if (k == j->end() || k->second.type() != typeid(std::string))
-			{
-				// This should never happen!
-				++j;
-				continue;
-			}
-			std::string name = boost::get<std::string>(k->second);
-
 			k = j->find("id");
 			if (k == j->end() || k->second.type() != typeid(boost::uint32_t))
 			{
@@ -427,204 +403,241 @@ void Storage::sync()
 			boost::shared_ptr<StoredUser> user = Get_StoredUser(
 							boost::get<boost::uint32_t>(k->second));
 			if (user)
-			{
-				newentries.push(if_StoredNick_Storage::load(name, user));
-			}
-			++j;
+				newentries.push_back(if_StoredNick_Storage::load(name, user));
 		}
+		else
+			++i;
+		++j;
 
-		// Add the entries from above ...
-		while (!newentries.empty())
-		{
-			StoredNicks_.insert(newentries.front());
-			newentries.pop();
-		}
 	}
 
+	// Old entries, remove them.
+	while (i != StoredNicks_.end())
 	{
-		data.clear();
-		fields.clear();
-		fields.insert("id");
-		fields.insert("name");
+		DelInternal(*i);
+		StoredNicks_.erase(i++);
+	}
 
-		SYNC_WLOCK(StoredChannels_);
-		std::queue<boost::shared_ptr<StoredChannel> > newentries;
-		backend_.first->RetrieveRow("channels", data, mantra::ComparisonSet(), fields);
-		std::sort(data.begin(), data.end(), idless);
-		StoredChannels_by_id_t::iterator i = StoredChannels_by_id_.begin(),
-				end = StoredChannels_by_id_.end();
-		mantra::Storage::DataSet::const_iterator j = data.begin();
-		mantra::Storage::RecordMap::const_iterator k;
-		while (i != end && j != data.end())
+	// Add the entries from above ...
+	if (!newentries.empty())
+		StoredNicks_.insert(newentries.begin(), newentries.end());
+
+	// New entries, add them.
+	while (j != data.end())
+	{
+		k = j->find("name");
+		if (k == j->end() || k->second.type() != typeid(std::string))
 		{
-			k = j->find("id");
-			if (k == j->end() || k->second.type() != typeid(boost::uint32_t))
-			{
-				// This should never happen!
-				++j;
-				continue;
-			}
-			boost::uint32_t id = boost::get<boost::uint32_t>(k->second);
-
-			k = j->find("name");
-			if (k == j->end() || k->second.type() != typeid(std::string))
-			{
-				// This should never happen!
-				++j;
-				continue;
-			}
-			std::string name = boost::get<std::string>(k->second);
-
-			while (**i < id && i != end)
-			{
-				// Old entry, delete it.
-				DelInternal(*i);
-				StoredChannels_by_id_.erase(i++);
-			}
-			if (i == end)
-				break;
-
-			if (**i == id)
-			{
-				// New entry, add it.
-				newentries.push(if_StoredChannel_Storage::load(id, name));
-			}
-			else
-				++i;
+			// This should never happen!
 			++j;
-
+			continue;
 		}
-		// Old entries, remove them.
-		while (i != end)
+		std::string name = boost::get<std::string>(k->second);
+
+		k = j->find("id");
+		if (k == j->end() || k->second.type() != typeid(boost::uint32_t))
 		{
+			// This should never happen!
+			++j;
+			continue;
+		}
+		boost::shared_ptr<StoredUser> user = Get_StoredUser(
+						boost::get<boost::uint32_t>(k->second));
+		if (user)
+			StoredNicks_.insert(if_StoredNick_Storage::load(name, user));
+		++j;
+	}
+
+	MT_EE
+}
+
+template<>
+void Storage::sync<StoredChannel>()
+{
+	MT_EB
+	MT_FUNC("Storage::sync<StoredChannel>");
+
+	mantra::Storage::DataSet data;
+	mantra::Storage::FieldSet fields;
+	fields.insert("id");
+	fields.insert("name");
+
+	SYNC_WLOCK(StoredChannels_);
+	std::vector<boost::shared_ptr<StoredChannel> > newentries;
+	backend_.first->RetrieveRow("channels", data, mantra::ComparisonSet(), fields);
+	std::sort(data.begin(), data.end(), idless);
+
+	StoredChannels_by_id_t::iterator i = StoredChannels_by_id_.begin(),
+			end = StoredChannels_by_id_.end();
+	mantra::Storage::DataSet::const_iterator j = data.begin();
+	mantra::Storage::RecordMap::const_iterator k;
+	while (i != end && j != data.end())
+	{
+		k = j->find("id");
+		if (k == j->end() || k->second.type() != typeid(boost::uint32_t))
+		{
+			// This should never happen!
+			++j;
+			continue;
+		}
+		boost::uint32_t id = boost::get<boost::uint32_t>(k->second);
+
+		k = j->find("name");
+		if (k == j->end() || k->second.type() != typeid(std::string))
+		{
+			// This should never happen!
+			++j;
+			continue;
+		}
+		std::string name = boost::get<std::string>(k->second);
+
+		while (**i < id && i != end)
+		{
+			// Old entry, delete it.
 			DelInternal(*i);
 			StoredChannels_by_id_.erase(i++);
 		}
+		if (i == end)
+			break;
 
-		// New entries, add them.
-		while (j != data.end())
-		{
-			k = j->find("id");
-			if (k == j->end() || k->second.type() != typeid(boost::uint32_t))
-			{
-				// This should never happen!
-				++j;
-				continue;
-			}
-			boost::uint32_t id = boost::get<boost::uint32_t>(k->second);
+		if (**i == id)
+			newentries.push_back(if_StoredChannel_Storage::load(id, name));
+		else
+			++i;
+		++j;
 
-			k = j->find("name");
-			if (k == j->end() || k->second.type() != typeid(std::string))
-			{
-				// This should never happen!
-				++j;
-				continue;
-			}
-			std::string name = boost::get<std::string>(k->second);
-
-			newentries.push(if_StoredChannel_Storage::load(id, name));
-			++j;
-		}
-
-		// Add the entries from above ...
-		while (!newentries.empty())
-		{
-			StoredChannels_.insert(newentries.front());
-			newentries.pop();
-		}
 	}
 
+	// Old entries, remove them.
+	while (i != end)
 	{
-		data.clear();
-		fields.clear();
-		fields.insert("id");
-		fields.insert("name");
+		DelInternal(*i);
+		StoredChannels_by_id_.erase(i++);
+	}
 
-		SYNC_WLOCK(Committees_);
-		std::queue<boost::shared_ptr<Committee> > newentries;
-		backend_.first->RetrieveRow("committees", data, mantra::ComparisonSet(), fields);
-		std::sort(data.begin(), data.end(), idless);
-		Committees_by_id_t::iterator i = Committees_by_id_.begin(),
-				end = Committees_by_id_.end();
-		mantra::Storage::DataSet::const_iterator j = data.begin();
-		mantra::Storage::RecordMap::const_iterator k;
-		while (i != end && j != data.end())
+	// Add the entries from above ...
+	if (!newentries.empty())
+		StoredChannels_.insert(newentries.begin(), newentries.end());
+
+	// New entries, add them.
+	while (j != data.end())
+	{
+		k = j->find("id");
+		if (k == j->end() || k->second.type() != typeid(boost::uint32_t))
 		{
-			k = j->find("id");
-			if (k == j->end() || k->second.type() != typeid(boost::uint32_t))
-			{
-				// This should never happen!
-				++j;
-				continue;
-			}
-			boost::uint32_t id = boost::get<boost::uint32_t>(k->second);
-
-			k = j->find("name");
-			if (k == j->end() || k->second.type() != typeid(std::string))
-			{
-				// This should never happen!
-				++j;
-				continue;
-			}
-			std::string name = boost::get<std::string>(k->second);
-
-			while (**i < id && i != end)
-			{
-				// Old entry, delete it.
-				DelInternal(*i);
-				Committees_by_id_.erase(i++);
-			}
-			if (i == end)
-				break;
-
-			if (**i == id)
-			{
-				// New entry, add it.
-				newentries.push(if_Committee_Storage::load(id, name));
-			}
-			else
-				++i;
+			// This should never happen!
 			++j;
-
+			continue;
 		}
-		// Old entries, remove them.
-		while (i != end)
+		boost::uint32_t id = boost::get<boost::uint32_t>(k->second);
+
+		k = j->find("name");
+		if (k == j->end() || k->second.type() != typeid(std::string))
 		{
+			// This should never happen!
+			++j;
+			continue;
+		}
+		std::string name = boost::get<std::string>(k->second);
+
+		StoredChannels_.insert(if_StoredChannel_Storage::load(id, name));
+		++j;
+	}
+
+	MT_EE
+}
+
+template<>
+void Storage::sync<Committee>()
+{
+	MT_EB
+	MT_FUNC("Storage::sync<Committee>");
+
+	mantra::Storage::DataSet data;
+	mantra::Storage::FieldSet fields;
+	fields.insert("id");
+	fields.insert("name");
+
+	SYNC_WLOCK(Committees_);
+	std::vector<boost::shared_ptr<Committee> > newentries;
+	backend_.first->RetrieveRow("committees", data, mantra::ComparisonSet(), fields);
+	std::sort(data.begin(), data.end(), idless);
+
+	Committees_by_id_t::iterator i = Committees_by_id_.begin(),
+			end = Committees_by_id_.end();
+	mantra::Storage::DataSet::const_iterator j = data.begin();
+	mantra::Storage::RecordMap::const_iterator k;
+	while (i != end && j != data.end())
+	{
+		k = j->find("id");
+		if (k == j->end() || k->second.type() != typeid(boost::uint32_t))
+		{
+			// This should never happen!
+			++j;
+			continue;
+		}
+		boost::uint32_t id = boost::get<boost::uint32_t>(k->second);
+
+		k = j->find("name");
+		if (k == j->end() || k->second.type() != typeid(std::string))
+		{
+			// This should never happen!
+			++j;
+			continue;
+		}
+		std::string name = boost::get<std::string>(k->second);
+
+		while (**i < id && i != end)
+		{
+			// Old entry, delete it.
 			DelInternal(*i);
 			Committees_by_id_.erase(i++);
 		}
+		if (i == end)
+			break;
 
-		// New entries, add them.
-		while (j != data.end())
+		if (**i == id)
+			newentries.push_back(if_Committee_Storage::load(id, name));
+		else
+			++i;
+		++j;
+
+	}
+
+	// Old entries, remove them.
+	while (i != end)
+	{
+		DelInternal(*i);
+		Committees_by_id_.erase(i++);
+	}
+
+	// Add the entries from above ...
+	if (!newentries.empty())
+		Committees_.insert(newentries.begin(), newentries.end());
+
+	// New entries, add them.
+	while (j != data.end())
+	{
+		k = j->find("id");
+		if (k == j->end() || k->second.type() != typeid(boost::uint32_t))
 		{
-			k = j->find("id");
-			if (k == j->end() || k->second.type() != typeid(boost::uint32_t))
-			{
-				// This should never happen!
-				++j;
-				continue;
-			}
-			boost::uint32_t id = boost::get<boost::uint32_t>(k->second);
-
-			k = j->find("name");
-			if (k == j->end() || k->second.type() != typeid(std::string))
-			{
-				// This should never happen!
-				++j;
-				continue;
-			}
-			std::string name = boost::get<std::string>(k->second);
-
-			newentries.push(if_Committee_Storage::load(id, name));
+			// This should never happen!
 			++j;
+			continue;
 		}
+		boost::uint32_t id = boost::get<boost::uint32_t>(k->second);
 
-		// Add the entries from above ...
-		while (!newentries.empty())
+		k = j->find("name");
+		if (k == j->end() || k->second.type() != typeid(std::string))
 		{
-			Committees_.insert(newentries.front());
-			newentries.pop();
+			// This should never happen!
+			++j;
+			continue;
 		}
+		std::string name = boost::get<std::string>(k->second);
+
+		Committees_.insert(if_Committee_Storage::load(id, name));
+		++j;
 	}
 
 	MT_EE
@@ -2091,7 +2104,36 @@ void Storage::Load()
 	}
 
 	backend_.first->Refresh();
-	sync();
+
+	// All the functions to bring our rep in line with the DB.
+	sync<StoredUser>();
+	sync<StoredNick>();
+	sync<StoredChannel>();
+	sync<Committee>();
+	{
+		SYNC_WLOCK(Forbiddens_);
+		Forbidden::sync(Forbiddens_);
+	}
+	{
+		SYNC_WLOCK(Akills_);
+		Akill::sync(Akills_);
+	}
+	{
+		SYNC_WLOCK(Clones_);
+		Clone::sync(Clones_);
+	}
+	{
+		SYNC_WLOCK(OperDenies_);
+		OperDeny::sync(OperDenies_);
+	}
+	{
+		SYNC_WLOCK(Ignores_);
+		Ignore::sync(Ignores_);
+	}
+	{
+		SYNC_WLOCK(KillChannels_);
+		KillChannel::sync(KillChannels_);
+	}
 
 	{
 		boost::shared_ptr<Committee> sadmin, admin, comm;
@@ -2246,6 +2288,43 @@ std::string Storage::CryptPassword(const std::string &in) const
  * The add/del/retrieve functions for all data.
  ****************************************************************************/
 
+void Storage::Add(const boost::shared_ptr<Server> &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Add" << entry);
+
+	SYNC_WLOCK(SquitUsers_);
+	SquitUsers_t::iterator i = std::lower_bound(SquitUsers_[0].begin(),
+												SquitUsers_[0].end(), entry->Name());
+
+	// Force all users in stage 1 to do a regular QUIT.
+	if (i != SquitUsers_[0].end() && *i == entry->Name())
+		SquitUsers_[0].erase(i);
+
+	// Same for level 3 (?!)
+	i = std::lower_bound(SquitUsers_[2].begin(), SquitUsers_[2].end(), entry->Name());
+	if (i != SquitUsers_[2].end() && *i == entry->Name())
+		SquitUsers_[2].erase(i);
+
+	// Move all users from Stage 2 -> Stage 3.
+	i = std::lower_bound(SquitUsers_[1].begin(), SquitUsers_[1].end(), entry->Name());
+	if (i != SquitUsers_[1].end() && *i == entry->Name())
+	{
+		SquitEntry *se = const_cast<SquitEntry *>(&(*i));
+		std::string uplink = se->Uplink();
+		LiveUsers_t users;
+		se->swap(users);
+		SquitUsers_[1].erase(i);
+
+		std::pair<SquitUsers_t::iterator, bool> rv =
+				SquitUsers_[2].insert(SquitEntry(entry->Name(), uplink, 2));
+		se = const_cast<SquitEntry *>(&(*rv.first));
+		se->swap(users, ROOT->ConfigValue<mantra::duration>("general.squit-protect"));
+	}
+
+	MT_EE
+}
+
 void Storage::Add(const boost::shared_ptr<LiveUser> &entry)
 {
 	MT_EB
@@ -2331,6 +2410,36 @@ void Storage::Rename(const boost::shared_ptr<LiveUser> &entry,
 		if_LiveUser_Storage(entry).Name(name);
 		Add(entry);
 	}
+
+	MT_EE
+}
+
+void Storage::Squit(const boost::shared_ptr<LiveUser> &entry,
+					const boost::shared_ptr<Server> &server)
+{
+	MT_EB
+	MT_FUNC("Storage::Squit" << entry << server);
+
+	{
+		SYNC_WLOCK(LiveUsers_);
+		LiveUsers_t::iterator i = LiveUsers_.find(entry);
+		if (i != LiveUsers_.end())
+			LiveUsers_.erase(i);
+	}
+
+	SYNC_WLOCK(SquitUsers_);
+	SquitUsers_t::iterator i = std::lower_bound(SquitUsers_[0].begin(),
+												SquitUsers_[0].end(),
+												server->Name());
+	if (i == SquitUsers_[0].end() || *i != server->Name())
+	{
+		std::pair<SquitUsers_t::iterator, bool> rv =
+			SquitUsers_[0].insert(SquitEntry(server->Name(),
+											 server->Parent()->Name(), 0));
+		i = rv.first;
+	}
+	SquitEntry *se = const_cast<SquitEntry *>(&(*i));
+	se->add(entry);
 
 	MT_EE
 }
@@ -2629,7 +2738,7 @@ void Storage::Del(const boost::shared_ptr<Server> &entry)
 		}
 
 		std::pair<SquitUsers_t::iterator, bool> rv = 
-				SquitUsers_[1].insert(SquitEntry(entry->Name(), entry->Parent()->Name()));
+				SquitUsers_[1].insert(SquitEntry(entry->Name(), entry->Parent()->Name(), 1));
 		SquitEntry *se = const_cast<SquitEntry *>(&(*rv.first));
 		if (!rv.second)
 		{
@@ -3045,7 +3154,7 @@ void Storage::Add(const Forbidden &entry)
 	MT_EB
 	MT_FUNC("Storage::Add" << entry);
 
-	if (!entry.Number())
+	if (!entry)
 		return;
 
 	SYNC_WLOCK(Forbiddens_);
@@ -3059,6 +3168,9 @@ void Storage::Del(const Forbidden &entry)
 	MT_EB
 	MT_FUNC("Storage::Del" << entry);
 
+	if (!entry.Number())
+		return;
+
 	backend_.first->RemoveRow("forbidden", 
 		  mantra::Comparison<mantra::C_EqualTo>::make("number", entry.Number()));
 	SYNC_WLOCK(Forbiddens_);
@@ -3067,10 +3179,37 @@ void Storage::Del(const Forbidden &entry)
 	MT_EE
 }
 
+bool Storage::Reindex(const Forbidden &entry, boost::uint32_t num)
+{
+	MT_EB
+	MT_FUNC("Storage::Reindex" << entry << num);
+
+	if (num <= 0 || !entry)
+		MT_RET(false);
+
+	SYNC_RWLOCK(Forbiddens_);
+
+	if (backend_.first->RowExists("forbidden",
+			mantra::Comparison<mantra::C_EqualTo>::make("number", num)))
+		MT_RET(false);
+
+	Forbiddens_.erase(entry);
+
+	mantra::Storage::RecordMap rec;
+	rec["number"] = num;
+	backend_.first->ChangeRow("forbidden", rec, 
+		mantra::Comparison<mantra::C_EqualTo>::make("number", entry.Number()));
+
+	Forbiddens_.insert(Forbidden(num));
+
+	MT_RET(true);
+	MT_EE
+}
+
 Forbidden Storage::Get_Forbidden(boost::uint32_t in, boost::logic::tribool deep)
 {
 	MT_EB
-	MT_FUNC("Get_Forbidden" << in << deep);
+	MT_FUNC("Storage::Get_Forbidden" << in << deep);
 
 	SYNC_RWLOCK(Forbiddens_);
 	Forbiddens_t::const_iterator i = std::lower_bound(Forbiddens_.begin(),
@@ -3088,7 +3227,7 @@ Forbidden Storage::Get_Forbidden(boost::uint32_t in, boost::logic::tribool deep)
 			MT_RET(rv);
 		}
 
-		Forbidden rv(0);
+		Forbidden rv;
 		MT_RET(rv);
 	}
 
@@ -3098,53 +3237,672 @@ Forbidden Storage::Get_Forbidden(boost::uint32_t in, boost::logic::tribool deep)
 	MT_EE
 }
 
-void Storage::Get_Forbidden(std::vector<Forbidden> &fill, boost::logic::tribool channel) const
+void Storage::Get_Forbidden(std::set<Forbidden> &fill, boost::logic::tribool channel) const
 {
 	MT_EB
-	MT_FUNC("Get_Forbidden" << fill << channel);
+	MT_FUNC("Storage::Get_Forbidden" << fill << channel);
 
 	SYNC_RLOCK(Forbiddens_);
 	if (boost::logic::indeterminate(channel))
-		std::copy(Forbiddens_.begin(), Forbiddens_.end(), fill.end());
+		fill.insert(Forbiddens_.begin(), Forbiddens_.end());
 	else
 	{
 		Forbiddens_t::const_iterator i;
 		for (i = Forbiddens_.begin(); i != Forbiddens_.end(); ++i)
+		{
+			if (!*i)
+				continue;
+
 			if (channel)
 			{
 				if (ROOT->proto.IsChannel(i->Mask()))
-					fill.push_back(*i);
+					fill.insert(*i);
 			}
 			else
 			{
 				if (!ROOT->proto.IsChannel(i->Mask()))
-					fill.push_back(*i);
+					fill.insert(*i);
 			}
+		}
 	}
 
 	MT_EE
 }
 
-bool Storage::Matches_Forbidden(const std::string &in, boost::logic::tribool channel) const
+Forbidden Storage::Matches_Forbidden(const std::string &in, boost::logic::tribool channel) const
 {
 	MT_EB
-	MT_FUNC("Matches_Forbidden" << in << channel);
+	MT_FUNC("Storage::Matches_Forbidden" << in << channel);
 
 	SYNC_RLOCK(Forbiddens_);
 	Forbiddens_t::const_iterator i;
 	for (i = Forbiddens_.begin(); i != Forbiddens_.end(); ++i)
 	{
+		if (!*i)
+			continue;
+
 		if (boost::logic::indeterminate(channel))
 			if (i->Matches(in))
-				MT_RET(true);
+				MT_RET(*i);
 		else if (channel)
 			if (ROOT->proto.IsChannel(i->Mask()) && i->Matches(in))
-				MT_RET(true);
+				MT_RET(*i);
 		else if (!ROOT->proto.IsChannel(i->Mask()) && i->Matches(in))
-			MT_RET(true);
+			MT_RET(*i);
 	}
 
-	MT_RET(false);
+	Forbidden rv;
+	MT_RET(rv);
+	MT_EE
+}
+
+// --------------------------------------------------------------------------
+
+void Storage::Add(const Akill &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Add" << entry);
+
+	if (!entry)
+		return;
+
+	SYNC_WLOCK(Akills_);
+	Akills_.insert(entry);
+
+	MT_EE
+}
+
+void Storage::Del(const Akill &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Del" << entry);
+
+	if (!entry.Number())
+		return;
+
+	backend_.first->RemoveRow("akills", 
+		  mantra::Comparison<mantra::C_EqualTo>::make("number", entry.Number()));
+	SYNC_WLOCK(Akills_);
+	Akills_.erase(entry);
+
+	MT_EE
+}
+
+bool Storage::Reindex(const Akill &entry, boost::uint32_t num)
+{
+	MT_EB
+	MT_FUNC("Storage::Reindex" << entry << num);
+
+	if (num <= 0 || !entry)
+		MT_RET(false);
+
+	SYNC_RWLOCK(Akills_);
+
+	if (backend_.first->RowExists("akills",
+			mantra::Comparison<mantra::C_EqualTo>::make("number", num)))
+		MT_RET(false);
+
+	Akills_.erase(entry);
+
+	mantra::Storage::RecordMap rec;
+	rec["number"] = num;
+	backend_.first->ChangeRow("akills", rec, 
+		mantra::Comparison<mantra::C_EqualTo>::make("number", entry.Number()));
+
+	Akills_.insert(Akill(num));
+
+	MT_RET(true);
+	MT_EE
+}
+
+Akill Storage::Get_Akill(boost::uint32_t in, boost::logic::tribool deep)
+{
+	MT_EB
+	MT_FUNC("Storage::Get_Akill" << in << deep);
+
+	SYNC_RWLOCK(Akills_);
+	Akills_t::const_iterator i = std::lower_bound(Akills_.begin(),
+													  Akills_.end(), in);
+	if (i == Akills_.end() || *i != in)
+	{
+		if (boost::logic::indeterminate(deep))
+			deep = ROOT->ConfigValue<bool>("storage.deep-lookup");
+		if (deep && backend_.first->RowExists("akills", 
+			mantra::Comparison<mantra::C_EqualTo>::make("number", in)))
+		{
+			Akill rv(in);
+			SYNC_PROMOTE(Akills_);
+			Akills_.insert(rv);
+			MT_RET(rv);
+		}
+
+		Akill rv;
+		MT_RET(rv);
+	}
+
+	Akill rv(in);
+
+	MT_RET(rv);
+	MT_EE
+}
+
+void Storage::Get_Akill(std::set<Akill> &fill) const
+{
+	MT_EB
+	MT_FUNC("Storage::Get_Akill" << fill);
+
+	SYNC_RLOCK(Akills_);
+	fill.insert(Akills_.begin(), Akills_.end());
+
+	MT_EE
+}
+
+Akill Storage::Matches_Akill(const std::string &in) const
+{
+	MT_EB
+	MT_FUNC("Storage::Matches_Akill" << in);
+
+	SYNC_RLOCK(Akills_);
+	Akills_t::const_iterator i;
+	for (i = Akills_.begin(); i != Akills_.end(); ++i)
+	{
+		if (!*i)
+			continue;
+
+		if (i->Matches(in))
+			MT_RET(*i);
+	}
+
+	Akill rv;
+	MT_RET(rv);
+	MT_EE
+}
+
+// --------------------------------------------------------------------------
+
+void Storage::Add(const Clone &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Add" << entry);
+
+	if (!entry)
+		return;
+
+	SYNC_WLOCK(Clones_);
+	Clones_.insert(entry);
+
+	MT_EE
+}
+
+void Storage::Del(const Clone &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Del" << entry);
+
+	if (!entry.Number())
+		return;
+
+	backend_.first->RemoveRow("clones", 
+		  mantra::Comparison<mantra::C_EqualTo>::make("number", entry.Number()));
+	SYNC_WLOCK(Clones_);
+	Clones_.erase(entry);
+
+	MT_EE
+}
+
+bool Storage::Reindex(const Clone &entry, boost::uint32_t num)
+{
+	MT_EB
+	MT_FUNC("Storage::Reindex" << entry << num);
+
+	if (num <= 0 || !entry)
+		MT_RET(false);
+
+	SYNC_RWLOCK(Clones_);
+
+	if (backend_.first->RowExists("clones",
+			mantra::Comparison<mantra::C_EqualTo>::make("number", num)))
+		MT_RET(false);
+
+	Clones_.erase(entry);
+
+	mantra::Storage::RecordMap rec;
+	rec["number"] = num;
+	backend_.first->ChangeRow("clones", rec, 
+		mantra::Comparison<mantra::C_EqualTo>::make("number", entry.Number()));
+
+	Clones_.insert(Clone(num));
+
+	MT_RET(true);
+	MT_EE
+}
+
+Clone Storage::Get_Clone(boost::uint32_t in, boost::logic::tribool deep)
+{
+	MT_EB
+	MT_FUNC("Storage::Get_Clone" << in << deep);
+
+	SYNC_RWLOCK(Clones_);
+	Clones_t::const_iterator i = std::lower_bound(Clones_.begin(),
+													  Clones_.end(), in);
+	if (i == Clones_.end() || *i != in)
+	{
+		if (boost::logic::indeterminate(deep))
+			deep = ROOT->ConfigValue<bool>("storage.deep-lookup");
+		if (deep && backend_.first->RowExists("clones", 
+			mantra::Comparison<mantra::C_EqualTo>::make("number", in)))
+		{
+			Clone rv(in);
+			SYNC_PROMOTE(Clones_);
+			Clones_.insert(rv);
+			MT_RET(rv);
+		}
+
+		Clone rv;
+		MT_RET(rv);
+	}
+
+	Clone rv(in);
+
+	MT_RET(rv);
+	MT_EE
+}
+
+void Storage::Get_Clone(std::set<Clone> &fill) const
+{
+	MT_EB
+	MT_FUNC("Storage::Get_Clone" << fill);
+
+	SYNC_RLOCK(Clones_);
+	fill.insert(Clones_.begin(), Clones_.end());
+
+	MT_EE
+}
+
+Clone Storage::Matches_Clone(const std::string &in) const
+{
+	MT_EB
+	MT_FUNC("Storage::Matches_Clone" << in);
+
+	SYNC_RLOCK(Clones_);
+	Clones_t::const_iterator i;
+	for (i = Clones_.begin(); i != Clones_.end(); ++i)
+	{
+		if (!*i)
+			continue;
+
+		if (i->Matches(in))
+			MT_RET(*i);
+	}
+
+	Clone rv;
+	MT_RET(rv);
+	MT_EE
+}
+
+// --------------------------------------------------------------------------
+
+void Storage::Add(const OperDeny &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Add" << entry);
+
+	if (!entry)
+		return;
+
+	SYNC_WLOCK(OperDenies_);
+	OperDenies_.insert(entry);
+
+	MT_EE
+}
+
+void Storage::Del(const OperDeny &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Del" << entry);
+
+	if (!entry.Number())
+		return;
+
+	backend_.first->RemoveRow("operdenies", 
+		  mantra::Comparison<mantra::C_EqualTo>::make("number", entry.Number()));
+	SYNC_WLOCK(OperDenies_);
+	OperDenies_.erase(entry);
+
+	MT_EE
+}
+
+bool Storage::Reindex(const OperDeny &entry, boost::uint32_t num)
+{
+	MT_EB
+	MT_FUNC("Storage::Reindex" << entry << num);
+
+	if (num <= 0 || !entry)
+		MT_RET(false);
+
+	SYNC_RWLOCK(OperDenies_);
+
+	if (backend_.first->RowExists("operdenies",
+			mantra::Comparison<mantra::C_EqualTo>::make("number", num)))
+		MT_RET(false);
+
+	OperDenies_.erase(entry);
+
+	mantra::Storage::RecordMap rec;
+	rec["number"] = num;
+	backend_.first->ChangeRow("operdenies", rec, 
+		mantra::Comparison<mantra::C_EqualTo>::make("number", entry.Number()));
+
+	OperDenies_.insert(OperDeny(num));
+
+	MT_RET(true);
+	MT_EE
+}
+
+OperDeny Storage::Get_OperDeny(boost::uint32_t in, boost::logic::tribool deep)
+{
+	MT_EB
+	MT_FUNC("Storage::Get_OperDeny" << in << deep);
+
+	SYNC_RWLOCK(OperDenies_);
+	OperDenies_t::const_iterator i = std::lower_bound(OperDenies_.begin(),
+													  OperDenies_.end(), in);
+	if (i == OperDenies_.end() || *i != in)
+	{
+		if (boost::logic::indeterminate(deep))
+			deep = ROOT->ConfigValue<bool>("storage.deep-lookup");
+		if (deep && backend_.first->RowExists("operdenies", 
+			mantra::Comparison<mantra::C_EqualTo>::make("number", in)))
+		{
+			OperDeny rv(in);
+			SYNC_PROMOTE(OperDenies_);
+			OperDenies_.insert(rv);
+			MT_RET(rv);
+		}
+
+		OperDeny rv;
+		MT_RET(rv);
+	}
+
+	OperDeny rv(in);
+
+	MT_RET(rv);
+	MT_EE
+}
+
+void Storage::Get_OperDeny(std::set<OperDeny> &fill) const
+{
+	MT_EB
+	MT_FUNC("Storage::Get_OperDeny" << fill);
+
+	SYNC_RLOCK(OperDenies_);
+	fill.insert(OperDenies_.begin(), OperDenies_.end());
+
+	MT_EE
+}
+
+OperDeny Storage::Matches_OperDeny(const std::string &in) const
+{
+	MT_EB
+	MT_FUNC("Storage::Matches_OperDeny" << in);
+
+	SYNC_RLOCK(OperDenies_);
+	OperDenies_t::const_iterator i;
+	for (i = OperDenies_.begin(); i != OperDenies_.end(); ++i)
+	{
+		if (!*i)
+			continue;
+
+		if (i->Matches(in))
+			MT_RET(*i);
+	}
+
+	OperDeny rv;
+	MT_RET(rv);
+	MT_EE
+}
+
+// --------------------------------------------------------------------------
+
+void Storage::Add(const Ignore &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Add" << entry);
+
+	if (!entry)
+		return;
+
+	SYNC_WLOCK(Ignores_);
+	Ignores_.insert(entry);
+
+	MT_EE
+}
+
+void Storage::Del(const Ignore &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Del" << entry);
+
+	if (!entry.Number())
+		return;
+
+	backend_.first->RemoveRow("ignores", 
+		  mantra::Comparison<mantra::C_EqualTo>::make("number", entry.Number()));
+	SYNC_WLOCK(Ignores_);
+	Ignores_.erase(entry);
+
+	MT_EE
+}
+
+bool Storage::Reindex(const Ignore &entry, boost::uint32_t num)
+{
+	MT_EB
+	MT_FUNC("Storage::Reindex" << entry << num);
+
+	if (num <= 0 || !entry)
+		MT_RET(false);
+
+	SYNC_RWLOCK(Ignores_);
+
+	if (backend_.first->RowExists("ignores",
+			mantra::Comparison<mantra::C_EqualTo>::make("number", num)))
+		MT_RET(false);
+
+	Ignores_.erase(entry);
+
+	mantra::Storage::RecordMap rec;
+	rec["number"] = num;
+	backend_.first->ChangeRow("ignores", rec, 
+		mantra::Comparison<mantra::C_EqualTo>::make("number", entry.Number()));
+
+	Ignores_.insert(Ignore(num));
+
+	MT_RET(true);
+	MT_EE
+}
+
+Ignore Storage::Get_Ignore(boost::uint32_t in, boost::logic::tribool deep)
+{
+	MT_EB
+	MT_FUNC("Storage::Get_Ignore" << in << deep);
+
+	SYNC_RWLOCK(Ignores_);
+	Ignores_t::const_iterator i = std::lower_bound(Ignores_.begin(),
+													  Ignores_.end(), in);
+	if (i == Ignores_.end() || *i != in)
+	{
+		if (boost::logic::indeterminate(deep))
+			deep = ROOT->ConfigValue<bool>("storage.deep-lookup");
+		if (deep && backend_.first->RowExists("ignores", 
+			mantra::Comparison<mantra::C_EqualTo>::make("number", in)))
+		{
+			Ignore rv(in);
+			SYNC_PROMOTE(Ignores_);
+			Ignores_.insert(rv);
+			MT_RET(rv);
+		}
+
+		Ignore rv;
+		MT_RET(rv);
+	}
+
+	Ignore rv(in);
+
+	MT_RET(rv);
+	MT_EE
+}
+
+void Storage::Get_Ignore(std::set<Ignore> &fill) const
+{
+	MT_EB
+	MT_FUNC("Storage::Get_Ignore" << fill);
+
+	SYNC_RLOCK(Ignores_);
+	fill.insert(Ignores_.begin(), Ignores_.end());
+
+	MT_EE
+}
+
+Ignore Storage::Matches_Ignore(const std::string &in) const
+{
+	MT_EB
+	MT_FUNC("Storage::Matches_Ignore" << in);
+
+	SYNC_RLOCK(Ignores_);
+	Ignores_t::const_iterator i;
+	for (i = Ignores_.begin(); i != Ignores_.end(); ++i)
+	{
+		if (!*i)
+			continue;
+
+		if (i->Matches(in))
+			MT_RET(*i);
+	}
+
+	Ignore rv;
+	MT_RET(rv);
+	MT_EE
+}
+
+// --------------------------------------------------------------------------
+
+void Storage::Add(const KillChannel &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Add" << entry);
+
+	if (!entry)
+		return;
+
+	SYNC_WLOCK(KillChannels_);
+	KillChannels_.insert(entry);
+
+	MT_EE
+}
+
+void Storage::Del(const KillChannel &entry)
+{
+	MT_EB
+	MT_FUNC("Storage::Del" << entry);
+
+	if (!entry.Number())
+		return;
+
+	backend_.first->RemoveRow("killchans", 
+		  mantra::Comparison<mantra::C_EqualTo>::make("number", entry.Number()));
+	SYNC_WLOCK(KillChannels_);
+	KillChannels_.erase(entry);
+
+	MT_EE
+}
+
+bool Storage::Reindex(const KillChannel &entry, boost::uint32_t num)
+{
+	MT_EB
+	MT_FUNC("Storage::Reindex" << entry << num);
+
+	if (num <= 0 || !entry)
+		MT_RET(false);
+
+	SYNC_RWLOCK(KillChannels_);
+
+	if (backend_.first->RowExists("killchans",
+			mantra::Comparison<mantra::C_EqualTo>::make("number", num)))
+		MT_RET(false);
+
+	KillChannels_.erase(entry);
+
+	mantra::Storage::RecordMap rec;
+	rec["number"] = num;
+	backend_.first->ChangeRow("killchans", rec, 
+		mantra::Comparison<mantra::C_EqualTo>::make("number", entry.Number()));
+
+	KillChannels_.insert(KillChannel(num));
+
+	MT_RET(true);
+	MT_EE
+}
+
+KillChannel Storage::Get_KillChannel(boost::uint32_t in, boost::logic::tribool deep)
+{
+	MT_EB
+	MT_FUNC("Storage::Get_KillChannel" << in << deep);
+
+	SYNC_RWLOCK(KillChannels_);
+	KillChannels_t::const_iterator i = std::lower_bound(KillChannels_.begin(),
+													  KillChannels_.end(), in);
+	if (i == KillChannels_.end() || *i != in)
+	{
+		if (boost::logic::indeterminate(deep))
+			deep = ROOT->ConfigValue<bool>("storage.deep-lookup");
+		if (deep && backend_.first->RowExists("killchans", 
+			mantra::Comparison<mantra::C_EqualTo>::make("number", in)))
+		{
+			KillChannel rv(in);
+			SYNC_PROMOTE(KillChannels_);
+			KillChannels_.insert(rv);
+			MT_RET(rv);
+		}
+
+		KillChannel rv;
+		MT_RET(rv);
+	}
+
+	KillChannel rv(in);
+
+	MT_RET(rv);
+	MT_EE
+}
+
+void Storage::Get_KillChannel(std::set<KillChannel> &fill) const
+{
+	MT_EB
+	MT_FUNC("Storage::Get_KillChannel" << fill);
+
+	SYNC_RLOCK(KillChannels_);
+	fill.insert(KillChannels_.begin(), KillChannels_.end());
+
+	MT_EE
+}
+
+KillChannel Storage::Matches_KillChannel(const std::string &in) const
+{
+	MT_EB
+	MT_FUNC("Storage::Matches_KillChannel" << in);
+
+	SYNC_RLOCK(KillChannels_);
+	KillChannels_t::const_iterator i;
+	for (i = KillChannels_.begin(); i != KillChannels_.end(); ++i)
+	{
+		if (!*i)
+			continue;
+
+		if (i->Matches(in))
+			MT_RET(*i);
+	}
+
+	KillChannel rv;
+	MT_RET(rv);
 	MT_EE
 }
 
