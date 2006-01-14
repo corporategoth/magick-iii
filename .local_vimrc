@@ -1,0 +1,16 @@
+" Add mantra's tags to our own.
+function AddMantraTags()
+	let s:dir = expand($PWD)
+	while s:dir != "" && !isdirectory(s:dir . "/mantra")
+		let s:dir = substitute(s:dir, "/[^/]*$", "", "")
+	endwhile
+	if s:dir != ""
+		let &tags = &tags . "," . s:dir . "/mantra/Mantra-I/tags"
+	endif
+endfunction
+
+call AddMantraTags()
+
+map <F12> ?(hvT y]]oMT_EBA	MT_FUNC("");hhPokkk%OMT_EE]]
+map <F11> ?^[[:alpha:]][[:alnum:]_]*::vt(y]]oMT_EBA	MT_FUNC("");hhPokkk%OMT_EE]]
+map <F10> :s/return \(.*\);/MT_RET(\1);/
