@@ -55,6 +55,12 @@ protected:
 	generic_data_base(StorageInterface &storage, boost::uint32_t num);
 public:
 	virtual ~generic_data_base() {}
+	generic_data_base &operator=(const generic_data_base &in)
+	{
+		number_ = in.number_;
+		cache.Clear();
+		return *this;
+	}
 
 	boost::uint32_t Number() const { return number_; }
 
@@ -132,6 +138,8 @@ public:
 	static Akill create(const std::string &mask, const std::string &reason,
 						const mantra::duration &length, const Service *service);
 
+	boost::posix_time::ptime Creation() const
+		{ return boost::get<boost::posix_time::ptime>(cache.Get("creation")); }
 	mantra::duration Length() const
 		{ return boost::get<mantra::duration>(cache.Get("length")); }
 	void Length(const mantra::duration &in, const boost::shared_ptr<StoredNick> &nick);

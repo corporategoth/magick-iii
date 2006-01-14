@@ -3023,7 +3023,7 @@ static bool biAKICK_ADD(const ServiceUser *service,
 		MT_RET(false);
 	}
 
-	mantra::duration length("");
+	mantra::duration length();
 
 	size_t offs = 3;
 	if (params[offs][0] == '+')
@@ -3031,27 +3031,25 @@ static bool biAKICK_ADD(const ServiceUser *service,
 		try
 		{
 			mantra::StringToDuration(params[3].substr(1), length);
+			if (++offs >= params.size())
+			{
+				SEND(service, user,
+						 N_("Insufficient parameters for %1% command."),
+						 boost::algorithm::to_upper_copy(params[0]));
+				MT_RET(false);
+			}
 		}
 		catch (const mantra::mdatetime_format &e)
 		{
 			NSEND(service, user, N_("Invalid AKILL length specified."));
 			MT_RET(false);
 		}
-		++offs;
 	}
 	/* The following when I have some limits ...
 	else
 	{
 	}
 	*/
-
-	if (offs >= params.size())
-	{
-		SEND(service, user,
-			 N_("Insufficient parameters for %1% command."),
-			 boost::algorithm::to_upper_copy(params[0]));
-		MT_RET(false);
-	}
 
 	std::string reason(params[offs]);
 	for (++offs; offs < params.size(); ++offs)

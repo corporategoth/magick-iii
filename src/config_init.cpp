@@ -833,6 +833,8 @@ static void add_nickserv_options(po::options_description &opts)
 					"committees that can bypass the linked nickname limit")
 		("nickserv.delay", mantra::value<mantra::duration>()->default_value(mantra::duration("30s")),
 					"minimum time between nickname registrations/links")
+		("nickserv.connect-delay", mantra::value<mantra::duration>()->default_value(mantra::duration("0.5s")),
+					"how long after signon do we wait to do signon events")
 		("nickserv.ident", mantra::value<mantra::duration>()->default_value(mantra::duration("2n")),
 					"how long the user has to ident before being renamed")
 		("nickserv.release", mantra::value<mantra::duration>()->default_value(mantra::duration("1n")),

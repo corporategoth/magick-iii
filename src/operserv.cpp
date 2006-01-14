@@ -767,13 +767,7 @@ static bool biCLONE_ADD(const ServiceUser *service,
 	}
 
 	static boost::regex rx("^([^[:space:][:cntrl:]@]+@)?"
-						   "([-[:alnum:]*?.]+|[[:xdigit:]*?:]+)$");
-	if (!boost::regex_match(params[1], rx))
-	{
-		SEND(service, user, N_("Invalid hostmask %1%."), params[1]);
-		MT_RET(false);
-	}
-
+						   "([-[:alnum:]*?.]+|[[:xdigit:]*?:]+)+$");
 	boost::uint32_t limit;
 	try
 	{
@@ -801,9 +795,70 @@ static bool biCLONE_ADD(const ServiceUser *service,
 	for (size_t i = 4; i < params.size(); ++i)
 		reason += ' ' + params[i];
 
-	Clone c = Clone::create(params[1], reason, limit, nick);
-	SEND(service, user, N_("Clone entry #%1% created for \002%2%\017 with a limit of %3%."),
-		 c.Number() % params[1] % limit);
+	if (boost::regex_match(params[1], rx))
+	{
+		std::set<Clone> ent;
+		ROOT->data.Get_Clone(ent);
+
+		Clone c;
+		std::set<Clone>::iterator j;
+		for (j = ent.begin(); j != ent.end(); ++j)
+		{
+			if (!*j)
+				continue;
+
+			if (mantra::glob_match(params[1], j->Mask(), true))
+			{
+				if (c.Number())
+				{
+					SEND(service, user, N_("Multiple clones match the mask %1%, please specify a more specific mask or an entry by number."),
+						 params[1]);
+					MT_RET(false);
+				}
+				c = *j;
+			}
+		}
+		if (c)
+		{
+			c.Reason(reason, nick);
+			c.Value(limit, nick);
+			SEND(service, user, N_("Mask %1% has had their clone limit changed to %2%."),
+				 params[1] % limit);
+		}
+		else
+		{
+			c = Clone::create(params[1], reason, limit, nick);
+			SEND(service, user, N_("Clone entry #%1% created for \002%2%\017 with a limit of %3%."),
+				 c.Number() % params[1] % limit);
+		}
+
+	}
+	else
+	{
+		try
+		{
+			boost::uint32_t entry = boost::lexical_cast<boost::uint32_t>(params[1]);
+			Clone c = ROOT->data.Get_Clone(entry);
+			if (c)
+			{
+				c.Reason(reason, nick);
+				c.Value(limit, nick);
+				SEND(service, user, N_("Mask %1% has had their clone limit changed to %2%."),
+					 params[1] % limit);
+			}
+			else
+			{
+				SEND(service, user, N_("Could not find entry #%1% on clone override list."),
+					  entry);
+				MT_RET(false);
+			}
+		}
+		catch (boost::bad_lexical_cast &e)
+		{
+			SEND(service, user, N_("Invalid hostmask %1%."), params[1]);
+			MT_RET(false);
+		}
+	}
 
 	MT_RET(true);
 	MT_EE
@@ -817,7 +872,7 @@ static bool biCLONE_DEL(const ServiceUser *service,
 	MT_FUNC("biCLONE_DEL" << service << user << params);
 
 	static boost::regex rx("^([^[:space:][:cntrl:]@]+@)?"
-						   "([-[:alnum:]*?.]+|[[:xdigit:]*?:]+)$");
+						   "([-[:alnum:]*?.]+|[[:xdigit:]*?:]+)+$");
 
 	std::string numbers = params[1];
 	for (size_t i = 2; i < params.size(); ++i)
@@ -904,7 +959,7 @@ static bool biCLONE_LIST(const ServiceUser *service,
 	MT_FUNC("biCLONE_LIST" << service << user << params);
 
 	static boost::regex rx("^([^[:space:][:cntrl:]@]+@)?"
-						   "([-[:alnum:]*?.]+|[[:xdigit:]*?:]+)$");
+						   "([-[:alnum:]*?.]+|[[:xdigit:]*?:]+)+$");
 
 	std::string numbers = params[1];
 	for (size_t i = 2; i < params.size(); ++i)
@@ -1016,6 +1071,22 @@ static bool biCLONE_REINDEX(const ServiceUser *service,
 	MT_EE
 }
 
+static bool biCLONE_LIVELIST(const ServiceUser *service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("biCLONE_LIVELIST" << service << user << params);
+
+	// TODO: To be implemented.
+	SEND(service, user,
+		 N_("The %1% command has not yet been implemented."),
+		 boost::algorithm::to_upper_copy(params[0]));
+
+	MT_RET(true);
+	MT_EE
+}
+
 static bool biAKILL_ADD(const ServiceUser *service,
 						const boost::shared_ptr<LiveUser> &user,
 						const std::vector<std::string> &params)
@@ -1023,8 +1094,202 @@ static bool biAKILL_ADD(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biAKILL_ADD" << service << user << params);
 
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
 
-	MT_RET(false);
+	static boost::regex rx("^[^[:space:][:cntrl:]@]+@"
+						   "([-[:alnum:]*?.]+|[[:xdigit:]*?:]+)+$");
+
+	size_t offs = 2;
+	mantra::duration length;
+	if (params[offs][0] == '+')
+	{
+		try
+		{
+			mantra::StringToDuration(params[2].substr(1), length);
+			if (++offs >= params.size())
+			{
+				SEND(service, user,
+						 N_("Insufficient parameters for %1% command."),
+						 boost::algorithm::to_upper_copy(params[0]));
+				MT_RET(false);
+			}
+		}
+		catch (const mantra::mdatetime_format &e)
+		{
+			NSEND(service, user, N_("Invalid duration specified."));
+			MT_RET(false);
+		}
+	}
+	else
+		length = ROOT->ConfigValue<mantra::duration>("operserv.akill.expire");
+
+	const char *limit_cfg = NULL;
+	if (user->InCommittee(ROOT->ConfigValue<std::string>("commserv.sadmin.name")))
+		limit_cfg = "operserv.akill.expire-sadmin";
+	else if (user->InCommittee(ROOT->ConfigValue<std::string>("commserv.sop.name")))
+		limit_cfg = "operserv.akill.expire-sop";
+	else if (user->InCommittee(ROOT->ConfigValue<std::string>("commserv.admin.name")))
+		limit_cfg = "operserv.akill.expire-admin";
+	else if (user->InCommittee(ROOT->ConfigValue<std::string>("commserv.oper.name")))
+		limit_cfg = "operserv.akill.expire-oper";
+	else
+	{
+		// Should NOT happen.
+		NSEND(service, user, N_("You do not have permissions to set an autokill."));
+		MT_RET(false);
+	}
+
+	mantra::duration d = ROOT->ConfigValue<mantra::duration>(limit_cfg);
+	if (!length)
+	{
+		if (!d)
+		{
+			SEND(service, user, N_("You may not set a permanent autokill, the maximum time you may set an autokill for is %1%."),
+				 mantra::DurationToString(d, mantra::Second));
+			MT_RET(false);
+		}
+	}
+	else if (length > d)
+	{
+		SEND(service, user, N_("You may not set an autokill for %1%, the maximum time you may set an autokill for is %2%."),
+			 mantra::DurationToString(length, mantra::Second) %
+			 mantra::DurationToString(d, mantra::Second));
+		MT_RET(false);
+	}
+
+	std::string reason(params[offs]);
+	for (++offs; offs < params.size(); ++offs)
+		reason += ' ' + params[offs];
+
+	if (boost::regex_match(params[1], rx))
+	{
+
+		std::set<Akill> ent;
+		ROOT->data.Get_Akill(ent);
+
+		Akill a;
+		std::set<Akill>::iterator j;
+		for (j = ent.begin(); j != ent.end(); ++j)
+		{
+			if (!*j)
+				continue;
+
+			if (mantra::glob_match(params[1], j->Mask(), true))
+			{
+				if (a.Number())
+				{
+					SEND(service, user, N_("Multiple autokills match the mask %1%, please specify a more specific mask or an entry by number."),
+						 params[1]);
+					MT_RET(false);
+				}
+				a = *j;
+			}
+		}
+		if (a)
+		{
+			a.Reason(reason, nick);
+
+			mantra::duration oldlength = a.Length();
+			if (length)
+			{
+				if (oldlength)
+				{
+					oldlength = mantra::duration(a.Creation(),
+												 mantra::GetCurrentDateTime()) + length;
+					a.Length(oldlength, nick);
+				}
+				else
+					a.Length(length, nick);
+
+				SEND(service, user, N_("Mask %1% has had their autokill extended by %2%."),
+					 params[1] % mantra::DurationToString(length, mantra::Second));
+			}
+			else if (oldlength)
+			{
+				// Make it permanent ...
+				a.Length(length, nick);
+				SEND(service, user, N_("Mask %1% has had their autokill made permanent."),
+					 params[1]);
+			}
+			else
+			{
+				SEND(service, user, N_("Mask %1% has had their autokill reason changed."),
+					 params[1]);
+			}
+		}
+		else
+		{
+			// TODO: Check for X% rule.
+
+			a = Akill::create(params[1], reason, length, nick);
+			if (length)
+				SEND(service, user, N_("AutoKill entry #%1% created for \002%2%\017 for %3%."),
+					 a.Number() % params[1] % length);
+			else
+				SEND(service, user, N_("AutoKill entry #%1% created for \002%2%\017 permanently."),
+					 a.Number() % params[1]);
+		}
+
+	}
+	else
+	{
+		try
+		{
+			boost::uint32_t entry = boost::lexical_cast<boost::uint32_t>(params[1]);
+			Akill a = ROOT->data.Get_Akill(entry);
+			if (a)
+			{
+				a.Reason(reason, nick);
+
+				mantra::duration oldlength = a.Length();
+				if (length)
+				{
+					if (oldlength)
+					{
+						oldlength = mantra::duration(a.Creation(),
+													 mantra::GetCurrentDateTime()) + length;
+						a.Length(oldlength, nick);
+					}
+					else
+						a.Length(length, nick);
+
+					SEND(service, user, N_("Entry #%1% has had their autokill extended by %2%."),
+						 entry % mantra::DurationToString(length, mantra::Second));
+				}
+				else if (oldlength)
+				{
+					// Make it permanent ...
+					a.Length(length, nick);
+					SEND(service, user, N_("Entry #%1% has had their autokill made permanent."),
+						 entry);
+				}
+				else
+				{
+					SEND(service, user, N_("Entry #%1% has had their autokill reason changed."),
+						 entry);
+				}
+			}
+			else
+			{
+				SEND(service, user, N_("Could not find entry #%1% on autokill list."),
+					  entry);
+				MT_RET(false);
+			}
+		}
+		catch (boost::bad_lexical_cast &e)
+		{
+			SEND(service, user, N_("Invalid hostmask %1%."), params[1]);
+			MT_RET(false);
+		}
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1035,8 +1300,83 @@ static bool biAKILL_DEL(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biAKILL_DEL" << service << user << params);
 
+	static boost::regex rx("^[^[:space:][:cntrl:]@]+@"
+						   "([-[:alnum:]*?.]+|[[:xdigit:]*?:]+)+$");
 
-	MT_RET(false);
+	std::string numbers = params[1];
+	for (size_t i = 2; i < params.size(); ++i)
+		numbers += ' ' + params[i];
+
+	size_t deleted = 0, notfound = 0;
+
+	std::vector<unsigned int> nums;
+	if (!mantra::ParseNumbers(numbers, nums))
+	{
+		std::set<Akill> ent;
+		ROOT->data.Get_Akill(ent);
+
+		for (size_t i = 1; i < params.size(); ++i)
+		{
+			if (boost::regex_match(params[i], rx))
+			{
+				bool found = false;
+				std::set<Akill>::iterator j = ent.begin();
+				while (j != ent.end())
+				{
+					if (!*j)
+					{
+						ent.erase(j++);
+						continue;
+					}
+
+					if (mantra::glob_match(params[i], j->Mask(), true))
+					{
+						found = true;
+						ROOT->data.Del(*j);
+						++deleted;
+						ent.erase(j++);
+					}
+					else
+						++j;
+				}
+				if (!found)
+					++notfound;
+			}
+			else
+				++notfound;
+		}
+	}
+	else
+	{
+		for (size_t j = 0; j < nums.size(); ++j)
+		{
+			Akill a = ROOT->data.Get_Akill(nums[j]);
+			if (a)
+			{
+				ROOT->data.Del(a);
+				++deleted;
+			}
+			else
+				++notfound;
+		}
+	}
+
+	if (!deleted)
+	{
+		NSEND(service, user, N_("No specified entries found on the autokill list."));
+	}
+	else if (!notfound)
+	{
+		SEND(service, user, N_("%1% entries removed from the autokill list."),
+			 deleted);
+	}
+	else
+	{
+		SEND(service, user, N_("%1% entries removed (%2% not found) from the autokill list."),
+			 deleted % notfound);
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1047,8 +1387,92 @@ static bool biAKILL_LIST(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biAKILL_LIST" << service << user << params);
 
+	static boost::regex rx("^[^[:space:][:cntrl:]@]+@"
+						   "([-[:alnum:]*?.]+|[[:xdigit:]*?:]+)+$");
 
-	MT_RET(false);
+	std::string numbers = params[1];
+	for (size_t i = 2; i < params.size(); ++i)
+		numbers += ' ' + params[i];
+
+	std::set<Akill> akills;
+	if (params.size() > 1)
+	{
+		std::vector<unsigned int> nums;
+		if (!mantra::ParseNumbers(numbers, nums))
+		{
+			std::set<Akill> ent;
+			ROOT->data.Get_Akill(ent);
+			if (ent.empty())
+			{
+				NSEND(service, user, N_("The autokill list is empty."));
+				MT_RET(false);
+			}
+
+			for (size_t i = 1; i < params.size(); ++i)
+			{
+				if (boost::regex_match(params[i], rx))
+				{
+					std::set<Akill>::iterator j;
+					for (j = ent.begin(); j != ent.end(); ++j)
+					{
+						if (!*j)
+							continue;
+
+						if (mantra::glob_match(params[i], j->Mask(), true))
+							akills.insert(*j);
+					}
+				}
+			}
+		}
+		else
+		{
+			for (size_t j = 0; j < nums.size(); ++j)
+			{
+				Akill a = ROOT->data.Get_Akill(nums[j]);
+				if (a)
+					akills.insert(a);
+			}
+		}
+	}
+	else
+	{
+		ROOT->data.Get_Akill(akills);
+		if (akills.empty())
+		{
+			NSEND(service, user, N_("The autokill list is empty."));
+			MT_RET(false);
+		}
+	}
+
+	if (akills.empty())
+	{
+		NSEND(service, user, N_("No entries matching your specification on the autokill list."));
+		MT_RET(false);
+	}
+	else
+	{
+		std::set<Akill>::iterator i;
+		NSEND(service, user, N_("     MASK                                                        LIMIT"));
+		for (i = akills.begin(); i != akills.end(); ++i)
+		{
+			if (!*i)
+				continue;
+
+			SEND(service, user, N_("%1$ 3d. %2$s (last modified by %3$s %4$s ago)"),
+				 i->Number() % i->Mask() % i->Last_UpdaterName() %
+				 DurationToString(mantra::duration(i->Last_Update(),
+												   mantra::GetCurrentDateTime()), mantra::Second));
+			if (i->Length())
+				SEND(service, user, N_("     [%1% left of %2%] %3%"),
+						 DurationToString(i->Length() - mantra::duration(i->Creation(),
+										  mantra::GetCurrentDateTime()), mantra::Second) %
+						 DurationToString(i->Length(), mantra::Second) % i->Reason());
+			else
+				SEND(service, user, N_("     [PERMANENT] %1%"), i->Reason());
+		}
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1059,8 +1483,26 @@ static bool biAKILL_REINDEX(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biAKILL_REINDEX" << service << user << params);
 
+	std::set<Akill> ent;
+	ROOT->data.Get_Akill(ent);
+	if (ent.empty())
+	{
+		NSEND(service, user, N_("The autokill list is empty."));
+		MT_RET(true);
+	}
 
-	MT_RET(false);
+	size_t changed = 0, count = 1;
+	std::set<Akill>::iterator i;
+	for (i = ent.begin(); i != ent.end(); ++i, ++count)
+	{
+		if (i->Number() != count && ROOT->data.Reindex(*i, count))
+			++changed;
+	}
+
+	SEND(service, user, N_("Reindexing of autokill list complete, \002%1%\017 entries changed."),
+		 changed);
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1071,8 +1513,85 @@ static bool biOPERDENY_ADD(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biOPERDENY_ADD" << service << user << params);
 
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
 
-	MT_RET(false);
+	static boost::regex rx("^[^[:space:][:cntrl:]@]+@"
+						   "([-[:alnum:]*?.]+|[[:xdigit:]*?:]+)+$");
+
+	std::string reason = params[2];
+	for (size_t i = 3; i < params.size(); ++i)
+		reason += ' ' + params[i];
+
+	if (boost::regex_match(params[1], rx))
+	{
+		std::set<OperDeny> ent;
+		ROOT->data.Get_OperDeny(ent);
+
+		OperDeny od;
+		std::set<OperDeny>::iterator j;
+		for (j = ent.begin(); j != ent.end(); ++j)
+		{
+			if (!*j)
+				continue;
+
+			if (mantra::glob_match(params[1], j->Mask(), true))
+			{
+				if (od.Number())
+				{
+					SEND(service, user, N_("Multiple oper denies match the mask %1%, please specify a more specific mask or an entry by number."),
+						 params[1]);
+					MT_RET(false);
+				}
+				od = *j;
+			}
+		}
+		if (od)
+		{
+			od.Reason(reason, nick);
+			SEND(service, user, N_("Mask %1% has had their oper deny reason changed."),
+				 params[1]);
+		}
+		else
+		{
+			od = OperDeny::create(params[1], reason, nick);
+			SEND(service, user, N_("OperDeny entry #%1% created for \002%2%\017."),
+				 od.Number() % params[1]);
+		}
+
+	}
+	else
+	{
+		try
+		{
+			boost::uint32_t entry = boost::lexical_cast<boost::uint32_t>(params[1]);
+			OperDeny od = ROOT->data.Get_OperDeny(entry);
+			if (od)
+			{
+				od.Reason(reason, nick);
+				SEND(service, user, N_("Mask %1% has had their oper deny reason changed."),
+					 params[1]);
+			}
+			else
+			{
+				SEND(service, user, N_("Could not find entry #%1% on oper deny list."),
+					  entry);
+				MT_RET(false);
+			}
+		}
+		catch (boost::bad_lexical_cast &e)
+		{
+			SEND(service, user, N_("Invalid hostmask %1%."), params[1]);
+			MT_RET(false);
+		}
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1083,8 +1602,83 @@ static bool biOPERDENY_DEL(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biOPERDENY_DEL" << service << user << params);
 
+	static boost::regex rx("^([^[:space:][:cntrl:]@]+@)?"
+						   "([-[:alnum:]*?.]+|[[:xdigit:]*?:]+)+$");
 
-	MT_RET(false);
+	std::string numbers = params[1];
+	for (size_t i = 2; i < params.size(); ++i)
+		numbers += ' ' + params[i];
+
+	size_t deleted = 0, notfound = 0;
+
+	std::vector<unsigned int> nums;
+	if (!mantra::ParseNumbers(numbers, nums))
+	{
+		std::set<OperDeny> ent;
+		ROOT->data.Get_OperDeny(ent);
+
+		for (size_t i = 1; i < params.size(); ++i)
+		{
+			if (boost::regex_match(params[i], rx))
+			{
+				bool found = false;
+				std::set<OperDeny>::iterator j = ent.begin();
+				while (j != ent.end())
+				{
+					if (!*j)
+					{
+						ent.erase(j++);
+						continue;
+					}
+
+					if (mantra::glob_match(params[i], j->Mask(), true))
+					{
+						found = true;
+						ROOT->data.Del(*j);
+						++deleted;
+						ent.erase(j++);
+					}
+					else
+						++j;
+				}
+				if (!found)
+					++notfound;
+			}
+			else
+				++notfound;
+		}
+	}
+	else
+	{
+		for (size_t j = 0; j < nums.size(); ++j)
+		{
+			OperDeny od = ROOT->data.Get_OperDeny(nums[j]);
+			if (od)
+			{
+				ROOT->data.Del(od);
+				++deleted;
+			}
+			else
+				++notfound;
+		}
+	}
+
+	if (!deleted)
+	{
+		NSEND(service, user, N_("No specified entries found on the oper deny list."));
+	}
+	else if (!notfound)
+	{
+		SEND(service, user, N_("%1% entries removed from the oper deny list."),
+			 deleted);
+	}
+	else
+	{
+		SEND(service, user, N_("%1% entries removed (%2% not found) from the oper deny list."),
+			 deleted % notfound);
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1095,8 +1689,86 @@ static bool biOPERDENY_LIST(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biOPERDENY_LIST" << service << user << params);
 
+	static boost::regex rx("^([^[:space:][:cntrl:]@]+@)?"
+						   "([-[:alnum:]*?.]+|[[:xdigit:]*?:]+)+$");
 
-	MT_RET(false);
+	std::string numbers = params[1];
+	for (size_t i = 2; i < params.size(); ++i)
+		numbers += ' ' + params[i];
+
+	std::set<OperDeny> operdenies;
+	if (params.size() > 1)
+	{
+		std::vector<unsigned int> nums;
+		if (!mantra::ParseNumbers(numbers, nums))
+		{
+			std::set<OperDeny> ent;
+			ROOT->data.Get_OperDeny(ent);
+			if (ent.empty())
+			{
+				NSEND(service, user, N_("The oper deny list is empty."));
+				MT_RET(false);
+			}
+
+			for (size_t i = 1; i < params.size(); ++i)
+			{
+				if (boost::regex_match(params[i], rx))
+				{
+					std::set<OperDeny>::iterator j;
+					for (j = ent.begin(); j != ent.end(); ++j)
+					{
+						if (!*j)
+							continue;
+
+						if (mantra::glob_match(params[i], j->Mask(), true))
+							operdenies.insert(*j);
+					}
+				}
+			}
+		}
+		else
+		{
+			for (size_t j = 0; j < nums.size(); ++j)
+			{
+				OperDeny od = ROOT->data.Get_OperDeny(nums[j]);
+				if (od)
+					operdenies.insert(od);
+			}
+		}
+	}
+	else
+	{
+		ROOT->data.Get_OperDeny(operdenies);
+		if (operdenies.empty())
+		{
+			NSEND(service, user, N_("The oper deny list is empty."));
+			MT_RET(false);
+		}
+	}
+
+	if (operdenies.empty())
+	{
+		NSEND(service, user, N_("No entries matching your specification on the oper deny list."));
+		MT_RET(false);
+	}
+	else
+	{
+		std::set<OperDeny>::iterator i;
+		NSEND(service, user, N_("     MASK"));
+		for (i = operdenies.begin(); i != operdenies.end(); ++i)
+		{
+			if (!*i)
+				continue;
+
+			SEND(service, user, N_("%1$ 3d. %2$s (last modified by %3$s %4$s ago)"),
+				 i->Number() % i->Mask() % i->Last_UpdaterName() %
+				 DurationToString(mantra::duration(i->Last_Update(),
+												   mantra::GetCurrentDateTime()), mantra::Second));
+			SEND(service, user, N_("     %1%"), i->Reason());
+		}
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1107,8 +1779,26 @@ static bool biOPERDENY_REINDEX(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biOPERDENY_REINDEX" << service << user << params);
 
+	std::set<OperDeny> ent;
+	ROOT->data.Get_OperDeny(ent);
+	if (ent.empty())
+	{
+		NSEND(service, user, N_("The oper deny list is empty."));
+		MT_RET(true);
+	}
 
-	MT_RET(false);
+	size_t changed = 0, count = 1;
+	std::set<OperDeny>::iterator i;
+	for (i = ent.begin(); i != ent.end(); ++i, ++count)
+	{
+		if (i->Number() != count && ROOT->data.Reindex(*i, count))
+			++changed;
+	}
+
+	SEND(service, user, N_("Reindexing of oper deny list complete, \002%1%\017 entries changed."),
+		 changed);
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1119,8 +1809,85 @@ static bool biIGNORE_ADD(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biIGNORE_ADD" << service << user << params);
 
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
 
-	MT_RET(false);
+	static boost::regex rx("^[^[:space:][:cntrl:]@]+@"
+						   "([-[:alnum:]*?.]+|[[:xdigit:]*?:]+)+$");
+
+	std::string reason = params[2];
+	for (size_t i = 3; i < params.size(); ++i)
+		reason += ' ' + params[i];
+
+	if (boost::regex_match(params[1], rx))
+	{
+		std::set<Ignore> ent;
+		ROOT->data.Get_Ignore(ent);
+
+		Ignore ign;
+		std::set<Ignore>::iterator j;
+		for (j = ent.begin(); j != ent.end(); ++j)
+		{
+			if (!*j)
+				continue;
+
+			if (mantra::glob_match(params[1], j->Mask(), true))
+			{
+				if (ign.Number())
+				{
+					SEND(service, user, N_("Multiple ignores match the mask %1%, please specify a more specific mask or an entry by number."),
+						 params[1]);
+					MT_RET(false);
+				}
+				ign = *j;
+			}
+		}
+		if (ign)
+		{
+			ign.Reason(reason, nick);
+			SEND(service, user, N_("Mask %1% has had their ignore reason changed."),
+				 params[1]);
+		}
+		else
+		{
+			ign = Ignore::create(params[1], reason, nick);
+			SEND(service, user, N_("Ignore entry #%1% created for \002%2%\017."),
+				 ign.Number() % params[1]);
+		}
+
+	}
+	else
+	{
+		try
+		{
+			boost::uint32_t entry = boost::lexical_cast<boost::uint32_t>(params[1]);
+			Ignore ign = ROOT->data.Get_Ignore(entry);
+			if (ign)
+			{
+				ign.Reason(reason, nick);
+				SEND(service, user, N_("Mask %1% has had their ignore reason changed."),
+					 params[1]);
+			}
+			else
+			{
+				SEND(service, user, N_("Could not find entry #%1% on ignore list."),
+					  entry);
+				MT_RET(false);
+			}
+		}
+		catch (boost::bad_lexical_cast &e)
+		{
+			SEND(service, user, N_("Invalid hostmask %1%."), params[1]);
+			MT_RET(false);
+		}
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1131,8 +1898,83 @@ static bool biIGNORE_DEL(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biIGNORE_DEL" << service << user << params);
 
+	static boost::regex rx("^([^[:space:][:cntrl:]@]+@)?"
+						   "([-[:alnum:]*?.]+|[[:xdigit:]*?:]+)+$");
 
-	MT_RET(false);
+	std::string numbers = params[1];
+	for (size_t i = 2; i < params.size(); ++i)
+		numbers += ' ' + params[i];
+
+	size_t deleted = 0, notfound = 0;
+
+	std::vector<unsigned int> nums;
+	if (!mantra::ParseNumbers(numbers, nums))
+	{
+		std::set<Ignore> ent;
+		ROOT->data.Get_Ignore(ent);
+
+		for (size_t i = 1; i < params.size(); ++i)
+		{
+			if (boost::regex_match(params[i], rx))
+			{
+				bool found = false;
+				std::set<Ignore>::iterator j = ent.begin();
+				while (j != ent.end())
+				{
+					if (!*j)
+					{
+						ent.erase(j++);
+						continue;
+					}
+
+					if (mantra::glob_match(params[i], j->Mask(), true))
+					{
+						found = true;
+						ROOT->data.Del(*j);
+						++deleted;
+						ent.erase(j++);
+					}
+					else
+						++j;
+				}
+				if (!found)
+					++notfound;
+			}
+			else
+				++notfound;
+		}
+	}
+	else
+	{
+		for (size_t j = 0; j < nums.size(); ++j)
+		{
+			Ignore ign = ROOT->data.Get_Ignore(nums[j]);
+			if (ign)
+			{
+				ROOT->data.Del(ign);
+				++deleted;
+			}
+			else
+				++notfound;
+		}
+	}
+
+	if (!deleted)
+	{
+		NSEND(service, user, N_("No specified entries found on the ignore list."));
+	}
+	else if (!notfound)
+	{
+		SEND(service, user, N_("%1% entries removed from the ignore list."),
+			 deleted);
+	}
+	else
+	{
+		SEND(service, user, N_("%1% entries removed (%2% not found) from the ignore list."),
+			 deleted % notfound);
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1143,8 +1985,86 @@ static bool biIGNORE_LIST(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biIGNORE_LIST" << service << user << params);
 
+	static boost::regex rx("^([^[:space:][:cntrl:]@]+@)?"
+						   "([-[:alnum:]*?.]+|[[:xdigit:]*?:]+)+$");
 
-	MT_RET(false);
+	std::string numbers = params[1];
+	for (size_t i = 2; i < params.size(); ++i)
+		numbers += ' ' + params[i];
+
+	std::set<Ignore> ignores;
+	if (params.size() > 1)
+	{
+		std::vector<unsigned int> nums;
+		if (!mantra::ParseNumbers(numbers, nums))
+		{
+			std::set<Ignore> ent;
+			ROOT->data.Get_Ignore(ent);
+			if (ent.empty())
+			{
+				NSEND(service, user, N_("The ignore list is empty."));
+				MT_RET(false);
+			}
+
+			for (size_t i = 1; i < params.size(); ++i)
+			{
+				if (boost::regex_match(params[i], rx))
+				{
+					std::set<Ignore>::iterator j;
+					for (j = ent.begin(); j != ent.end(); ++j)
+					{
+						if (!*j)
+							continue;
+
+						if (mantra::glob_match(params[i], j->Mask(), true))
+							ignores.insert(*j);
+					}
+				}
+			}
+		}
+		else
+		{
+			for (size_t j = 0; j < nums.size(); ++j)
+			{
+				Ignore ign = ROOT->data.Get_Ignore(nums[j]);
+				if (ign)
+					ignores.insert(ign);
+			}
+		}
+	}
+	else
+	{
+		ROOT->data.Get_Ignore(ignores);
+		if (ignores.empty())
+		{
+			NSEND(service, user, N_("The ignore list is empty."));
+			MT_RET(false);
+		}
+	}
+
+	if (ignores.empty())
+	{
+		NSEND(service, user, N_("No entries matching your specification on the ignore list."));
+		MT_RET(false);
+	}
+	else
+	{
+		std::set<Ignore>::iterator i;
+		NSEND(service, user, N_("     MASK"));
+		for (i = ignores.begin(); i != ignores.end(); ++i)
+		{
+			if (!*i)
+				continue;
+
+			SEND(service, user, N_("%1$ 3d. %2$s (last modified by %3$s %4$s ago)"),
+				 i->Number() % i->Mask() % i->Last_UpdaterName() %
+				 DurationToString(mantra::duration(i->Last_Update(),
+												   mantra::GetCurrentDateTime()), mantra::Second));
+			SEND(service, user, N_("     %1%"), i->Reason());
+		}
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1155,8 +2075,42 @@ static bool biIGNORE_REINDEX(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biIGNORE_REINDEX" << service << user << params);
 
+	std::set<Ignore> ent;
+	ROOT->data.Get_Ignore(ent);
+	if (ent.empty())
+	{
+		NSEND(service, user, N_("The ignore list is empty."));
+		MT_RET(true);
+	}
 
-	MT_RET(false);
+	size_t changed = 0, count = 1;
+	std::set<Ignore>::iterator i;
+	for (i = ent.begin(); i != ent.end(); ++i, ++count)
+	{
+		if (i->Number() != count && ROOT->data.Reindex(*i, count))
+			++changed;
+	}
+
+	SEND(service, user, N_("Reindexing of ignore list complete, \002%1%\017 entries changed."),
+		 changed);
+
+	MT_RET(true);
+	MT_EE
+}
+
+static bool biIGNORE_LIVELIST(const ServiceUser *service,
+					const boost::shared_ptr<LiveUser> &user,
+					const std::vector<std::string> &params)
+{
+	MT_EB
+	MT_FUNC("biIGNORE_LIVELIST" << service << user << params);
+
+	// TODO: To be implemented.
+	SEND(service, user,
+		 N_("The %1% command has not yet been implemented."),
+		 boost::algorithm::to_upper_copy(params[0]));
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1167,8 +2121,82 @@ static bool biKILLCHAN_ADD(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biKILLCHAN_ADD" << service << user << params);
 
+	boost::shared_ptr<StoredNick> nick = user->Stored();
+	if (!nick)
+	{
+		SEND(service, user,
+			 N_("Nickname %1% is not registered or you are not recognized as this nickname."), user->Name());
+		MT_RET(false);
+	}
 
-	MT_RET(false);
+	std::string reason = params[2];
+	for (size_t i = 3; i < params.size(); ++i)
+		reason += ' ' + params[i];
+
+	if (ROOT->proto.IsChannel(params[1]))
+	{
+		std::set<KillChannel> ent;
+		ROOT->data.Get_KillChannel(ent);
+
+		KillChannel kc;
+		std::set<KillChannel>::iterator j;
+		for (j = ent.begin(); j != ent.end(); ++j)
+		{
+			if (!*j)
+				continue;
+
+			if (mantra::glob_match(params[1], j->Mask(), true))
+			{
+				if (kc.Number())
+				{
+					SEND(service, user, N_("Multiple kill channels match the mask %1%, please specify a more specific mask or an entry by number."),
+						 params[1]);
+					MT_RET(false);
+				}
+				kc = *j;
+			}
+		}
+		if (kc)
+		{
+			kc.Reason(reason, nick);
+			SEND(service, user, N_("Mask %1% has had their kill channel reason changed."),
+				 params[1]);
+		}
+		else
+		{
+			kc = KillChannel::create(params[1], reason, nick);
+			SEND(service, user, N_("KillChannel entry #%1% created for \002%2%\017."),
+				 kc.Number() % params[1]);
+		}
+
+	}
+	else
+	{
+		try
+		{
+			boost::uint32_t entry = boost::lexical_cast<boost::uint32_t>(params[1]);
+			KillChannel kc = ROOT->data.Get_KillChannel(entry);
+			if (kc)
+			{
+				kc.Reason(reason, nick);
+				SEND(service, user, N_("Mask %1% has had their kill channel reason changed."),
+					 params[1]);
+			}
+			else
+			{
+				SEND(service, user, N_("Could not find entry #%1% on kill channel list."),
+					  entry);
+				MT_RET(false);
+			}
+		}
+		catch (boost::bad_lexical_cast &e)
+		{
+			SEND(service, user, N_("Invalid hostmask %1%."), params[1]);
+			MT_RET(false);
+		}
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1179,8 +2207,80 @@ static bool biKILLCHAN_DEL(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biKILLCHAN_DEL" << service << user << params);
 
+	std::string numbers = params[1];
+	for (size_t i = 2; i < params.size(); ++i)
+		numbers += ' ' + params[i];
 
-	MT_RET(false);
+	size_t deleted = 0, notfound = 0;
+
+	std::vector<unsigned int> nums;
+	if (!mantra::ParseNumbers(numbers, nums))
+	{
+		std::set<KillChannel> ent;
+		ROOT->data.Get_KillChannel(ent);
+
+		for (size_t i = 1; i < params.size(); ++i)
+		{
+			if (ROOT->proto.IsChannel(params[i]))
+			{
+				bool found = false;
+				std::set<KillChannel>::iterator j = ent.begin();
+				while (j != ent.end())
+				{
+					if (!*j)
+					{
+						ent.erase(j++);
+						continue;
+					}
+
+					if (mantra::glob_match(params[i], j->Mask(), true))
+					{
+						found = true;
+						ROOT->data.Del(*j);
+						++deleted;
+						ent.erase(j++);
+					}
+					else
+						++j;
+				}
+				if (!found)
+					++notfound;
+			}
+			else
+				++notfound;
+		}
+	}
+	else
+	{
+		for (size_t j = 0; j < nums.size(); ++j)
+		{
+			KillChannel kc = ROOT->data.Get_KillChannel(nums[j]);
+			if (kc)
+			{
+				ROOT->data.Del(kc);
+				++deleted;
+			}
+			else
+				++notfound;
+		}
+	}
+
+	if (!deleted)
+	{
+		NSEND(service, user, N_("No specified entries found on the kill channel list."));
+	}
+	else if (!notfound)
+	{
+		SEND(service, user, N_("%1% entries removed from the kill channel list."),
+			 deleted);
+	}
+	else
+	{
+		SEND(service, user, N_("%1% entries removed (%2% not found) from the kill channel list."),
+			 deleted % notfound);
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1191,8 +2291,83 @@ static bool biKILLCHAN_LIST(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biKILLCHAN_LIST" << service << user << params);
 
+	std::string numbers = params[1];
+	for (size_t i = 2; i < params.size(); ++i)
+		numbers += ' ' + params[i];
 
-	MT_RET(false);
+	std::set<KillChannel> killchans;
+	if (params.size() > 1)
+	{
+		std::vector<unsigned int> nums;
+		if (!mantra::ParseNumbers(numbers, nums))
+		{
+			std::set<KillChannel> ent;
+			ROOT->data.Get_KillChannel(ent);
+			if (ent.empty())
+			{
+				NSEND(service, user, N_("The kill channel list is empty."));
+				MT_RET(false);
+			}
+
+			for (size_t i = 1; i < params.size(); ++i)
+			{
+				if (ROOT->proto.IsChannel(params[i]))
+				{
+					std::set<KillChannel>::iterator j;
+					for (j = ent.begin(); j != ent.end(); ++j)
+					{
+						if (!*j)
+							continue;
+
+						if (mantra::glob_match(params[i], j->Mask(), true))
+							killchans.insert(*j);
+					}
+				}
+			}
+		}
+		else
+		{
+			for (size_t j = 0; j < nums.size(); ++j)
+			{
+				KillChannel kc = ROOT->data.Get_KillChannel(nums[j]);
+				if (kc)
+					killchans.insert(kc);
+			}
+		}
+	}
+	else
+	{
+		ROOT->data.Get_KillChannel(killchans);
+		if (killchans.empty())
+		{
+			NSEND(service, user, N_("The kill channel list is empty."));
+			MT_RET(false);
+		}
+	}
+
+	if (killchans.empty())
+	{
+		NSEND(service, user, N_("No entries matching your specification on the kill channel list."));
+		MT_RET(false);
+	}
+	else
+	{
+		std::set<KillChannel>::iterator i;
+		NSEND(service, user, N_("     MASK"));
+		for (i = killchans.begin(); i != killchans.end(); ++i)
+		{
+			if (!*i)
+				continue;
+
+			SEND(service, user, N_("%1$ 3d. %2$s (last modified by %3$s %4$s ago)"),
+				 i->Number() % i->Mask() % i->Last_UpdaterName() %
+				 DurationToString(mantra::duration(i->Last_Update(),
+												   mantra::GetCurrentDateTime()), mantra::Second));
+			SEND(service, user, N_("     %1%"), i->Reason());
+		}
+	}
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1203,8 +2378,26 @@ static bool biKILLCHAN_REINDEX(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biKILLCHAN_REINDEX" << service << user << params);
 
+	std::set<KillChannel> ent;
+	ROOT->data.Get_KillChannel(ent);
+	if (ent.empty())
+	{
+		NSEND(service, user, N_("The kill channel list is empty."));
+		MT_RET(true);
+	}
 
-	MT_RET(false);
+	size_t changed = 0, count = 1;
+	std::set<KillChannel>::iterator i;
+	for (i = ent.begin(); i != ent.end(); ++i, ++count)
+	{
+		if (i->Number() != count && ROOT->data.Reindex(*i, count))
+			++changed;
+	}
+
+	SEND(service, user, N_("Reindexing of kill channel list complete, \002%1%\017 entries changed."),
+		 changed);
+
+	MT_RET(true);
 	MT_EE
 }
 
@@ -1298,6 +2491,8 @@ void init_operserv_functions(Service &serv)
 					 &biCLONE_LIST, 0, comm_opersop);
 	serv.PushCommand("^CLONES?\\s+RE(NUMBER|INDEX)$",
 					 &biCLONE_REINDEX, 0, comm_sop);
+	serv.PushCommand("^CLONES?\\s+LIVE(LIST)?$",
+					 &biCLONE_LIVELIST, 0, comm_opersop);
 	serv.PushCommand("^CLONES?\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
 								 _1, _2, _3), 0, comm_opersop);
@@ -1338,8 +2533,10 @@ void init_operserv_functions(Service &serv)
 					 &biIGNORE_DEL, 1, comm_sop);
 	serv.PushCommand("^IGNORE\\s+(LIST|VIEW)$",
 					 &biIGNORE_LIST, 0, comm_opersop);
-	serv.PushCommand("^OPERENY\\s+RE(NUMBER|INDEX)$",
+	serv.PushCommand("^IGNORE\\s+RE(NUMBER|INDEX)$",
 					 &biIGNORE_REINDEX, 0, comm_sop);
+	serv.PushCommand("^IGNORE\\s+LIVE(LIST)?$",
+					 &biIGNORE_LIVELIST, 0, comm_sop);
 	serv.PushCommand("^IGNORE\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,
 								 _1, _2, _3), 0, comm_opersop);
@@ -1352,7 +2549,7 @@ void init_operserv_functions(Service &serv)
 					 &biKILLCHAN_DEL, 1, comm_sop);
 	serv.PushCommand("^KILLCHAN(NEL)?\\s+(LIST|VIEW)$",
 					 &biKILLCHAN_LIST, 0, comm_opersop);
-	serv.PushCommand("^OPERENY\\s+RE(NUMBER|INDEX)$",
+	serv.PushCommand("^KILLCHAN(NEL)?\\s+RE(NUMBER|INDEX)$",
 					 &biKILLCHAN_REINDEX, 0, comm_sop);
 	serv.PushCommand("^KILLCHAN(NEL)?\\s+HELP$",
 					 boost::bind(&Service::AuxHelp, &serv,

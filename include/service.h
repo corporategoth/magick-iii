@@ -34,6 +34,7 @@ RCSID(magick__service_h, "@(#) $Id$");
 ** ======================================================================= */
 
 #include "config.h"
+#include "otherdata.h"
 
 #include <set>
 #include <string>
@@ -113,9 +114,6 @@ private:
 	void QUIT(const boost::shared_ptr<LiveUser> &source,
 			  const std::string &message = std::string());
 
-	void KILL(const ServiceUser *source,
-			  const boost::shared_ptr<LiveUser> &target,
-			  const std::string &message = std::string()) const;
 	void PRIVMSG(const ServiceUser *source,
 				 const boost::shared_ptr<LiveUser> &target,
 				 const boost::format &message) const;
@@ -128,17 +126,6 @@ private:
 	void NOTICE(const ServiceUser *source,
 				const boost::shared_ptr<Server> &target,
 				const boost::format &message) const;
-	void HELPOP(const ServiceUser *source,
-				  const boost::format &message) const;
-	void WALLOP(const ServiceUser *source,
-				  const boost::format &message) const;
-	void GLOBOP(const ServiceUser *source,
-				  const boost::format &message) const;
-	void ANNOUNCE(const ServiceUser *source,
-				  const boost::format &message) const;
-	void SVSNICK(const ServiceUser *source,
-				 const boost::shared_ptr<LiveUser> &target,
-				 const std::string &newnick) const;
 	void JOIN(const ServiceUser *source,
 			  const boost::shared_ptr<LiveChannel> &channel) const;
 	void PART(const ServiceUser *source,
@@ -160,6 +147,24 @@ private:
 			  const boost::shared_ptr<LiveChannel> &channel,
 			  const std::string &in,
 			  const std::vector<std::string> &params = std::vector<std::string>()) const;
+
+	void KILL(const ServiceUser *source,
+			  const boost::shared_ptr<LiveUser> &target,
+			  const std::string &message = std::string()) const;
+	void HELPOP(const ServiceUser *source,
+				  const boost::format &message) const;
+	void WALLOP(const ServiceUser *source,
+				  const boost::format &message) const;
+	void GLOBOP(const ServiceUser *source,
+				  const boost::format &message) const;
+	void ANNOUNCE(const ServiceUser *source,
+				  const boost::format &message) const;
+
+	void SVSNICK(const ServiceUser *source,
+				 const boost::shared_ptr<LiveUser> &target,
+				 const std::string &newnick) const;
+	void AKILL(const ServiceUser *source, const Akill &a) const;
+	void RAKILL(const ServiceUser *source, const Akill &a) const;
 
 	bool Execute(const ServiceUser *service,
 				 const boost::shared_ptr<LiveUser> &user,
@@ -229,8 +234,6 @@ public:
 				 boost::bind(&Service::QUIT, this, _1, message));
 	}
 
-	void KILL(const boost::shared_ptr<LiveUser> &target,
-			  const std::string &message = std::string()) const;
 	void PRIVMSG(const boost::shared_ptr<LiveUser> &target,
 				 const boost::format &message);
 	void PRIVMSG(const boost::shared_ptr<Server> &target,
@@ -239,12 +242,6 @@ public:
 				const boost::format &message);
 	void NOTICE(const boost::shared_ptr<Server> &target,
 				const boost::format &message);
-	void HELPOP(const boost::format &message) const;
-	void WALLOP(const boost::format &message) const;
-	void GLOBOP(const boost::format &message) const;
-	void ANNOUNCE(const boost::format &message) const;
-	void SVSNICK(const boost::shared_ptr<LiveUser> &target,
-				 const std::string &newnick) const;
 	void JOIN(const boost::shared_ptr<LiveChannel> &channel) const;
 	void PART(const boost::shared_ptr<LiveChannel> &channel,
 			  const std::string &reason = std::string()) const;
@@ -255,6 +252,18 @@ public:
 			  const boost::format &reason) const;
 	void INVITE(const boost::shared_ptr<LiveChannel> &channel,
 				const boost::shared_ptr<LiveUser> &target) const;
+	
+	void KILL(const boost::shared_ptr<LiveUser> &target,
+			  const std::string &message = std::string()) const;
+	void HELPOP(const boost::format &message) const;
+	void WALLOP(const boost::format &message) const;
+	void GLOBOP(const boost::format &message) const;
+	void ANNOUNCE(const boost::format &message) const;
+
+	void SVSNICK(const boost::shared_ptr<LiveUser> &target,
+				 const std::string &newnick) const;
+	void AKILL(const Akill &a) const;
+	void RAKILL(const Akill &a) const;
 
 	class CommandMerge
 	{

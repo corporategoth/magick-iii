@@ -297,44 +297,6 @@ void Service::QUIT(const boost::shared_ptr<LiveUser> &source,
 	MT_EE
 }
 
-void Service::KILL(const ServiceUser *source,
-				   const boost::shared_ptr<LiveUser> &target,
-				   const std::string &message) const
-{
-	MT_EB
-	MT_FUNC("Service::KILL" << source << target << message);
-
-	if (!source || source->GetService() != this)
-		return;
-
-	std::string out;
-	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("KILL") +
-						" " + target->Name() + " :" + message);
-	bool rv = ROOT->proto.send(out);
-	if (rv)
-		target->Kill(source->GetUser(), message);
-
-	MT_EE
-}
-
-void Service::KILL(const boost::shared_ptr<LiveUser> &target,
-				   const std::string &message) const
-{
-	MT_EB
-	MT_FUNC("Service::KILL" << target << message);
-
-	SYNC_RLOCK(users_);
-	users_t::const_iterator j = std::lower_bound(users_.begin(),
-												 users_.end(),
-												 primary_);
-	if (j == users_.end() || **j != primary_)
-		return;
-
-	KILL(dynamic_cast<ServiceUser *>(j->get()), target, message);
-
-	MT_EE
-}
-
 void Service::PRIVMSG(const ServiceUser *source,
 					  const boost::shared_ptr<LiveUser> &target,
 					  const boost::format &message) const
@@ -483,182 +445,6 @@ void Service::NOTICE(const boost::shared_ptr<Server> &target,
 		return;
 
 	NOTICE(dynamic_cast<ServiceUser *>(j->get()), target, message);
-
-	MT_EE
-}
-
-void Service::HELPOP(const ServiceUser *source,
-					 const boost::format &message) const
-{
-	MT_EB
-	MT_FUNC("Service::HELPOP" << source << message);
-
-	if (!ROOT->proto.ConfigValue<bool>("helpops"))
-	{
-		WALLOP(source, message);
-		return;
-	}
-
-	if (!source || source->GetService() != this)
-		return;
-
-	std::string out;
-	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("HELPOPS") + " :" +
-						message.str());
-	ROOT->proto.send(out);
-
-	MT_EE
-}
-
-void Service::HELPOP(const boost::format &message) const
-{
-	MT_EB
-	MT_FUNC("Service::HELPOP" << message);
-
-	SYNC_RLOCK(users_);
-	users_t::const_iterator j = std::lower_bound(users_.begin(),
-												 users_.end(),
-												 primary_);
-	if (j == users_.end() || **j != primary_)
-		return;
-
-	HELPOP(dynamic_cast<ServiceUser *>(j->get()), message);
-
-	MT_EE
-}
-
-void Service::WALLOP(const ServiceUser *source,
-					 const boost::format &message) const
-{
-	MT_EB
-	MT_FUNC("Service::WALLOP" << source << message);
-
-	if (!source || source->GetService() != this)
-		return;
-
-	std::string out;
-	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("WALLOPS") + " :" +
-						message.str());
-	ROOT->proto.send(out);
-
-	MT_EE
-}
-
-void Service::WALLOP(const boost::format &message) const
-{
-	MT_EB
-	MT_FUNC("Service::WALLOP" << message);
-
-	SYNC_RLOCK(users_);
-	users_t::const_iterator j = std::lower_bound(users_.begin(),
-												 users_.end(),
-												 primary_);
-	if (j == users_.end() || **j != primary_)
-		return;
-
-	WALLOP(dynamic_cast<ServiceUser *>(j->get()), message);
-
-	MT_EE
-}
-
-void Service::GLOBOP(const ServiceUser *source,
-					 const boost::format &message) const
-{
-	MT_EB
-	MT_FUNC("Service::GLOBOP" << source << message);
-
-	if (!source || source->GetService() != this)
-		return;
-
-	std::string out;
-	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("GLOBOPS") + " :" +
-						message.str());
-	ROOT->proto.send(out);
-
-	MT_EE
-}
-
-void Service::GLOBOP(const boost::format &message) const
-{
-	MT_EB
-	MT_FUNC("Service::GLOBOP" << message);
-
-	SYNC_RLOCK(users_);
-	users_t::const_iterator j = std::lower_bound(users_.begin(),
-												 users_.end(),
-												 primary_);
-	if (j == users_.end() || **j != primary_)
-		return;
-
-	GLOBOP(dynamic_cast<ServiceUser *>(j->get()), message);
-
-	MT_EE
-}
-
-void Service::ANNOUNCE(const ServiceUser *source,
-					   const boost::format &message) const
-{
-	MT_EB
-	MT_FUNC("Service::ANNOUNCE" << source << message);
-
-	if (ROOT->proto.ConfigValue<bool>("globops"))
-		GLOBOP(source, message);
-	else
-		WALLOP(source, message);
-
-	MT_EE
-}
-
-void Service::ANNOUNCE(const boost::format &message) const
-{
-	MT_EB
-	MT_FUNC("Service::ANNOUNCE" << message);
-
-	SYNC_RLOCK(users_);
-	users_t::const_iterator j = std::lower_bound(users_.begin(),
-												 users_.end(),
-												 primary_);
-	if (j == users_.end() || **j != primary_)
-		return;
-
-	ANNOUNCE(dynamic_cast<ServiceUser *>(j->get()), message);
-
-	MT_EE
-}
-
-void Service::SVSNICK(const ServiceUser *source,
-					  const boost::shared_ptr<LiveUser> &target,
-					  const std::string &newnick) const
-{
-	MT_EB
-	MT_FUNC("Service::SVSNICK" << source << target << newnick);
-
-	if (!source || source->GetService() != this)
-		return;
-
-	std::string out;
-	ROOT->proto.addline(*source, out,
-						(boost::format(ROOT->proto.ConfigValue<std::string>("svsnick")) %
-									   target->Name() % newnick % mantra::GetCurrentDateTime()).str());
-	ROOT->proto.send(out);
-
-	MT_EE
-}
-
-void Service::SVSNICK(const boost::shared_ptr<LiveUser> &target,
-					  const std::string &newnick) const
-{
-	MT_EB
-	MT_FUNC("Service::SVSNICK" << target << newnick);
-
-	SYNC_RLOCK(users_);
-	users_t::const_iterator j = std::lower_bound(users_.begin(),
-												 users_.end(),
-												 primary_);
-	if (j == users_.end() || **j != primary_)
-		return;
-
-	SVSNICK(dynamic_cast<ServiceUser *>(j->get()), target, newnick);
 
 	MT_EE
 }
@@ -977,6 +763,270 @@ void Service::MODE(const ServiceUser *source,
 
 	ROOT->proto.send(out);
 	channel->Modes(source->GetUser(), in, params);
+
+	MT_EE
+}
+
+void Service::KILL(const ServiceUser *source,
+				   const boost::shared_ptr<LiveUser> &target,
+				   const std::string &message) const
+{
+	MT_EB
+	MT_FUNC("Service::KILL" << source << target << message);
+
+	if (!source || source->GetService() != this)
+		return;
+
+	std::string out;
+	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("KILL") +
+						" " + target->Name() + " :" + message);
+	bool rv = ROOT->proto.send(out);
+	if (rv)
+		target->Kill(source->GetUser(), message);
+
+	MT_EE
+}
+
+void Service::KILL(const boost::shared_ptr<LiveUser> &target,
+				   const std::string &message) const
+{
+	MT_EB
+	MT_FUNC("Service::KILL" << target << message);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator j = std::lower_bound(users_.begin(),
+												 users_.end(),
+												 primary_);
+	if (j == users_.end() || **j != primary_)
+		return;
+
+	KILL(dynamic_cast<ServiceUser *>(j->get()), target, message);
+
+	MT_EE
+}
+
+void Service::HELPOP(const ServiceUser *source,
+					 const boost::format &message) const
+{
+	MT_EB
+	MT_FUNC("Service::HELPOP" << source << message);
+
+	if (!ROOT->proto.ConfigValue<bool>("helpops"))
+	{
+		WALLOP(source, message);
+		return;
+	}
+
+	if (!source || source->GetService() != this)
+		return;
+
+	std::string out;
+	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("HELPOPS") + " :" +
+						message.str());
+	ROOT->proto.send(out);
+
+	MT_EE
+}
+
+void Service::HELPOP(const boost::format &message) const
+{
+	MT_EB
+	MT_FUNC("Service::HELPOP" << message);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator j = std::lower_bound(users_.begin(),
+												 users_.end(),
+												 primary_);
+	if (j == users_.end() || **j != primary_)
+		return;
+
+	HELPOP(dynamic_cast<ServiceUser *>(j->get()), message);
+
+	MT_EE
+}
+
+void Service::WALLOP(const ServiceUser *source,
+					 const boost::format &message) const
+{
+	MT_EB
+	MT_FUNC("Service::WALLOP" << source << message);
+
+	if (!source || source->GetService() != this)
+		return;
+
+	std::string out;
+	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("WALLOPS") + " :" +
+						message.str());
+	ROOT->proto.send(out);
+
+	MT_EE
+}
+
+void Service::WALLOP(const boost::format &message) const
+{
+	MT_EB
+	MT_FUNC("Service::WALLOP" << message);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator j = std::lower_bound(users_.begin(),
+												 users_.end(),
+												 primary_);
+	if (j == users_.end() || **j != primary_)
+		return;
+
+	WALLOP(dynamic_cast<ServiceUser *>(j->get()), message);
+
+	MT_EE
+}
+
+void Service::GLOBOP(const ServiceUser *source,
+					 const boost::format &message) const
+{
+	MT_EB
+	MT_FUNC("Service::GLOBOP" << source << message);
+
+	if (!source || source->GetService() != this)
+		return;
+
+	std::string out;
+	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("GLOBOPS") + " :" +
+						message.str());
+	ROOT->proto.send(out);
+
+	MT_EE
+}
+
+void Service::GLOBOP(const boost::format &message) const
+{
+	MT_EB
+	MT_FUNC("Service::GLOBOP" << message);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator j = std::lower_bound(users_.begin(),
+												 users_.end(),
+												 primary_);
+	if (j == users_.end() || **j != primary_)
+		return;
+
+	GLOBOP(dynamic_cast<ServiceUser *>(j->get()), message);
+
+	MT_EE
+}
+
+void Service::ANNOUNCE(const ServiceUser *source,
+					   const boost::format &message) const
+{
+	MT_EB
+	MT_FUNC("Service::ANNOUNCE" << source << message);
+
+	if (ROOT->proto.ConfigValue<bool>("globops"))
+		GLOBOP(source, message);
+	else
+		WALLOP(source, message);
+
+	MT_EE
+}
+
+void Service::ANNOUNCE(const boost::format &message) const
+{
+	MT_EB
+	MT_FUNC("Service::ANNOUNCE" << message);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator j = std::lower_bound(users_.begin(),
+												 users_.end(),
+												 primary_);
+	if (j == users_.end() || **j != primary_)
+		return;
+
+	ANNOUNCE(dynamic_cast<ServiceUser *>(j->get()), message);
+
+	MT_EE
+}
+
+void Service::SVSNICK(const ServiceUser *source,
+					  const boost::shared_ptr<LiveUser> &target,
+					  const std::string &newnick) const
+{
+	MT_EB
+	MT_FUNC("Service::SVSNICK" << source << target << newnick);
+
+	if (!source || source->GetService() != this)
+		return;
+
+	std::string out;
+	ROOT->proto.addline(*source, out,
+						(boost::format(ROOT->proto.ConfigValue<std::string>("svsnick")) %
+									   target->Name() % newnick % mantra::GetCurrentDateTime()).str());
+	ROOT->proto.send(out);
+
+	MT_EE
+}
+
+void Service::SVSNICK(const boost::shared_ptr<LiveUser> &target,
+					  const std::string &newnick) const
+{
+	MT_EB
+	MT_FUNC("Service::SVSNICK" << target << newnick);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator j = std::lower_bound(users_.begin(),
+												 users_.end(),
+												 primary_);
+	if (j == users_.end() || **j != primary_)
+		return;
+
+	SVSNICK(dynamic_cast<ServiceUser *>(j->get()), target, newnick);
+
+	MT_EE
+}
+
+void Service::AKILL(const ServiceUser *source, const Akill &a) const
+{
+	MT_EB
+	MT_FUNC("Service::AKILL" << source << a);
+
+	if (!source || source->GetService() != this)
+		return;
+
+	std::string out;
+		// %1% = server     %5% = set time         %9% = duration (mins)
+		// %2% = user       %6% = expiry time      %10% = reason
+		// %3% = host       %7% = current time     %11% = remaining (secs)
+		// %4% = set time   %8% = duration (secs)  %12% = remaining (mins)
+	boost::posix_time::ptime now = mantra::GetCurrentDateTime();
+	boost::posix_time::ptime expire = a.Creation() + a.Length();
+	mantra::duration remaining = mantra::duration(now, expire);
+	ROOT->proto.addline(*source, out,
+						(boost::format(ROOT->proto.ConfigValue<std::string>("akill")) %
+							  ROOT->ConfigValue<std::string>("services.host") %
+							  a.Mask().substr(0, a.Mask().find('@')) %
+							  a.Mask().substr(a.Mask().find('@') + 1) %
+							  a.Last_UpdaterName() % 
+							  // TODO
+							  uplink->Name() % time(NULL) % 1 % "" % "" % real_ % 1 %
+							  ROOT->ConfigValue<std::string>("services.host") %
+							  0x7F000001).str());
+						
+									   target->Name() % newnick % mantra::GetCurrentDateTime()).str());
+	ROOT->proto.send(out);
+
+	MT_EE
+}
+
+void Service::AKILL(const Akill &a) const
+{
+	MT_EB
+	MT_FUNC("Service::AKILL" << a);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator j = std::lower_bound(users_.begin(),
+												 users_.end(),
+												 primary_);
+	if (j == users_.end() || **j != primary_)
+		return;
+
+	AKILL(dynamic_cast<ServiceUser *>(j->get()), a);
 
 	MT_EE
 }

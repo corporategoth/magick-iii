@@ -55,6 +55,8 @@ class Server;
 class StoredNick;
 class ServiceUser;
 
+class LiveClone;
+
 // These macros are used to send a notice/message to a user in their
 // own language, and using their preferred communication mechanism.
 
@@ -117,6 +119,9 @@ private:
 	boost::posix_time::ptime signon_;
 	boost::posix_time::ptime seen_;
 
+	boost::shared_ptr<LiveClone> clone_user_;
+	boost::shared_ptr<LiveClone> clone_host_;
+
 	// From here on, they do.
 	// This is the 'general' lock, some stuff has a more specific
 	// lock (using the SYNC mechanism), but for stuff that is only
@@ -133,9 +138,10 @@ private:
 	unsigned int flood_triggers_;
 	bool ignored_;
 	unsigned int ignore_timer_;
+	unsigned int ident_timer_;
+	unsigned int signon_timer_;
 
 	// If this is set, we're recognized.
-	unsigned int ident_timer_;
 	bool identified_;
 	boost::shared_ptr<StoredNick> RWSYNC(stored_);
 	unsigned int password_fails_;
@@ -173,6 +179,9 @@ private:
 	// use if_LiveUser_LiveMemo
 	void Memo();
 
+	// Event functions + support
+	bool check_clone();
+	void connect();
 	void unignore();
 	void protect();
 	LiveUser(const std::string &name, const std::string &real,

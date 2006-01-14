@@ -64,12 +64,9 @@ public:
 				 const std::string &params, unsigned int key = 0) const
 		{ return service_->Execute(this, user, params, key); }
 
+	// Act as a user ...
 	void QUIT(const std::string &message = std::string()) const
 		{ service_->QUIT(self.lock(), message); }
-
-	void KILL(const boost::shared_ptr<LiveUser> &target,
-			  const std::string &message = std::string()) const
-		{ service_->KILL(this, target, message); }
 	void PRIVMSG(const boost::shared_ptr<LiveUser> &target,
 				 const boost::format &message) const
 		{ service_->PRIVMSG(this, target, message); }
@@ -82,17 +79,6 @@ public:
 	void NOTICE(const boost::shared_ptr<Server> &target,
 				const boost::format &message) const
 		{ service_->NOTICE(this, target, message); }
-	void HELPOP(const boost::format &message) const // umode +h (-> WALLOP)
-		{ service_->HELPOP(this, message); }
-	void WALLOP(const boost::format &message) const // umode +w
-		{ service_->WALLOP(this, message); }
-	void GLOBOP(const boost::format &message) const // umode +o
-		{ service_->GLOBOP(this, message); }
-	void ANNOUNCE(const boost::format &message) const // GLOBOP -> WALLOP
-		{ service_->ANNOUNCE(this, message); }
-	void SVSNICK(const boost::shared_ptr<LiveUser> &target,
-				 const std::string &newnick) const
-		{ service_->SVSNICK(this, target, newnick); }
 	void JOIN(const boost::shared_ptr<LiveChannel> &channel) const
 		{ service_->JOIN(this, channel); }
 	void PART(const boost::shared_ptr<LiveChannel> &channel,
@@ -114,6 +100,28 @@ public:
 			  const std::string &in,
 			  const std::vector<std::string> &params = std::vector<std::string>()) const
 		{ service_->MODE(this, channel, in, params); }
+
+	// Act as an oper ...
+	void KILL(const boost::shared_ptr<LiveUser> &target,
+			  const std::string &message = std::string()) const
+		{ service_->KILL(this, target, message); }
+	void HELPOP(const boost::format &message) const // umode +h (-> WALLOP)
+		{ service_->HELPOP(this, message); }
+	void WALLOP(const boost::format &message) const // umode +w
+		{ service_->WALLOP(this, message); }
+	void GLOBOP(const boost::format &message) const // umode +o
+		{ service_->GLOBOP(this, message); }
+	void ANNOUNCE(const boost::format &message) const // GLOBOP -> WALLOP
+		{ service_->ANNOUNCE(this, message); }
+
+	// Act as a service ...
+	void SVSNICK(const boost::shared_ptr<LiveUser> &target,
+				 const std::string &newnick) const
+		{ service_->SVSNICK(this, target, newnick); }
+	void AKILL(const Akill &a) const
+		{ service_->AKILL(this, a); }
+	void RAKILL(const Akill &a) const
+		{ service_->RAKILL(this, a); }
 };
 
 inline bool IsService(const boost::shared_ptr<LiveUser> &in)

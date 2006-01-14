@@ -63,6 +63,8 @@ class LiveUser;
 class LiveChannel;
 class Server;
 
+class LiveClone;
+
 class Storage
 {
 	friend class StorageInterface;
@@ -114,6 +116,7 @@ public:
 	};
 
 	typedef std::set<SquitEntry> SquitUsers_t;
+	typedef std::set<boost::shared_ptr<LiveClone> > LiveClones_t;
 
 	typedef std::set<boost::shared_ptr<StoredUser> > StoredUsers_t;
 	typedef std::set<boost::shared_ptr<StoredNick> > StoredNicks_t;
@@ -191,6 +194,10 @@ private:
 	//            signed off with, Quit the user normally.
 	RWNSYNC(SquitUsers_);
 	SquitUsers_t SquitUsers_[3];
+
+	RWNSYNC(LiveClones_);
+	LiveClones_t UserClones_;
+	LiveClones_t HostClones_;
 
 	StoredUsers_t RWSYNC(StoredUsers_);
 	StoredNicks_t RWSYNC(StoredNicks_);
@@ -316,16 +323,45 @@ public:
 	void Get_Ignore(std::set<Ignore> &fill) const;
 	Ignore Matches_Ignore(const std::string &in) const;
 
+	// Matches doesn't make sense, KillChannel uses literal entries.
+	// We COULD use a mask, but '*' and '?' are valid channel chars.
 	void Add(const KillChannel &entry);
 	void Del(const KillChannel &entry);
 	bool Reindex(const KillChannel &entry, boost::uint32_t num);
 	KillChannel Get_KillChannel(boost::uint32_t in,
 			boost::logic::tribool deep = boost::logic::indeterminate);
+	KillChannel Get_KillChannel(const std::string &in,
+			boost::logic::tribool deep = boost::logic::indeterminate);
 	void Get_KillChannel(std::set<KillChannel> &fill) const;
-	KillChannel Matches_KillChannel(const std::string &in) const;
 
 	// Check on ALL kinds of expirations ...
 	void ExpireCheck();
+};
+
+class LiveClone
+{
+	friend class Storage;
+
+	std::string mask_;
+	Storage::LiveUsers_t SYNC(users_);
+	Storage::LiveUsers_t ignored_;
+	std::queue<boost::posix_time::ptime> SYNC(triggers_);
+
+	// Returns the users + ignored size.
+	size_t Del(const boost::shared_ptr<LiveUser> &user);
+
+public:
+	LiveClone(const std::string &mask) : mask_(mask) {}
+
+	const std::string &Mask() const { return mask_; }
+
+	void Add(const boost::shared_ptr<LiveUser> &user);
+	void Ignore(const boost::shared_ptr<LiveUser> &user);
+	size_t Trigger();
+
+	size_t Count() const;
+	size_t Ignored() const;
+	size_t Triggers();
 };
 
 template<typename T>

@@ -170,7 +170,9 @@ Akill Akill::create(const std::string &mask, const std::string &reason,
 		rec["number"] = id;
 		rec["mask"] = mask;
 		rec["reason"] = reason;
-		rec["length"] = length;
+		rec["creation"] = mantra::GetCurrentDateTime();
+		if (length)
+			rec["length"] = length;
 		rec["last_updater"] = nick->Name();
 		rec["last_updater_id"] = nick->User()->ID();
 		if (!storage.InsertRow(rec))
@@ -206,7 +208,9 @@ Akill Akill::create(const std::string &mask, const std::string &reason,
 		rec["number"] = id;
 		rec["mask"] = mask;
 		rec["reason"] = reason;
-		rec["length"] = length;
+		rec["creation"] = mantra::GetCurrentDateTime();
+		if (length)
+			rec["length"] = length;
 		rec["last_updater"] = service->Primary();
 		if (!storage.InsertRow(rec))
 		{

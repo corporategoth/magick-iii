@@ -387,10 +387,14 @@ bool Protocol::IsChannel(const std::string &in) const
 	MT_EB
 	MT_FUNC("Protocol::IsChannel" << in);
 
-	switch (in[0])
+	std::string::iterator i = in.begin();
+	switch (*i)
 	{
 	case '#':
 	case '+':
+		for (; i != in.end(); ++i)
+			if (isspace(*i) || iscntrl(*i))
+				MT_RET(false);
 		MT_RET(true);
 	}
 

@@ -359,7 +359,8 @@ CREATE INDEX forbidden_last_updater_id_idx ON forbidden(last_updater_id);
 
 CREATE TABLE akills (
 		number integer PRIMARY KEY,
-		length interval NOT NULL,
+		creation timestamp NOT NULL DEFAULT current_timestamp,
+		length interval,
 		mask varchar(320) NOT NULL,
 		reason text NOT NULL,
 		last_updater varchar(32) NOT NULL,

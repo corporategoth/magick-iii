@@ -1969,7 +1969,9 @@ void Storage::init()
 	// TABLE: akills
 	cp.Assign<boost::uint32_t>(false);
 	backend_.first->DefineColumn("akills", "number", cp);
-	cp.Assign<mantra::duration>(false);
+	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
+	backend_.first->DefineColumn("channels_akick", "creation", cp);
+	cp.Assign<mantra::duration>(true);
 	backend_.first->DefineColumn("akills", "length", cp);
 	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 320);
 	backend_.first->DefineColumn("akills", "mask", cp);
@@ -2330,8 +2332,39 @@ void Storage::Add(const boost::shared_ptr<LiveUser> &entry)
 	MT_EB
 	MT_FUNC("Storage::Add" << entry);
 
-	SYNC_WLOCK(LiveUsers_);
-	LiveUsers_.insert(entry);
+	{
+		SYNC_WLOCK(LiveUsers_);
+		LiveUsers_.insert(entry);
+	}
+	{
+		SYNC_LOCK(LiveClones_);
+		LiveClones_t::iterator i = std::lower_bound(HostClones_.begin(),
+													HostClones_.end(),
+													entry->Host());
+		if (i == HostClones_.end() || **i != entry->Host())
+		{
+			boost::shared_ptr<LiveClone> ent = new LiveClone(entry->Host());
+			ent->Add(entry);
+			HostClones_.insert(ent);
+			ent = new LiveClone(entry->User() + '@' + entry->Host());
+			ent->Add(entry);
+			UserClones_.insert(ent);
+		}
+		else
+		{
+			(*i)->Add(entry);
+			std::string userhost = entry->User() + '@' + entry->Host();
+			i = std::lower_bound(UserClones_.begin(), UserClones_.end(), userhost);
+			if (i == UserClones_.end() || **i != userhost)
+			{
+				boost::shared_ptr<LiveClone> ent = new LiveClone(userhost);
+				ent->Add(entry);
+				UserClones_.insert(ent);
+			}
+			else
+				(*i)->Add(entry);
+		}
+	}
 
 	MT_EE
 }
@@ -2639,8 +2672,30 @@ void Storage::Del(const boost::shared_ptr<LiveUser> &entry)
 	MT_EB
 	MT_FUNC("Storage::Del" << entry);
 
-	SYNC_WLOCK(LiveUsers_);
-	LiveUsers_.erase(entry);
+	{
+		SYNC_WLOCK(LiveClones_);
+		LiveClones_t::iterator i = std::lower_bound(HostClones_.begin(),
+													HostClones_.end(),
+													entry->Host());
+		if (i != HostClones_.end() && **i == entry->Host())
+		{
+			size_t cnt = (*i)->Del(entry);
+			if (!cnt)
+				HostClones_.erase(i);
+		}
+		std::string userhost = entry->User() + '@' + entry->Host();
+		i = std::lower_bound(UserClones_.begin(), UserClones_.end(), userhost);
+		if (i != UserClones_.end() && **i == userhost)
+		{
+			size_t cnt = (*i)->Del(entry);
+			if (!cnt)
+				UserClones_.erase(i);
+		}
+	}
+	{
+		SYNC_WLOCK(LiveUsers_);
+		LiveUsers_.erase(entry);
+	}
 
 	MT_EE
 }
@@ -3362,7 +3417,7 @@ Akill Storage::Get_Akill(boost::uint32_t in, boost::logic::tribool deep)
 
 	SYNC_RWLOCK(Akills_);
 	Akills_t::const_iterator i = std::lower_bound(Akills_.begin(),
-													  Akills_.end(), in);
+												  Akills_.end(), in);
 	if (i == Akills_.end() || *i != in)
 	{
 		if (boost::logic::indeterminate(deep))
@@ -3484,7 +3539,7 @@ Clone Storage::Get_Clone(boost::uint32_t in, boost::logic::tribool deep)
 
 	SYNC_RWLOCK(Clones_);
 	Clones_t::const_iterator i = std::lower_bound(Clones_.begin(),
-													  Clones_.end(), in);
+												  Clones_.end(), in);
 	if (i == Clones_.end() || *i != in)
 	{
 		if (boost::logic::indeterminate(deep))
@@ -3728,7 +3783,7 @@ Ignore Storage::Get_Ignore(boost::uint32_t in, boost::logic::tribool deep)
 
 	SYNC_RWLOCK(Ignores_);
 	Ignores_t::const_iterator i = std::lower_bound(Ignores_.begin(),
-													  Ignores_.end(), in);
+												   Ignores_.end(), in);
 	if (i == Ignores_.end() || *i != in)
 	{
 		if (boost::logic::indeterminate(deep))
@@ -3850,7 +3905,7 @@ KillChannel Storage::Get_KillChannel(boost::uint32_t in, boost::logic::tribool d
 
 	SYNC_RWLOCK(KillChannels_);
 	KillChannels_t::const_iterator i = std::lower_bound(KillChannels_.begin(),
-													  KillChannels_.end(), in);
+														KillChannels_.end(), in);
 	if (i == KillChannels_.end() || *i != in)
 	{
 		if (boost::logic::indeterminate(deep))
@@ -3869,7 +3924,62 @@ KillChannel Storage::Get_KillChannel(boost::uint32_t in, boost::logic::tribool d
 	}
 
 	KillChannel rv(in);
+	MT_RET(rv);
+	MT_EE
+}
 
+KillChannel Storage::Get_KillChannel(const std::string &in, boost::logic::tribool deep)
+{
+	MT_EB
+	MT_FUNC("Storage::Get_KillChannel" << in << deep);
+
+	SYNC_RWLOCK(KillChannels_);
+	KillChannels_t::const_iterator i = KillChannels_.begin();
+	while (i != KillChannels_.end())
+	{
+		if (!i)
+		{
+			KillChannels_.erase(i++);
+			continue;
+		}
+
+		static mantra::iequal_to<std::string> cmp;
+		if (cmp(i->Mask(), in))
+			MT_RET(*i);
+
+		++i;
+	}
+
+	if (i == KillChannels_.end())
+	{
+		if (boost::logic::indeterminate(deep))
+			deep = ROOT->ConfigValue<bool>("storage.deep-lookup");
+
+		if (deep)
+		{
+			mantra::Storage::DataSet data;
+			mantra::Storage::FieldSet fields;
+			fields.insert("id");
+
+			backend_.first->RetrieveRow("killchans", 
+				mantra::Comparison<mantra::C_EqualTo>::make("mask", in), fields);
+
+			if (!data.empty())
+			{
+				mantra::Storage::DataSet::const_iterator j = data.begin();
+				mantra::Storage::RecordMap::const_iterator k = j->find("id");
+				if (k != j->end() && k->second.type() == typeid(boost::uint32_t))
+				{
+					KillChannel rv(boost::get<boost::uint32_t>(k->second));
+					SYNC_PROMOTE(KillChannels_);
+					KillChannels_.insert(rv);
+					MT_RET(rv);
+				}
+			}
+		}
+	}
+
+	KillChannel rv;
 	MT_RET(rv);
 	MT_EE
 }
@@ -3882,27 +3992,6 @@ void Storage::Get_KillChannel(std::set<KillChannel> &fill) const
 	SYNC_RLOCK(KillChannels_);
 	fill.insert(KillChannels_.begin(), KillChannels_.end());
 
-	MT_EE
-}
-
-KillChannel Storage::Matches_KillChannel(const std::string &in) const
-{
-	MT_EB
-	MT_FUNC("Storage::Matches_KillChannel" << in);
-
-	SYNC_RLOCK(KillChannels_);
-	KillChannels_t::const_iterator i;
-	for (i = KillChannels_.begin(); i != KillChannels_.end(); ++i)
-	{
-		if (!*i)
-			continue;
-
-		if (i->Matches(in))
-			MT_RET(*i);
-	}
-
-	KillChannel rv;
-	MT_RET(rv);
 	MT_EE
 }
 
@@ -3922,6 +4011,103 @@ void Storage::ExpireCheck()
 	expire_event_ = ROOT->event->Schedule(boost::bind(&Storage::ExpireCheck, this),
 								   ROOT->ConfigValue<mantra::duration>("general.expire-check"));
 	MT_ASSIGN(codetype);
+	MT_EE
+}
+
+// --------------------------------------------------------------------------
+
+void LiveClone::Add(const boost::shared_ptr<LiveUser> &user)
+{
+	MT_EB
+	MT_FUNC("LiveClone::Add" << user);
+
+	SYNC_LOCK(users_);
+	users_.insert(user);
+	ignored_.erase(user);
+
+	MT_EE
+}
+
+size_t LiveClone::Del(const boost::shared_ptr<LiveUser> &user)
+{
+	MT_EB
+	MT_FUNC("LiveClone::Del" << user);
+
+	SYNC_LOCK(users_);
+	users_.erase(user);
+	ignored_.erase(user);
+	size_t rv = users_.size() + ignored_.size();
+
+	MT_RET(rv);
+	MT_EE
+}
+
+void LiveClone::Ignore(const boost::shared_ptr<LiveUser> &user)
+{
+	MT_EB
+	MT_FUNC("LiveClone::Ignore" << user);
+
+	SYNC_LOCK(users_);
+	ignored_.insert(user);
+	users_.erase(user);
+
+	MT_EE
+}
+
+size_t LiveClone::Trigger()
+{
+	MT_EB
+	MT_FUNC("LiveClone::Trigger");
+
+	SYNC_LOCK(triggers_);
+	boost::posix_time::ptime now = mantra::GetCurrentTime();
+	boost::posix_time::ptime cutoff = now -
+			ROOT->ConfigValue<mantra::duration>("operserv.clone.expire");
+	while (!triggers_.empty() && triggers_.front() < cutoff)
+		triggers_.pop();
+	triggers_.push(now);
+	size_t rv = triggers_.size();
+
+	MT_EE
+}
+
+size_t LiveClone::Count() const
+{
+	MT_EB
+	MT_FUNC("LiveClone::Count");
+
+	SYNC_LOCK(users_);
+	size_t rv = users_.size();
+
+	MT_RET(rv);
+	MT_EE
+}
+
+size_t LiveClone::Ignored() const
+{
+	MT_EB
+	MT_FUNC("LiveClone::Ignored");
+
+	SYNC_LOCK(users_);
+	size_t rv = ignored_.size();
+
+	MT_RET(rv);
+	MT_EE
+}
+
+size_t LiveClone::Triggers()
+{
+	MT_EB
+	MT_FUNC("LiveClone::Ignored");
+
+	SYNC_LOCK(triggers_);
+	boost::posix_time::ptime cutoff = mantra::GetCurrentTime() -
+			ROOT->ConfigValue<mantra::duration>("operserv.clone.expire");
+	while (!triggers_.empty() && triggers_.front() < cutoff)
+		triggers_.pop();
+	size_t rv = triggers_.size();
+
+	MT_RET(rv);
 	MT_EE
 }
 
