@@ -80,21 +80,10 @@ COPT=""
 CXXOPT=""
 
 dnl What warnings we will give off
-dnl -Wall == -Wno-import -Wchar-subscripts -Wcomment -Wformat
-dnl          -Wimplicit-int -Wimplicit-function-declaration
-dnl          -Wimplicit -Wmain -Wmissing-braces -Wmultichar
-dnl          -Wparentheses -Wsequence-point -Wreturn-type
-dnl          -Wswitch -Wtrigraphs -Wunused -Wuninitialized
-dnl          -Wreorder -Wunknown-pragmas
-dnl REMOVED: -Wshadow -Wcast-qual -Wconversion -Wcast-align
-dnl          -Wold-style-cast -Wundef -Wredundant-decls
-dnl          -Winline -Wtemplate-debugging -Wpacked
-dnl          -Wtraditional -Wstrict-prototypes 
-dnl          -Wformat-security -Wundef -Wmissing-prototypes
-dnl POSSIBLES: -Wunreachable-code -Wdisabled-optimization
-CPPWARN="-W -Wall -Wimport -Wpointer-arith -Wsign-compare -Wwrite-strings"
-CWARN="-Wbad-function-cast -Wmissing-declarations -Wnested-externs"
-CXXWARN="-Woverloaded-virtual -Wsynth -Wno-deprecated"
+dnl REMOVED: -wundef -Wfolat-equal -Wshadow -Wcast-qual -Winline -Weffc++
+CPPWARN="-W -Wall -Wextra -Wpointer-arith -Wcast-align -Winvalid-pch"
+CWARN="-Wbad-function-cast -Wstrict-prototypes"
+CXXWARN="-Wold-style-cast -Woverloaded-virtual -Wsign-promo"
 
 CPPFLAGS="$CPPFLAGS $CPPOPT $CPPWARN"
 CFLAGS="$CPPFLAGS $CFLAGS $COPT $CWARN"

@@ -68,7 +68,7 @@ StoredChannel::Revenge_t StoredChannel::RevengeID(const std::string &in)
 		if (boost::regex_match(in, revenge_rx[i]))
 			break;
 
-	MT_RET((Revenge_t) i);
+	MT_RET(static_cast<Revenge_t>(i));
 	MT_EE
 }
 
@@ -317,7 +317,7 @@ void StoredChannel::DoRevenge(RevengeType_t action,
 						{
 							if (newrlevel < R_Ban1 + i - 1 &&
 								mantra::glob_match(j->first, mask[i-1], true))
-								newrlevel = (Revenge_t) (R_Ban1 + i - 1);
+								newrlevel = static_cast<Revenge_t>(R_Ban1 + i - 1);
 						}
 					}
 				}
@@ -339,7 +339,7 @@ void StoredChannel::DoRevenge(RevengeType_t action,
 						{
 							if (newrlevel < R_Ban1 + i - 1 &&
 								boost::regex_match(mask[i-1], j->first))
-								newrlevel = (Revenge_t) (R_Ban1 + i - 1);
+								newrlevel = static_cast<Revenge_t>(R_Ban1 + i - 1);
 						}
 					}
 				}
@@ -1073,7 +1073,7 @@ bool StoredChannel::KeepTopic(const boost::logic::tribool &in)
 	if (boost::logic::indeterminate(in))
 		cache.Put("keeptopic", mantra::NullValue::instance());
 	else
-		cache.Put("keeptopic", (bool) in);
+		cache.Put("keeptopic", static_cast<bool>(in));
 
 	MT_RET(true);
 	MT_EE
@@ -1111,7 +1111,7 @@ bool StoredChannel::TopicLock(const boost::logic::tribool &in)
 	if (boost::logic::indeterminate(in))
 		cache.Put("topiclock", mantra::NullValue::instance());
 	else
-		cache.Put("topiclock", (bool) in);
+		cache.Put("topiclock", static_cast<bool>(in));
 
 	MT_RET(true);
 	MT_EE
@@ -1149,7 +1149,7 @@ bool StoredChannel::Private(const boost::logic::tribool &in)
 	if (boost::logic::indeterminate(in))
 		cache.Put("private", mantra::NullValue::instance());
 	else
-		cache.Put("private", (bool) in);
+		cache.Put("private", static_cast<bool>(in));
 
 	MT_RET(true);
 	MT_EE
@@ -1187,7 +1187,7 @@ bool StoredChannel::SecureOps(const boost::logic::tribool &in)
 	if (boost::logic::indeterminate(in))
 		cache.Put("secureops", mantra::NullValue::instance());
 	else
-		cache.Put("secureops", (bool) in);
+		cache.Put("secureops", static_cast<bool>(in));
 
 	MT_RET(true);
 	MT_EE
@@ -1225,7 +1225,7 @@ bool StoredChannel::Secure(const boost::logic::tribool &in)
 	if (boost::logic::indeterminate(in))
 		cache.Put("secure", mantra::NullValue::instance());
 	else
-		cache.Put("secure", (bool) in);
+		cache.Put("secure", static_cast<bool>(in));
 
 	MT_RET(true);
 	MT_EE
@@ -1263,7 +1263,7 @@ bool StoredChannel::Anarchy(const boost::logic::tribool &in)
 	if (boost::logic::indeterminate(in))
 		cache.Put("anarchy", mantra::NullValue::instance());
 	else
-		cache.Put("anarchy", (bool) in);
+		cache.Put("anarchy", static_cast<bool>(in));
 
 	MT_RET(true);
 	MT_EE
@@ -1301,7 +1301,7 @@ bool StoredChannel::KickOnBan(const boost::logic::tribool &in)
 	if (boost::logic::indeterminate(in))
 		cache.Put("kickonban", mantra::NullValue::instance());
 	else
-		cache.Put("kickonban", (bool) in);
+		cache.Put("kickonban", static_cast<bool>(in));
 
 	MT_RET(true);
 	MT_EE
@@ -1339,7 +1339,7 @@ bool StoredChannel::Restricted(const boost::logic::tribool &in)
 	if (boost::logic::indeterminate(in))
 		cache.Put("restricted", mantra::NullValue::instance());
 	else
-		cache.Put("restricted", (bool) in);
+		cache.Put("restricted", static_cast<bool>(in));
 
 	MT_RET(true);
 	MT_EE
@@ -1377,7 +1377,7 @@ bool StoredChannel::CJoin(const boost::logic::tribool &in)
 	if (boost::logic::indeterminate(in))
 		cache.Put("cjoin", mantra::NullValue::instance());
 	else
-		cache.Put("cjoin", (bool) in);
+		cache.Put("cjoin", static_cast<bool>(in));
 
 	MT_RET(true);
 	MT_EE
@@ -1415,7 +1415,7 @@ bool StoredChannel::NoExpire(const boost::logic::tribool &in)
 	if (boost::logic::indeterminate(in))
 		cache.Put("noexpire", mantra::NullValue::instance());
 	else
-		cache.Put("noexpire", (bool) in);
+		cache.Put("noexpire", static_cast<bool>(in));
 
 	MT_RET(true);
 	MT_EE
@@ -1529,7 +1529,7 @@ bool StoredChannel::Revenge(StoredChannel::Revenge_t in)
 	if (in < R_None || in >= R_MAX)
 		cache.Put("revenge", mantra::NullValue::instance());
 	else
-		cache.Put("revenge", (boost::uint8_t) in);
+		cache.Put("revenge", static_cast<boost::uint8_t>(in));
 
 	MT_RET(true);
 	MT_EE
@@ -1542,14 +1542,14 @@ StoredChannel::Revenge_t StoredChannel::Revenge() const
 
 	Revenge_t ret;
 	if (ROOT->ConfigValue<bool>("chanserv.lock.revenge"))
-		ret = (Revenge_t) ROOT->ConfigValue<boost::uint8_t>("chanserv.defaults.revenge");
+		ret = static_cast<Revenge_t>(ROOT->ConfigValue<boost::uint8_t>("chanserv.defaults.revenge"));
 	else
 	{
 		mantra::StorageValue rv = cache.Get("revenge");
 		if (rv.type() == typeid(mantra::NullValue))
-			ret = (Revenge_t) ROOT->ConfigValue<boost::uint8_t>("chanserv.defaults.revenge");
+			ret = static_cast<Revenge_t>(ROOT->ConfigValue<boost::uint8_t>("chanserv.defaults.revenge"));
 		else
-			ret = (Revenge_t) boost::get<boost::uint8_t>(rv);
+			ret = static_cast<Revenge_t>(boost::get<boost::uint8_t>(rv));
 	}
 
 	MT_RET(ret);
@@ -2856,7 +2856,7 @@ void StoredChannel::SendInfo(const ServiceUser *service,
 		if (!str.empty())
 			SEND(service, user, N_("Mode Lock      : %1%"), str);
 
-		Revenge_t r = (Revenge_t) ROOT->ConfigValue<unsigned int>("chanserv.defaults.revenge");
+		Revenge_t r = static_cast<Revenge_t>(ROOT->ConfigValue<unsigned int>("chanserv.defaults.revenge"));
 		if (ROOT->ConfigValue<bool>("chanserv.lock.revenge"))
 		{
 			if (r > R_None && r < R_MAX)
@@ -2868,7 +2868,7 @@ void StoredChannel::SendInfo(const ServiceUser *service,
 			i = data.find("revenge");
 			if (i != data.end())
 			{
-				r = (Revenge_t) boost::get<boost::uint8_t>(i->second);
+				r = static_cast<Revenge_t>(boost::get<boost::uint8_t>(i->second));
 				if (r > R_None && r < R_MAX)
 				{
 					j = data.find("lock_revenge");

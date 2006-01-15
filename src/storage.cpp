@@ -162,6 +162,7 @@ Storage::Storage()
 	  hasher(mantra::Hasher::NONE), SYNC_NRWINIT(LiveUsers_, reader_priority),
 	  SYNC_NRWINIT(LiveChannels_, reader_priority),
 	  SYNC_NRWINIT(SquitUsers_, reader_priority),
+	  SYNC_NRWINIT(LiveClones_, reader_priority),
 	  SYNC_NRWINIT(StoredUsers_, reader_priority),
 	  SYNC_NRWINIT(StoredNicks_, reader_priority),
 	  SYNC_NRWINIT(StoredChannels_, reader_priority),
@@ -249,34 +250,6 @@ void Storage::reset()
 		SYNC_WLOCK(Committees_);
 		Committees_.clear();
 	}
-}
-
-bool idless(const mantra::Storage::RecordMap &lhs,
-			const mantra::Storage::RecordMap &rhs)
-{
-	mantra::Storage::RecordMap::const_iterator i = lhs.find("id");
-	if (i == lhs.end())
-		return false;
-	mantra::Storage::RecordMap::const_iterator j = rhs.find("id");
-	if (j == rhs.end())
-		return true;
-
-	return (boost::get<boost::uint32_t>(i->second) <
-			boost::get<boost::uint32_t>(j->second));
-}
-
-bool nameless(const mantra::Storage::RecordMap &lhs,
-			  const mantra::Storage::RecordMap &rhs)
-{
-	mantra::Storage::RecordMap::const_iterator i = lhs.find("name");
-	if (i == lhs.end())
-		return false;
-	mantra::Storage::RecordMap::const_iterator j = rhs.find("name");
-	if (j == rhs.end())
-		return true;
-
-	return (boost::get<boost::uint32_t>(i->second) <
-			boost::get<boost::uint32_t>(j->second));
 }
 
 template<>
@@ -665,6 +638,12 @@ inline bool check_old_new(const char *entry, const po::variables_map &old_vm,
 	MT_EE
 }
 
+template <typename Function>
+Function* dll_cast(void const *p)
+{
+	return reinterpret_cast<Function*>(*reinterpret_cast<void (**)(void)>(const_cast<void **>(&p)));
+}
+
 bool Storage::init(const po::variables_map &vm, 
 				   const po::variables_map &opt_config)
 {
@@ -672,7 +651,7 @@ bool Storage::init(const po::variables_map &vm,
 	MT_FUNC("Storage::init" << vm);
 
 	if (!check_old_new<unsigned int>("storage.password-hash", opt_config, vm))
-		hasher = mantra::Hasher((mantra::Hasher::HashType) vm["storage.password-hash"].as<unsigned int>());
+		hasher = mantra::Hasher(static_cast<mantra::Hasher::HashType>(vm["storage.password-hash"].as<unsigned int>()));
 
 	std::string oldstorage;
 	if (!opt_config["storage"].empty())
@@ -834,7 +813,7 @@ bool Storage::init(const po::variables_map &vm,
 					mantra::mfile f(vm["storage.inifile.stage.file.name"].as<std::string>(),
 							O_RDWR | O_CREAT);
 					finalstage_ = std::make_pair(new mantra::FileStage(f, true),
-						(void (*)(mantra::FinalStage *)) &destroy_FileStage);
+						reinterpret_cast<void (*)(mantra::FinalStage *)>(&destroy_FileStage));
 				}
 				else if (newstages_[i] == "net")
 				{
@@ -861,7 +840,7 @@ bool Storage::init(const po::variables_map &vm,
 						MT_RET(false);
 					}
 					finalstage_ = std::make_pair(new mantra::NetStage(s, true),
-						(void (*)(mantra::FinalStage *)) &destroy_NetStage);
+						reinterpret_cast<void (*)(mantra::FinalStage *)>(&destroy_NetStage));
 				}
 				else if (newstages_[i] == "verify")
 				{
@@ -870,7 +849,7 @@ bool Storage::init(const po::variables_map &vm,
 						vm["storage.inifile.stage.verify.string"].as<std::string>(),
 						vm["storage.inifile.stage.verify.nice"].as<bool>());
 					stages_.push_back(std::make_pair(s,
-						(void (*)(mantra::Stage *)) &destroy_VerifyStage));
+						reinterpret_cast<void (*)(mantra::Stage *)>(&destroy_VerifyStage)));
 				}
 #ifdef MANTRA_STORAGE_STAGE_COMPRESS_SUPPORT
 				else if (newstages_[i] == "compress")
@@ -886,13 +865,13 @@ bool Storage::init(const po::variables_map &vm,
 						}
 					}
 					mantra::CompressStage *(*create)(mantra::CompressStage::Type_t, boost::int8_t) = 
-						(mantra::CompressStage *(*)(mantra::CompressStage::Type_t, boost::int8_t))
-							dlsym(compress_handle_, "create_CompressStage");
-					void (*destroy)(mantra::Stage *) = (void (*)(mantra::Stage *))
-							dlsym(compress_handle_, "destroy_CompressStage");
+						dll_cast<mantra::CompressStage *(mantra::CompressStage::Type_t, boost::int8_t)>(
+							dlsym(compress_handle_, "create_CompressStage"));
+					void (*destroy)(mantra::Stage *) = dll_cast<void (mantra::Stage *)>(
+							dlsym(compress_handle_, "destroy_CompressStage"));
 
 					stages_.push_back(std::make_pair(
-						create((mantra::CompressStage::Type_t) vm["storage.inifile.stage.compress.type"].as<unsigned int>(),
+						create(static_cast<mantra::CompressStage::Type_t>(vm["storage.inifile.stage.compress.type"].as<unsigned int>()),
 							   vm["storage.inifile.stage.compress.level"].as<int>()),
 						destroy));
 				}
@@ -939,18 +918,18 @@ bool Storage::init(const po::variables_map &vm,
 					}
 					mantra::CryptStage *(*create)(mantra::CryptStage::CryptType,
 						unsigned int, const std::string &, const mantra::Hasher &) =
-						(mantra::CryptStage *(*)(mantra::CryptStage::CryptType,
-						unsigned int, const std::string &, const mantra::Hasher &))
-							dlsym(compress_handle_, "create_CryptStage");
-					void (*destroy)(mantra::Stage *) = (void (*)(mantra::Stage *))
-							dlsym(compress_handle_, "destroy_CryptStage");
+						dll_cast<mantra::CryptStage *(mantra::CryptStage::CryptType,
+						unsigned int, const std::string &, const mantra::Hasher &)>(
+							dlsym(compress_handle_, "create_CryptStage"));
+					void (*destroy)(mantra::Stage *) = dll_cast<void (mantra::Stage *)>(
+							dlsym(compress_handle_, "destroy_CryptStage"));
 
 					try
 					{
 						stages_.push_back(std::make_pair(
-							create((mantra::CryptStage::CryptType) vm["storage.inifile.stage.crypt.type"].as<unsigned int>(),
+							create(static_cast<mantra::CryptStage::CryptType>(vm["storage.inifile.stage.crypt.type"].as<unsigned int>()),
 							vm["storage.inifile.stage.crypt.bits"].as<unsigned int>(), key,
-							mantra::Hasher((mantra::Hasher::HashType) vm["storage.inifile.stage.crypt.hash"].as<unsigned int>())),
+							mantra::Hasher(static_cast<mantra::Hasher::HashType>(vm["storage.inifile.stage.crypt.hash"].as<unsigned int>()))),
 							destroy));
 					}
 					catch (const mantra::crypt_stage_badbits &e)
@@ -964,7 +943,7 @@ bool Storage::init(const po::variables_map &vm,
 			for (ri = stages_.rbegin(); ri != stages_.rend(); ++ri)
 				*finalstage_.first << *ri->first;
 
-			backend_.second = (void (*)(mantra::Storage *)) destroy_IniFileStorage;
+			backend_.second = reinterpret_cast<void (*)(mantra::Storage *)>(destroy_IniFileStorage);
 			backend_.first = create_IniFileStorage(*finalstage_.first, 
 						vm["storage.tollerant"].as<bool>());
 			have_cascade = false;
@@ -1012,10 +991,10 @@ bool Storage::init(const po::variables_map &vm,
 				MT_RET(false);
 			}
 
-			backend_.second = (void (*)(mantra::Storage *)) dlsym(handle_, "destroy_BerkeleyDBStorage");
+			backend_.second = dll_cast<void (mantra::Storage *)>(dlsym(handle_, "destroy_BerkeleyDBStorage"));
 			mantra::BerkeleyDBStorage *(*create)(const char *, bool, bool, const char *, bool) =
-						(mantra::BerkeleyDBStorage *(*)(const char *, bool, bool, const char *, bool))
-						dlsym(handle_, "create_BerkeleyDBStorage");
+						dll_cast<mantra::BerkeleyDBStorage *(const char *, bool, bool, const char *, bool)>(
+						dlsym(handle_, "create_BerkeleyDBStorage"));
 
 			backend_.first = create(vm["storage.berkeleydb.db-dir"].as<std::string>().c_str(),
 				vm["storage.tollerant"].as<bool>(),
@@ -1188,7 +1167,7 @@ bool Storage::init(const po::variables_map &vm,
 					mantra::mfile f(vm["storage.xml.stage.file.name"].as<std::string>(),
 							O_RDWR | O_CREAT);
 					finalstage_ = std::make_pair(new mantra::FileStage(f, true),
-						(void (*)(mantra::FinalStage *)) &destroy_FileStage);
+						reinterpret_cast<void (*)(mantra::FinalStage *)>(&destroy_FileStage));
 				}
 				else if (newstages_[i] == "net")
 				{
@@ -1215,7 +1194,7 @@ bool Storage::init(const po::variables_map &vm,
 						MT_RET(false);
 					}
 					finalstage_ = std::make_pair(new mantra::NetStage(s, true),
-						(void (*)(mantra::FinalStage *)) &destroy_NetStage);
+						reinterpret_cast<void (*)(mantra::FinalStage *)>(&destroy_NetStage));
 				}
 				else if (newstages_[i] == "verify")
 				{
@@ -1224,7 +1203,7 @@ bool Storage::init(const po::variables_map &vm,
 						vm["storage.xml.stage.verify.string"].as<std::string>(),
 						vm["storage.xml.stage.verify.nice"].as<bool>());
 					stages_.push_back(std::make_pair(s,
-						(void (*)(mantra::Stage *)) &destroy_VerifyStage));
+						reinterpret_cast<void (*)(mantra::Stage *)>(&destroy_VerifyStage)));
 				}
 #ifdef MANTRA_STORAGE_STAGE_COMPRESS_SUPPORT
 				else if (newstages_[i] == "compress")
@@ -1240,13 +1219,13 @@ bool Storage::init(const po::variables_map &vm,
 						}
 					}
 					mantra::CompressStage *(*create)(mantra::CompressStage::Type_t, boost::int8_t) = 
-						(mantra::CompressStage *(*)(mantra::CompressStage::Type_t, boost::int8_t))
-							dlsym(compress_handle_, "create_CompressStage");
-					void (*destroy)(mantra::Stage *) = (void (*)(mantra::Stage *))
-							dlsym(compress_handle_, "destroy_CompressStage");
+						dll_cast<mantra::CompressStage *(mantra::CompressStage::Type_t, boost::int8_t)>(
+							dlsym(compress_handle_, "create_CompressStage"));
+					void (*destroy)(mantra::Stage *) = dll_cast<void (mantra::Stage *)>(
+							dlsym(compress_handle_, "destroy_CompressStage"));
 
 					stages_.push_back(std::make_pair(
-						create((mantra::CompressStage::Type_t) vm["storage.xml.stage.compress.type"].as<unsigned int>(),
+						create(static_cast<mantra::CompressStage::Type_t>(vm["storage.xml.stage.compress.type"].as<unsigned int>()),
 							   vm["storage.xml.stage.compress.level"].as<int>()),
 						destroy));
 				}
@@ -1293,18 +1272,18 @@ bool Storage::init(const po::variables_map &vm,
 					}
 					mantra::CryptStage *(*create)(mantra::CryptStage::CryptType,
 						unsigned int, const std::string &, const mantra::Hasher &) =
-						(mantra::CryptStage *(*)(mantra::CryptStage::CryptType,
-						unsigned int, const std::string &, const mantra::Hasher &))
-							dlsym(compress_handle_, "create_CryptStage");
-					void (*destroy)(mantra::Stage *) = (void (*)(mantra::Stage *))
-							dlsym(compress_handle_, "destroy_CryptStage");
+						dll_cast<mantra::CryptStage *(mantra::CryptStage::CryptType,
+						unsigned int, const std::string &, const mantra::Hasher &)>(
+							dlsym(compress_handle_, "create_CryptStage"));
+					void (*destroy)(mantra::Stage *) = dll_cast<void (mantra::Stage *)>(
+							dlsym(compress_handle_, "destroy_CryptStage"));
 
 					try
 					{
 						stages_.push_back(std::make_pair(
-							create((mantra::CryptStage::CryptType) vm["storage.xml.stage.crypt.type"].as<unsigned int>(),
+							create(static_cast<mantra::CryptStage::CryptType>(vm["storage.xml.stage.crypt.type"].as<unsigned int>()),
 							vm["storage.xml.stage.crypt.bits"].as<unsigned int>(), key,
-							mantra::Hasher((mantra::Hasher::HashType) vm["storage.xml.stage.crypt.hash"].as<unsigned int>())),
+							mantra::Hasher(static_cast<mantra::Hasher::HashType>(vm["storage.xml.stage.crypt.hash"].as<unsigned int>()))),
 							destroy));
 					}
 					catch (const mantra::crypt_stage_badbits &e)
@@ -1326,10 +1305,10 @@ bool Storage::init(const po::variables_map &vm,
 				MT_RET(false);
 			}
 
-			backend_.second = (void (*)(mantra::Storage *)) dlsym(handle_, "destroy_XMLStorage");
+			backend_.second = dll_cast<void (mantra::Storage *)>(dlsym(handle_, "destroy_XMLStorage"));
 			mantra::XMLStorage *(*create)(mantra::FinalStage &, bool t, const char *) =
-						(mantra::XMLStorage *(*)(mantra::FinalStage &, bool t, const char *))
-						dlsym(handle_, "create_XMLStorage");
+						dll_cast<mantra::XMLStorage *(mantra::FinalStage &, bool t, const char *)>(
+						dlsym(handle_, "create_XMLStorage"));
 
 			backend_.first = create(*finalstage_.first, vm["storage.tollerant"].as<bool>(),
 						vm["storage.xml.encoding"].as<std::string>().c_str());
@@ -1401,14 +1380,14 @@ bool Storage::init(const po::variables_map &vm,
 				MT_RET(false);
 			}
 
-			backend_.second = (void (*)(mantra::Storage *)) dlsym(handle_, "destroy_MySQLStorage");
+			backend_.second = dll_cast<void (mantra::Storage *)>(dlsym(handle_, "destroy_MySQLStorage"));
 			mantra::MySQLStorage *(*create)(const char *, const char *,
 					const char *, const char *, boost::uint16_t, bool,
 					unsigned int, bool, unsigned int, unsigned int) =
-				(mantra::MySQLStorage *(*)(const char *, const char *,
+				dll_cast<mantra::MySQLStorage *(const char *, const char *,
 					const char *, const char *, boost::uint16_t, bool,
-					unsigned int, bool, unsigned int, unsigned int))
-						dlsym(handle_, "create_MySQLStorage");
+					unsigned int, bool, unsigned int, unsigned int)>(
+						dlsym(handle_, "create_MySQLStorage"));
 
 			backend_.first = create(vm["storage.mysql.db-name"].as<std::string>().c_str(),
 				user.empty() ? NULL : user.c_str(),
@@ -1487,14 +1466,14 @@ bool Storage::init(const po::variables_map &vm,
 				MT_RET(false);
 			}
 
-			backend_.second = (void (*)(mantra::Storage *)) dlsym(handle_, "destroy_PostgreSQLStorage");
+			backend_.second = dll_cast<void (mantra::Storage *)>(dlsym(handle_, "destroy_PostgreSQLStorage"));
 			mantra::PostgreSQLStorage *(*create)(const char *, const char *,
 					const char *, const char *, boost::uint16_t, bool,
 					unsigned int, bool, unsigned int, unsigned int) =
-				(mantra::PostgreSQLStorage *(*)(const char *, const char *,
+				dll_cast<mantra::PostgreSQLStorage *(const char *, const char *,
 					const char *, const char *, boost::uint16_t, bool,
-					unsigned int, bool, unsigned int, unsigned int))
-						dlsym(handle_, "create_PostgreSQLStorage");
+					unsigned int, bool, unsigned int, unsigned int)>(
+						dlsym(handle_, "create_PostgreSQLStorage"));
 
 			backend_.first = create(vm["storage.postgresql.db-name"].as<std::string>().c_str(),
 				user.empty() ? NULL : user.c_str(),
@@ -1550,10 +1529,10 @@ bool Storage::init(const po::variables_map &vm,
 				MT_RET(false);
 			}
 
-			backend_.second = (void (*)(mantra::Storage *)) dlsym(handle_, "destroy_SQLiteStorage");
+			backend_.second = dll_cast<void (mantra::Storage *)>(dlsym(handle_, "destroy_SQLiteStorage"));
 			mantra::SQLiteStorage *(*create)(const char *, bool, unsigned int, unsigned int) =
-				(mantra::SQLiteStorage *(*)(const char *, bool, unsigned int, unsigned int))
-						dlsym(handle_, "create_SQLiteStorage");
+				dll_cast<mantra::SQLiteStorage *(const char *, bool, unsigned int, unsigned int)>(
+						dlsym(handle_, "create_SQLiteStorage"));
 
 			backend_.first = create(vm["storage.sqlite.db-name"].as<std::string>().c_str(),
 				vm["storage.tollerant"].as<bool>(),
@@ -1621,28 +1600,28 @@ void Storage::init()
 	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("users", "last_update", cp);
 
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 64);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(64));
 	backend_.first->DefineColumn("users", "password", cp);
 
-	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 320);
+	cp.Assign<std::string>(true, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(320));
 	backend_.first->DefineColumn("users", "email", cp);
-	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 2048);
+	cp.Assign<std::string>(true, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(2048));
 	backend_.first->DefineColumn("users", "website", cp);
 	cp.Assign<boost::uint32_t>(true);
 	backend_.first->DefineColumn("users", "icq", cp);
-	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 16);
+	cp.Assign<std::string>(true, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(16));
 	backend_.first->DefineColumn("users", "aim", cp);
-	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 320);
+	cp.Assign<std::string>(true, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(320));
 	backend_.first->DefineColumn("users", "msn", cp);
-	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 512);
+	cp.Assign<std::string>(true, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(512));
 	backend_.first->DefineColumn("users", "jabber", cp);
-	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 32);
+	cp.Assign<std::string>(true, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(32));
 	backend_.first->DefineColumn("users", "yahoo", cp);
 	cp.Assign<std::string>(true);
 	backend_.first->DefineColumn("users", "description", cp);
 	backend_.first->DefineColumn("users", "comment", cp);
 
-	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 32);
+	cp.Assign<std::string>(true, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(32));
 	backend_.first->DefineColumn("users", "suspend_by", cp);
 	cp.Assign<boost::uint32_t>(true);
 	backend_.first->DefineColumn("users", "suspend_by_id", cp);
@@ -1651,7 +1630,7 @@ void Storage::init()
 	cp.Assign<boost::posix_time::ptime>(true);
 	backend_.first->DefineColumn("users", "suspend_time", cp);
 
-	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 16);
+	cp.Assign<std::string>(true, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(16));
 	backend_.first->DefineColumn("users", "language", cp);
 	cp.Assign<bool>(true);
 	backend_.first->DefineColumn("users", "protect", cp);
@@ -1662,7 +1641,7 @@ void Storage::init()
 	backend_.first->DefineColumn("users", "noexpire", cp);
 	cp.Assign<boost::uint32_t>(true);
 	backend_.first->DefineColumn("users", "picture", cp);
-	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 8);
+	cp.Assign<std::string>(true, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(8));
 	backend_.first->DefineColumn("users", "picture_ext", cp);
 	cp.Assign<bool>(true);
 	backend_.first->DefineColumn("users", "lock_language", cp);
@@ -1676,7 +1655,7 @@ void Storage::init()
 	cp.Assign<boost::uint32_t>(false);
 	backend_.first->DefineColumn("users_access", "id", cp);
 	backend_.first->DefineColumn("users_access", "number", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 320);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(320));
 	backend_.first->DefineColumn("users_access", "mask", cp);
 	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("users_access", "last_update", cp);
@@ -1696,7 +1675,7 @@ void Storage::init()
 	backend_.first->DefineColumn("users_memo", "number", cp);
 	cp.Assign<boost::posix_time::ptime>(false);
 	backend_.first->DefineColumn("users_memo", "sent", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(32));
 	backend_.first->DefineColumn("users_memo", "sender", cp);
 	cp.Assign<boost::uint32_t>(true);
 	backend_.first->DefineColumn("users_memo", "sender_id", cp);
@@ -1708,17 +1687,17 @@ void Storage::init()
 	backend_.first->DefineColumn("users_memo", "attachment", cp);
 
 	// TABLE: nicks
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(32));
 	backend_.first->DefineColumn("nicks", "name", cp);
 	cp.Assign<boost::uint32_t>(false);
 	backend_.first->DefineColumn("nicks", "id", cp);
 	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("nicks", "registered", cp);
-	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 50);
+	cp.Assign<std::string>(true, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(50));
 	backend_.first->DefineColumn("nicks", "last_realname", cp);
-	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 320);
+	cp.Assign<std::string>(true, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(320));
 	backend_.first->DefineColumn("nicks", "last_mask", cp);
-	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 300);
+	cp.Assign<std::string>(true, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(300));
 	backend_.first->DefineColumn("nicks", "last_quit", cp);
 	cp.Assign<boost::posix_time::ptime>(true);
 	backend_.first->DefineColumn("nicks", "last_seen", cp);
@@ -1726,14 +1705,14 @@ void Storage::init()
 	// TABLE: channels
 	cp.Assign<boost::uint32_t>(false);
 	backend_.first->DefineColumn("channels", "id", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 64);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(64));
 	backend_.first->DefineColumn("channels", "name", cp);
 	cp.Assign<boost::posix_time::ptime>(false, boost::function0<mantra::StorageValue>(&GetCurrentDateTime));
 	backend_.first->DefineColumn("channels", "registered", cp);
 	backend_.first->DefineColumn("channels", "last_update", cp);
 	cp.Assign<boost::posix_time::ptime>(true);
 	backend_.first->DefineColumn("channels", "last_used", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 64);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(64));
 	backend_.first->DefineColumn("channels", "password", cp);
 	cp.Assign<boost::uint32_t>(false);
 	backend_.first->DefineColumn("channels", "founder", cp);
@@ -1745,7 +1724,7 @@ void Storage::init()
 	backend_.first->DefineColumn("channels", "website", cp);
 	backend_.first->DefineColumn("channels", "comment", cp);
 	backend_.first->DefineColumn("channels", "topic", cp);
-	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 32);
+	cp.Assign<std::string>(true, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(32));
 	backend_.first->DefineColumn("channels", "topic_setter", cp);
 	cp.Assign<boost::posix_time::ptime>(true);
 	backend_.first->DefineColumn("channels", "topic_set_time", cp);
@@ -1766,7 +1745,7 @@ void Storage::init()
 	backend_.first->DefineColumn("channels", "parttime", cp);
 	cp.Assign<boost::uint8_t>(true);
 	backend_.first->DefineColumn("channels", "revenge", cp);
-	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 32);
+	cp.Assign<std::string>(true, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(32));
 	backend_.first->DefineColumn("channels", "mlock_on", cp);
 	backend_.first->DefineColumn("channels", "mlock_off", cp);
 	backend_.first->DefineColumn("channels", "mlock_key", cp);
@@ -1785,7 +1764,7 @@ void Storage::init()
 	backend_.first->DefineColumn("channels", "lock_bantime", cp);
 	backend_.first->DefineColumn("channels", "lock_parttime", cp);
 	backend_.first->DefineColumn("channels", "lock_revenge", cp);
-	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 32);
+	cp.Assign<std::string>(true, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(32));
 	backend_.first->DefineColumn("channels", "lock_mlock_on", cp);
 	backend_.first->DefineColumn("channels", "lock_mlock_off", cp);
 	backend_.first->DefineColumn("channels", "suspend_by", cp);
@@ -1802,7 +1781,7 @@ void Storage::init()
 	backend_.first->DefineColumn("channels_level", "level", cp);
 	cp.Assign<boost::int32_t>(false);
 	backend_.first->DefineColumn("channels_level", "value", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(32));
 	backend_.first->DefineColumn("channels_level", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("channels_level", "last_updater_id", cp);
@@ -1814,14 +1793,14 @@ void Storage::init()
 	backend_.first->DefineColumn("channels_access", "id", cp);
 	cp.Assign<boost::uint32_t>(false);
 	backend_.first->DefineColumn("channels_access", "number", cp);
-	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 350);
+	cp.Assign<std::string>(true, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(350));
 	backend_.first->DefineColumn("channels_access", "entry_mask", cp);
 	cp.Assign<boost::uint32_t>(true);
 	backend_.first->DefineColumn("channels_access", "entry_user", cp);
 	backend_.first->DefineColumn("channels_access", "entry_committee", cp);
 	cp.Assign<boost::int32_t>(false);
 	backend_.first->DefineColumn("channels_access", "level", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(32));
 	backend_.first->DefineColumn("channels_access", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("channels_access", "last_updater_id", cp);
@@ -1832,7 +1811,7 @@ void Storage::init()
 	cp.Assign<boost::uint32_t>(false);
 	backend_.first->DefineColumn("channels_akick", "id", cp);
 	backend_.first->DefineColumn("channels_akick", "number", cp);
-	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 350);
+	cp.Assign<std::string>(true, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(350));
 	backend_.first->DefineColumn("channels_akick", "entry_mask", cp);
 	cp.Assign<boost::uint32_t>(true);
 	backend_.first->DefineColumn("channels_akick", "entry_user", cp);
@@ -1843,7 +1822,7 @@ void Storage::init()
 	backend_.first->DefineColumn("channels_akick", "creation", cp);
 	cp.Assign<mantra::duration>(true);
 	backend_.first->DefineColumn("channels_akick", "length", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(32));
 	backend_.first->DefineColumn("channels_akick", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("channels_akick", "last_updater_id", cp);
@@ -1858,7 +1837,7 @@ void Storage::init()
 	backend_.first->DefineColumn("channels_greet", "greeting", cp);
 	cp.Assign<bool>(true);
 	backend_.first->DefineColumn("channels_greet", "locked", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(32));
 	backend_.first->DefineColumn("channels_greet", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("channels_greet", "last_updater_id", cp);
@@ -1871,7 +1850,7 @@ void Storage::init()
 	backend_.first->DefineColumn("channels_message", "number", cp);
 	cp.Assign<std::string>(false);
 	backend_.first->DefineColumn("channels_message", "message", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(32));
 	backend_.first->DefineColumn("channels_message", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("channels_message", "last_updater_id", cp);
@@ -1882,7 +1861,7 @@ void Storage::init()
 	cp.Assign<boost::uint32_t>(false);
 	backend_.first->DefineColumn("channels_news", "id", cp);
 	backend_.first->DefineColumn("channels_news", "number", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(32));
 	backend_.first->DefineColumn("channels_news", "sender", cp);
 	cp.Assign<boost::uint32_t>(true);
 	backend_.first->DefineColumn("channels_news", "sender_id", cp);
@@ -1900,7 +1879,7 @@ void Storage::init()
 	// TABLE: committees
 	cp.Assign<boost::uint32_t>(false);
 	backend_.first->DefineColumn("committees", "id", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(32));
 	backend_.first->DefineColumn("committees", "name", cp);
 
 	cp.Assign<boost::uint32_t>(true);
@@ -1914,9 +1893,9 @@ void Storage::init()
 	cp.Assign<std::string>(true);
 	backend_.first->DefineColumn("committees", "description", cp);
 	backend_.first->DefineColumn("committees", "comment", cp);
-	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 320);
+	cp.Assign<std::string>(true, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(320));
 	backend_.first->DefineColumn("committees", "email", cp);
-	cp.Assign<std::string>(true, (boost::uint64_t) 0, (boost::uint64_t) 2048);
+	cp.Assign<std::string>(true, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(2048));
 	backend_.first->DefineColumn("committees", "webpage", cp);
 
 	cp.Assign<bool>(true);
@@ -1932,7 +1911,7 @@ void Storage::init()
 	backend_.first->DefineColumn("committees_member", "id", cp);
 	backend_.first->DefineColumn("committees_member", "number", cp);
 	backend_.first->DefineColumn("committees_member", "entry", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(32));
 	backend_.first->DefineColumn("committees_member", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("committees_member", "last_updater_id", cp);
@@ -1945,7 +1924,7 @@ void Storage::init()
 	backend_.first->DefineColumn("committees_message", "number", cp);
 	cp.Assign<std::string>(false);
 	backend_.first->DefineColumn("committees_message", "message", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(32));
 	backend_.first->DefineColumn("committees_message", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("committees_message", "last_updater_id", cp);
@@ -1955,11 +1934,11 @@ void Storage::init()
 	// TABLE: forbidden
 	cp.Assign<boost::uint32_t>(false);
 	backend_.first->DefineColumn("forbidden", "number", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 64);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(64));
 	backend_.first->DefineColumn("forbidden", "mask", cp);
 	cp.Assign<std::string>(false);
 	backend_.first->DefineColumn("forbidden", "reason", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(32));
 	backend_.first->DefineColumn("forbidden", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("forbidden", "last_updater_id", cp);
@@ -1973,11 +1952,11 @@ void Storage::init()
 	backend_.first->DefineColumn("channels_akick", "creation", cp);
 	cp.Assign<mantra::duration>(true);
 	backend_.first->DefineColumn("akills", "length", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 320);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(320));
 	backend_.first->DefineColumn("akills", "mask", cp);
 	cp.Assign<std::string>(false);
 	backend_.first->DefineColumn("akills", "reason", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(32));
 	backend_.first->DefineColumn("akills", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("akills", "last_updater_id", cp);
@@ -1988,11 +1967,11 @@ void Storage::init()
 	cp.Assign<boost::uint32_t>(false);
 	backend_.first->DefineColumn("clones", "number", cp);
 	backend_.first->DefineColumn("clones", "value", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 350);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(350));
 	backend_.first->DefineColumn("clones", "mask", cp);
 	cp.Assign<std::string>(false);
 	backend_.first->DefineColumn("clones", "reason", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(32));
 	backend_.first->DefineColumn("clones", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("clones", "last_updater_id", cp);
@@ -2002,11 +1981,11 @@ void Storage::init()
 	// TABLE: operdenies
 	cp.Assign<boost::uint32_t>(false);
 	backend_.first->DefineColumn("operdenies", "number", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 350);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(350));
 	backend_.first->DefineColumn("operdenies", "mask", cp);
 	cp.Assign<std::string>(false);
 	backend_.first->DefineColumn("operdenies", "reason", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(32));
 	backend_.first->DefineColumn("operdenies", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("operdenies", "last_updater_id", cp);
@@ -2016,11 +1995,11 @@ void Storage::init()
 	// TABLE: ignores
 	cp.Assign<boost::uint32_t>(false);
 	backend_.first->DefineColumn("ignores", "number", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 350);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(350));
 	backend_.first->DefineColumn("ignores", "mask", cp);
 	cp.Assign<std::string>(false);
 	backend_.first->DefineColumn("ignores", "reason", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(32));
 	backend_.first->DefineColumn("ignores", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("ignores", "last_updater_id", cp);
@@ -2030,11 +2009,11 @@ void Storage::init()
 	// TABLE: killchans
 	cp.Assign<boost::uint32_t>(false);
 	backend_.first->DefineColumn("killchans", "number", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 64);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(64));
 	backend_.first->DefineColumn("killchans", "mask", cp);
 	cp.Assign<std::string>(false);
 	backend_.first->DefineColumn("killchans", "reason", cp);
-	cp.Assign<std::string>(false, (boost::uint64_t) 0, (boost::uint64_t) 32);
+	cp.Assign<std::string>(false, static_cast<boost::uint64_t>(0), static_cast<boost::uint64_t>(32));
 	backend_.first->DefineColumn("killchans", "last_updater", cp);
 	cp.Assign<boost::int32_t>(true);
 	backend_.first->DefineColumn("killchans", "last_updater_id", cp);
@@ -2161,7 +2140,7 @@ void Storage::Load()
 				if (!nick)
 					continue;
 
-				rec["number"] = (boost::uint32_t) i+1;
+				rec["number"] = static_cast<boost::uint32_t>(i+1);
 				rec["entry"] = nick->User()->ID();
 				backend_.first->InsertRow("committees_member", rec);
 			}
@@ -2337,16 +2316,16 @@ void Storage::Add(const boost::shared_ptr<LiveUser> &entry)
 		LiveUsers_.insert(entry);
 	}
 	{
-		SYNC_LOCK(LiveClones_);
+		SYNC_WLOCK(LiveClones_);
 		LiveClones_t::iterator i = std::lower_bound(HostClones_.begin(),
 													HostClones_.end(),
 													entry->Host());
 		if (i == HostClones_.end() || **i != entry->Host())
 		{
-			boost::shared_ptr<LiveClone> ent = new LiveClone(entry->Host());
+			boost::shared_ptr<LiveClone> ent(new LiveClone(entry->Host()));
 			ent->Add(entry);
 			HostClones_.insert(ent);
-			ent = new LiveClone(entry->User() + '@' + entry->Host());
+			ent.reset(new LiveClone(entry->User() + '@' + entry->Host()));
 			ent->Add(entry);
 			UserClones_.insert(ent);
 		}
@@ -2357,7 +2336,7 @@ void Storage::Add(const boost::shared_ptr<LiveUser> &entry)
 			i = std::lower_bound(UserClones_.begin(), UserClones_.end(), userhost);
 			if (i == UserClones_.end() || **i != userhost)
 			{
-				boost::shared_ptr<LiveClone> ent = new LiveClone(userhost);
+				boost::shared_ptr<LiveClone> ent(new LiveClone(userhost));
 				ent->Add(entry);
 				UserClones_.insert(ent);
 			}
@@ -3204,6 +3183,44 @@ void Storage::Del(const boost::shared_ptr<Committee> &entry)
 
 // --------------------------------------------------------------------------
 
+void Storage::ForEach(const boost::function1<void, const boost::shared_ptr<LiveUser> &> &func) const
+{
+	SYNC_RLOCK(LiveUsers_);
+	for_each(LiveUsers_.begin(), LiveUsers_.end(), func);
+}
+
+void Storage::ForEach(const boost::function1<void, const boost::shared_ptr<LiveChannel> &> &func) const
+{
+	SYNC_RLOCK(LiveChannels_);
+	for_each(LiveChannels_.begin(), LiveChannels_.end(), func);
+}
+
+void Storage::ForEach(const boost::function1<void, const boost::shared_ptr<StoredUser> &> &func) const
+{
+	SYNC_RLOCK(StoredUsers_);
+	for_each(StoredUsers_.begin(), StoredUsers_.end(), func);
+}
+
+void Storage::ForEach(const boost::function1<void, const boost::shared_ptr<StoredNick> &> &func) const
+{
+	SYNC_RLOCK(StoredNicks_);
+	for_each(StoredNicks_.begin(), StoredNicks_.end(), func);
+}
+
+void Storage::ForEach(const boost::function1<void, const boost::shared_ptr<StoredChannel> &> &func) const
+{
+	SYNC_RLOCK(StoredChannels_);
+	for_each(StoredChannels_.begin(), StoredChannels_.end(), func);
+}
+
+void Storage::ForEach(const boost::function1<void, const boost::shared_ptr<Committee> &> &func) const
+{
+	SYNC_RLOCK(Committees_);
+	for_each(Committees_.begin(), Committees_.end(), func);
+}
+
+// --------------------------------------------------------------------------
+
 void Storage::Add(const Forbidden &entry)
 {
 	MT_EB
@@ -3937,7 +3954,7 @@ KillChannel Storage::Get_KillChannel(const std::string &in, boost::logic::triboo
 	KillChannels_t::const_iterator i = KillChannels_.begin();
 	while (i != KillChannels_.end())
 	{
-		if (!i)
+		if (!*i)
 		{
 			KillChannels_.erase(i++);
 			continue;
@@ -3961,7 +3978,7 @@ KillChannel Storage::Get_KillChannel(const std::string &in, boost::logic::triboo
 			mantra::Storage::FieldSet fields;
 			fields.insert("id");
 
-			backend_.first->RetrieveRow("killchans", 
+			backend_.first->RetrieveRow("killchans", data,
 				mantra::Comparison<mantra::C_EqualTo>::make("mask", in), fields);
 
 			if (!data.empty())
@@ -4060,7 +4077,7 @@ size_t LiveClone::Trigger()
 	MT_FUNC("LiveClone::Trigger");
 
 	SYNC_LOCK(triggers_);
-	boost::posix_time::ptime now = mantra::GetCurrentTime();
+	boost::posix_time::ptime now = mantra::GetCurrentDateTime();
 	boost::posix_time::ptime cutoff = now -
 			ROOT->ConfigValue<mantra::duration>("operserv.clone.expire");
 	while (!triggers_.empty() && triggers_.front() < cutoff)
@@ -4068,6 +4085,7 @@ size_t LiveClone::Trigger()
 	triggers_.push(now);
 	size_t rv = triggers_.size();
 
+	MT_RET(rv);
 	MT_EE
 }
 
@@ -4101,7 +4119,7 @@ size_t LiveClone::Triggers()
 	MT_FUNC("LiveClone::Ignored");
 
 	SYNC_LOCK(triggers_);
-	boost::posix_time::ptime cutoff = mantra::GetCurrentTime() -
+	boost::posix_time::ptime cutoff = mantra::GetCurrentDateTime() -
 			ROOT->ConfigValue<mantra::duration>("operserv.clone.expire");
 	while (!triggers_.empty() && triggers_.front() < cutoff)
 		triggers_.pop();

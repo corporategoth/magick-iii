@@ -654,7 +654,7 @@ bool Uplink::NUMERIC(Numeric_t num, const std::string &target,
 	MT_EB
 	MT_FUNC("Uplink::NUMERIC" << num << target << args << forcecolon);
 
-	std::string ostr, istr = boost::lexical_cast<std::string>(num) + " " +
+	std::string ostr, istr = boost::lexical_cast<std::string>(static_cast<int>(num)) + " " +
 								target + ROOT->proto.assemble(args, forcecolon);
 	ROOT->proto.addline(*this, ostr, istr);
 	bool rv = ROOT->proto.send(ostr);

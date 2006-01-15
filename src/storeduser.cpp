@@ -643,7 +643,7 @@ bool StoredUser::Protect(const boost::logic::tribool &in)
 	if (boost::logic::indeterminate(in))
 		cache.Put("protect", mantra::NullValue::instance());
 	else
-		cache.Put("protect", (bool) in);
+		cache.Put("protect", static_cast<bool>(in));
 
 	MT_RET(true);
 	MT_EE
@@ -681,7 +681,7 @@ bool StoredUser::Secure(const boost::logic::tribool &in)
 	if (boost::logic::indeterminate(in))
 		cache.Put("secure", mantra::NullValue::instance());
 	else
-		cache.Put("secure", (bool) in);
+		cache.Put("secure", static_cast<bool>(in));
 
 	MT_RET(true);
 	MT_EE
@@ -719,7 +719,7 @@ bool StoredUser::NoMemo(const boost::logic::tribool &in)
 	if (boost::logic::indeterminate(in))
 		cache.Put("nomemo", mantra::NullValue::instance());
 	else
-		cache.Put("nomemo", (bool) in);
+		cache.Put("nomemo", static_cast<bool>(in));
 
 	MT_RET(true);
 	MT_EE
@@ -757,7 +757,7 @@ bool StoredUser::Private(const boost::logic::tribool &in)
 	if (boost::logic::indeterminate(in))
 		cache.Put("private", mantra::NullValue::instance());
 	else
-		cache.Put("private", (bool) in);
+		cache.Put("private", static_cast<bool>(in));
 
 	MT_RET(true);
 	MT_EE
@@ -795,7 +795,7 @@ bool StoredUser::PRIVMSG(const boost::logic::tribool &in)
 	if (boost::logic::indeterminate(in))
 		cache.Put("privmsg", mantra::NullValue::instance());
 	else
-		cache.Put("privmsg", (bool) in);
+		cache.Put("privmsg", static_cast<bool>(in));
 
 	MT_RET(true);
 	MT_EE
@@ -833,7 +833,7 @@ bool StoredUser::NoExpire(const boost::logic::tribool &in)
 	if (boost::logic::indeterminate(in))
 		cache.Put("noexpire", mantra::NullValue::instance());
 	else
-		cache.Put("noexpire", (bool) in);
+		cache.Put("noexpire", static_cast<bool>(in));
 
 	MT_RET(true);
 	MT_EE

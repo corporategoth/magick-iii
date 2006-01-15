@@ -129,4 +129,9 @@ public:
 	void Clean();
 };
 
+bool idless (const mantra::Storage::RecordMap &lhs,
+			 const mantra::Storage::RecordMap &rhs);
+bool nameless (const mantra::Storage::RecordMap &lhs,
+			 const mantra::Storage::RecordMap &rhs);
+
 #endif // _MAGICK_STORAGEINTERFACE_H

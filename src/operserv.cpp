@@ -532,24 +532,24 @@ static bool biTRACE_SET(const ServiceUser *service,
 	}
 	else if (svalue.size() == 2)
 	{
-		value = ((unsigned char) svalue[0] << 8) + (unsigned char) svalue[1];
+		value = (static_cast<unsigned char>(svalue[0]) << 8) + static_cast<unsigned char>(svalue[1]);
 	}
 	else
 	{
-		value = (unsigned char) svalue[0];
+		value = static_cast<unsigned char>(svalue[0]);
 	}
 
 	static mantra::iequal_to<std::string> cmp;
 	if (cmp(params[1], "ALL"))
 	{
-		for (size_t j = 0; j < (size_t) MAGICK_TRACE_SIZE; ++j)
+		for (size_t j = 0; j < static_cast<size_t>(MAGICK_TRACE_SIZE); ++j)
 			mantra::mtrace::instance().TurnSet(j, value);
 		SEND(service, user, N_("All trace types have been set to %1$#04x."), value);
 	}
 	else
 	{
 		size_t j;
-		for (j = 0; j < (size_t) MAGICK_TRACE_SIZE; ++j)
+		for (j = 0; j < static_cast<size_t>(MAGICK_TRACE_SIZE); ++j)
 			if (boost::regex_match(params[1], TraceTypeRegex[j]))
 			{
 				mantra::mtrace::instance().TurnSet(j, value);
@@ -557,7 +557,7 @@ static bool biTRACE_SET(const ServiceUser *service,
 					 TraceTypes[j] % value);
 				break;
 			}
-		if (j >= (size_t) MAGICK_TRACE_SIZE)
+		if (j >= static_cast<size_t>(MAGICK_TRACE_SIZE))
 		{
 			SEND(service, user, N_("Unknown trace type %1% specified."), params[1]);
 			MT_RET(false);
@@ -590,11 +590,11 @@ static bool biTRACE_UP(const ServiceUser *service,
 			}
 			else if (svalue.size() == 2)
 			{
-				value |= ((unsigned char) svalue[0] << 8) + (unsigned char) svalue[1];
+				value |= (static_cast<unsigned char>(svalue[0]) << 8) + static_cast<unsigned char>(svalue[1]);
 			}
 			else
 			{
-				value |= (unsigned char) svalue[0];
+				value |= static_cast<unsigned char>(svalue[0]);
 			}
 		}
 		catch (mantra::hex_format &e)
@@ -622,7 +622,7 @@ static bool biTRACE_UP(const ServiceUser *service,
 
 	if (cmp(params[1], "ALL"))
 	{
-		for (size_t j = 0; j < (size_t) MAGICK_TRACE_SIZE; ++j)
+		for (size_t j = 0; j < static_cast<size_t>(MAGICK_TRACE_SIZE); ++j)
 			mantra::mtrace::instance().TurnSet(j,
 					   mantra::mtrace::instance().TraceTypeMask(j) | value);
 		SEND(service, user, N_("All trace types have been turned up by %1$#04x."), value);
@@ -630,7 +630,7 @@ static bool biTRACE_UP(const ServiceUser *service,
 	else
 	{
 		size_t j;
-		for (j = 0; j < (size_t) MAGICK_TRACE_SIZE; ++j)
+		for (j = 0; j < static_cast<size_t>(MAGICK_TRACE_SIZE); ++j)
 			if (boost::regex_match(params[1], TraceTypeRegex[j]))
 			{
 				mantra::mtrace::instance().TurnSet(j,
@@ -639,7 +639,7 @@ static bool biTRACE_UP(const ServiceUser *service,
 					 TraceTypes[j] % value);
 				break;
 			}
-		if (j >= (size_t) MAGICK_TRACE_SIZE)
+		if (j >= static_cast<size_t>(MAGICK_TRACE_SIZE))
 		{
 			SEND(service, user, N_("Unknown trace type %1% specified."), params[1]);
 			MT_RET(false);
@@ -672,11 +672,11 @@ static bool biTRACE_DOWN(const ServiceUser *service,
 			}
 			else if (svalue.size() == 2)
 			{
-				value |= ((unsigned char) svalue[0] << 8) + (unsigned char) svalue[1];
+				value |= (static_cast<unsigned char>(svalue[0]) << 8) + static_cast<unsigned char>(svalue[1]);
 			}
 			else
 			{
-				value |= (unsigned char) svalue[0];
+				value |= static_cast<unsigned char>(svalue[0]);
 			}
 		}
 		catch (mantra::hex_format &e)
@@ -704,7 +704,7 @@ static bool biTRACE_DOWN(const ServiceUser *service,
 
 	if (cmp(params[1], "ALL"))
 	{
-		for (size_t j = 0; j < (size_t) MAGICK_TRACE_SIZE; ++j)
+		for (size_t j = 0; j < static_cast<size_t>(MAGICK_TRACE_SIZE); ++j)
 			mantra::mtrace::instance().TurnSet(j,
 					   mantra::mtrace::instance().TraceTypeMask(j) & ~value);
 		SEND(service, user, N_("All trace types have been turned down by %1$#04x."), value);
@@ -712,7 +712,7 @@ static bool biTRACE_DOWN(const ServiceUser *service,
 	else
 	{
 		size_t j;
-		for (j = 0; j < (size_t) MAGICK_TRACE_SIZE; ++j)
+		for (j = 0; j < static_cast<size_t>(MAGICK_TRACE_SIZE); ++j)
 			if (boost::regex_match(params[1], TraceTypeRegex[j]))
 			{
 				mantra::mtrace::instance().TurnSet(j,
@@ -721,7 +721,7 @@ static bool biTRACE_DOWN(const ServiceUser *service,
 					 TraceTypes[j] % value);
 				break;
 			}
-		if (j >= (size_t) MAGICK_TRACE_SIZE)
+		if (j >= static_cast<size_t>(MAGICK_TRACE_SIZE))
 		{
 			SEND(service, user, N_("Unknown trace type %1% specified."), params[1]);
 			MT_RET(false);
@@ -739,7 +739,7 @@ static bool biTRACE_LIST(const ServiceUser *service,
 	MT_EB
 	MT_FUNC("biTRACE_LIST" << service << user << params);
 
-	for (size_t j = 0; j < (size_t) MAGICK_TRACE_SIZE; ++j)
+	for (size_t j = 0; j < static_cast<size_t>(MAGICK_TRACE_SIZE); ++j)
 	{
 		SEND(service, user, N_("Trace for %1$s is set to %2$#04x."),
 			 TraceTypes[j] % mantra::mtrace::instance().TraceTypeMask(j));

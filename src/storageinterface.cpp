@@ -358,3 +358,31 @@ void CachedRecord::Clean()
 	MT_EE
 }
 
+bool idless(const mantra::Storage::RecordMap &lhs,
+			const mantra::Storage::RecordMap &rhs)
+{
+	mantra::Storage::RecordMap::const_iterator i = lhs.find("id");
+	if (i == lhs.end())
+		return false;
+	mantra::Storage::RecordMap::const_iterator j = rhs.find("id");
+	if (j == rhs.end())
+		return true;
+
+	return (boost::get<boost::uint32_t>(i->second) <
+			boost::get<boost::uint32_t>(j->second));
+}
+
+bool nameless(const mantra::Storage::RecordMap &lhs,
+			  const mantra::Storage::RecordMap &rhs)
+{
+	mantra::Storage::RecordMap::const_iterator i = lhs.find("name");
+	if (i == lhs.end())
+		return false;
+	mantra::Storage::RecordMap::const_iterator j = rhs.find("name");
+	if (j == rhs.end())
+		return true;
+
+	return (boost::get<boost::uint32_t>(i->second) <
+			boost::get<boost::uint32_t>(j->second));
+}
+

@@ -62,21 +62,21 @@ inline boost::format format(const std::string &in,
 
 #define LOG(x,y,z) do { \
 		if (ROOT) \
-			ROOT->Log((mantra::LogLevel::Level_t) (mantra::LogLevel::x), format(y) % z); \
+			ROOT->Log(static_cast<mantra::LogLevel::Level_t>(mantra::LogLevel::x), format(y) % z); \
 		else \
 			std::cerr << (format(y) % z).str() << std::endl; \
 	} while (0)
 
 #define NLOG(x,y) do { \
 		if (ROOT) \
-			ROOT->Log((mantra::LogLevel::Level_t) (mantra::LogLevel::x), boost::format("%1%") % (y)); \
+			ROOT->Log(static_cast<mantra::LogLevel::Level_t>(mantra::LogLevel::x), boost::format("%1%") % (y)); \
 		else \
 			std::cerr << (y) << std::endl; \
 	} while (0)
 
 #define LOGHEX(x,y,z) do { \
 		if (ROOT) \
-			ROOT->LogHex(mantra::LogLevel::x, (y), (z)); \
+			ROOT->LogHex(static_cast<mantra::LogLevel::Level_t>(mantra::LogLevel::x), (y), (z)); \
 		else \
 		{ \
 			std::vector<std::string> out; \
@@ -88,7 +88,7 @@ inline boost::format format(const std::string &in,
 
 #define PLOGHEX(x,y,z,p) do { \
 		if (ROOT) \
-			ROOT->LogHex(mantra::LogLevel::x, (y), (z), (p)); \
+			ROOT->LogHex(static_cast<mantra::LogLevel::Level_t>(mantra::LogLevel::x), (y), (z), (p)); \
 		else \
 		{ \
 			std::vector<std::string> out; \

@@ -99,9 +99,10 @@ Protocol::Protocol() : usetokens(false), enc_bits(0)
 		("join", mantra::value<unsigned int>()->default_value(0)->parser(mantra::validate_range<unsigned int>(0u, 2u)),
 					"syntax of the JOIN command to use")
 
-		// %1% = server   %4% = setter            %7% = current time
-		// %2% = user     %5% = set time          %8% = expiry time
-		// %3% = host     %6% = akill duration    %9% = reason
+		// %1% = server     %5% = set time         %9% = duration (mins)
+		// %2% = user       %6% = expiry time      %10% = reason
+		// %3% = host       %7% = current time     %11% = remaining (secs)
+		// %4% = setter     %8% = duration (secs)  %12% = remaining (mins)
 		("akill", mantra::value<std::string>(),
 					"syntax of the AKILL command to use.")
 		("unakill", mantra::value<std::string>(),
@@ -234,7 +235,7 @@ bool Protocol::reload(const std::string &file)
 		for (i=tokens.begin(); i!=tokens.end(); ++i, ++j)
 		{
 			encoding[j] = *(i->data());
-			rev_encoding[(size_t) *(i->data())] = j;
+			rev_encoding[static_cast<size_t>(*(i->data()))] = j;
 		}
 
 		enc_bits = 0;
@@ -387,7 +388,7 @@ bool Protocol::IsChannel(const std::string &in) const
 	MT_EB
 	MT_FUNC("Protocol::IsChannel" << in);
 
-	std::string::iterator i = in.begin();
+	std::string::const_iterator i = in.begin();
 	switch (*i)
 	{
 	case '#':
@@ -422,9 +423,9 @@ std::string Protocol::NumericToID(unsigned int numeric) const
 		while (i >= 0 && (numeric >>= enc_bits));
 
 		if (opt_protocol["trim"].as<bool>())
-			rv.assign((char *) buf + i, 128 - i);
+			rv.assign(reinterpret_cast<char *>(buf + i), 128 - i);
 		else
-			rv.assign((char *) buf + (128 - (1 << (8-enc_bits))),
+			rv.assign(reinterpret_cast<char *>(buf + (128 - (1 << (8-enc_bits)))),
 					  1 << (8-enc_bits));
 	}
 	MT_RET(rv);
@@ -441,7 +442,7 @@ unsigned int Protocol::IDToNumeric(const std::string &id) const
 	for (size_t i=0; i<id.size(); ++i)
 	{
 		rv <<= enc_bits;
-		rv += rev_encoding[(size_t) id[i]];
+		rv += rev_encoding[static_cast<size_t>(id[i])];
 	}
 	MT_RET(rv);
 	MT_EE

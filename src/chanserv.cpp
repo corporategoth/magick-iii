@@ -3023,7 +3023,7 @@ static bool biAKICK_ADD(const ServiceUser *service,
 		MT_RET(false);
 	}
 
-	mantra::duration length();
+	mantra::duration length;
 
 	size_t offs = 3;
 	if (params[offs][0] == '+')

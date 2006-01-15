@@ -98,23 +98,24 @@ bool Magick::set_config(const po::variables_map &vm)
 			std::string::size_type pos = traces[i].find(":");
 			std::string type = traces[i].substr(0, pos);
 			std::string svalue = mantra::dehex(traces[i].substr(pos + 1));
-			boost::uint16_t value = ((unsigned char) svalue[0] << 8) + (unsigned char) svalue[1];
+			boost::uint16_t value = (static_cast<unsigned char>(svalue[0]) << 8) +
+									static_cast<unsigned char>(svalue[1]);
 
 			if (iequal_to(type, "ALL"))
 			{
-				for (size_t j = 0; j < (size_t) MAGICK_TRACE_SIZE; ++j)
+				for (size_t j = 0; j < static_cast<size_t>(MAGICK_TRACE_SIZE); ++j)
 					mantra::mtrace::instance().TurnSet(j, value);
 			}
 			else
 			{
 				size_t j;
-				for (j = 0; j < (size_t) MAGICK_TRACE_SIZE; ++j)
+				for (j = 0; j < static_cast<size_t>(MAGICK_TRACE_SIZE); ++j)
 					if (boost::regex_match(type, TraceTypeRegex[j]))
 					{
 						mantra::mtrace::instance().TurnSet(j, value);
 						break;
 					}
-				if (j >= (size_t) MAGICK_TRACE_SIZE)
+				if (j >= static_cast<size_t>(MAGICK_TRACE_SIZE))
 				{
 					LOG(Error, _("Unknown trace level %1% specified."), type);
 					MT_RET(false);
@@ -360,7 +361,7 @@ bool Magick::set_config(const po::variables_map &vm)
 	// through any existing means.
 	if (!vm["log"].empty())
 	{
-		mantra::LogLevel::Level_t level = (mantra::LogLevel::Level_t) vm["log-level"].as<unsigned int>();
+		mantra::LogLevel::Level_t level = static_cast<mantra::LogLevel::Level_t>(vm["log-level"].as<unsigned int>());
 
 		std::set<std::string> ov;
 		if (!opt_config["log"].empty())
@@ -701,7 +702,7 @@ bool Magick::set_config(const po::variables_map &vm)
 					}
 
 					mantra::SystemLogger *l = new mantra::SystemLogger(
-								(mantra::SystemLogger::Facility_t) vm["log.syslog.facility"].as<unsigned int>(), level);
+								static_cast<mantra::SystemLogger::Facility_t>(vm["log.syslog.facility"].as<unsigned int>()), level);
 
 					l->HexOpts(vm["log.syslog.hex-decimal"].as<bool>(),
 							   vm["log.syslog.hex-width"].as<unsigned int>());

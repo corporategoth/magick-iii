@@ -42,6 +42,8 @@ RCSID(magick__storednick_h, "@(#) $Id$");
 #include <boost/noncopyable.hpp>
 #include <boost/operators.hpp>
 
+class StoredUser;
+
 class StoredNick : public boost::noncopyable,
 				   public boost::totally_ordered1<StoredNick>,
 				   public boost::totally_ordered2<StoredNick, std::string>

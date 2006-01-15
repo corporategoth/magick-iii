@@ -462,7 +462,7 @@ bool Committee::Private(const boost::logic::tribool &in)
 	if (boost::logic::indeterminate(in))
 		cache.Put("private", mantra::NullValue::instance());
 	else
-		cache.Put("private", (bool) in);
+		cache.Put("private", static_cast<bool>(in));
 
 	MT_RET(true);
 	MT_EE
@@ -500,7 +500,7 @@ bool Committee::OpenMemos(const boost::logic::tribool &in)
 	if (boost::logic::indeterminate(in))
 		cache.Put("openmemos", mantra::NullValue::instance());
 	else
-		cache.Put("openmemos", (bool) in);
+		cache.Put("openmemos", static_cast<bool>(in));
 
 	MT_RET(true);
 	MT_EE
@@ -538,7 +538,7 @@ bool Committee::Secure(const boost::logic::tribool &in)
 	if (boost::logic::indeterminate(in))
 		cache.Put("secure", mantra::NullValue::instance());
 	else
-		cache.Put("secure", (bool) in);
+		cache.Put("secure", static_cast<bool>(in));
 
 	MT_RET(true);
 	MT_EE

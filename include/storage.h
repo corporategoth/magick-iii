@@ -281,6 +281,13 @@ public:
 	boost::shared_ptr<Committee> Get_Committee(const std::string &name, // Convenience
 			boost::logic::tribool deep = boost::logic::indeterminate) const;
 
+	void ForEach(const boost::function1<void, const boost::shared_ptr<LiveUser> &> &f) const;
+	void ForEach(const boost::function1<void, const boost::shared_ptr<LiveChannel> &> &f) const;
+	void ForEach(const boost::function1<void, const boost::shared_ptr<StoredUser> &> &f) const;
+	void ForEach(const boost::function1<void, const boost::shared_ptr<StoredNick> &> &f) const;
+	void ForEach(const boost::function1<void, const boost::shared_ptr<StoredChannel> &> &f) const;
+	void ForEach(const boost::function1<void, const boost::shared_ptr<Committee> &> &f) const;
+	
 	void Add(const Forbidden &entry);
 	void Del(const Forbidden &entry);
 	bool Reindex(const Forbidden &entry, boost::uint32_t num);
@@ -338,7 +345,8 @@ public:
 	void ExpireCheck();
 };
 
-class LiveClone
+class LiveClone : public boost::totally_ordered1<LiveClone>,
+				  public boost::totally_ordered2<LiveClone, std::string>
 {
 	friend class Storage;
 
@@ -362,7 +370,42 @@ public:
 	size_t Count() const;
 	size_t Ignored() const;
 	size_t Triggers();
+
+	bool operator==(const std::string &in) const
+		{ return mask_ == in; }
+	bool operator==(const LiveClone &in) const
+		{ return *this == in.Mask(); }
+	bool operator<(const std::string &in) const
+		{ return mask_ < in; }
+	bool operator<(const LiveClone &in) const
+		{ return *this < in.Mask(); }
 };
+
+// Used for tracing mainly.
+inline std::ostream &operator<<(std::ostream &os, const LiveClone &in)
+{
+	return (os << in.Mask());
+}
+
+template<typename T>
+inline bool operator<(const boost::shared_ptr<LiveClone> &lhs, const T &rhs)
+{
+	if (!lhs)
+		return true;
+	else
+		return (*lhs < rhs);
+}
+
+inline bool operator<(const boost::shared_ptr<LiveClone> &lhs,
+					  const boost::shared_ptr<LiveClone> &rhs)
+{
+	if (!lhs)
+		return true;
+	else if (!rhs)
+		return false;
+	else
+		return (*lhs < *rhs);
+}
 
 template<typename T>
 class if_StorageDeleter

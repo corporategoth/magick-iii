@@ -309,7 +309,7 @@ void Service::PRIVMSG(const ServiceUser *source,
 
 	std::string out;
 	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("PRIVMSG") +
-						" " + target->Name() + " :" + message.str());
+						' ' + target->Name() + " :" + message.str());
 	ROOT->proto.send(out);
 
 	MT_EE
@@ -384,7 +384,7 @@ void Service::NOTICE(const ServiceUser *source,
 
 	std::string out;
 	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("NOTICE") +
-						" " + target->Name() + " :" + message.str());
+						' ' + target->Name() + " :" + message.str());
 	ROOT->proto.send(out);
 
 	MT_EE
@@ -511,7 +511,7 @@ void Service::PART(const ServiceUser *source,
 		return;
 
 	std::string out;
-	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("PART") + " " +
+	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("PART") + ' ' +
 						channel->Name() + (reason.empty() ? std::string() :
 															" :" + reason));
 	ROOT->proto.send(out);
@@ -779,7 +779,7 @@ void Service::KILL(const ServiceUser *source,
 
 	std::string out;
 	ROOT->proto.addline(*source, out, ROOT->proto.tokenise("KILL") +
-						" " + target->Name() + " :" + message);
+						' ' + target->Name() + " :" + message);
 	bool rv = ROOT->proto.send(out);
 	if (rv)
 		target->Kill(source->GetUser(), message);
@@ -981,6 +981,25 @@ void Service::SVSNICK(const boost::shared_ptr<LiveUser> &target,
 	MT_EE
 }
 
+class FindMatching
+{
+	std::set<boost::shared_ptr<LiveUser> > users_;
+	const std::string mask_;
+
+public:
+	typedef std::set<boost::shared_ptr<LiveUser> >::const_iterator iterator;
+
+	FindMatching(const std::string &mask) : mask_(mask) {}
+
+	void check(const boost::shared_ptr<LiveUser> &user)
+	{
+		if (mantra::glob_match(mask_, user->User() + '@' + user->Host(), true))
+			users_.insert(user);
+	}
+
+	const std::set<boost::shared_ptr<LiveUser> > &results() const { return users_; }
+};
+
 void Service::AKILL(const ServiceUser *source, const Akill &a) const
 {
 	MT_EB
@@ -990,25 +1009,47 @@ void Service::AKILL(const ServiceUser *source, const Akill &a) const
 		return;
 
 	std::string out;
+	std::string fmt = ROOT->proto.ConfigValue<std::string>("akill");
+	if (!fmt.empty())
+	{
 		// %1% = server     %5% = set time         %9% = duration (mins)
 		// %2% = user       %6% = expiry time      %10% = reason
 		// %3% = host       %7% = current time     %11% = remaining (secs)
-		// %4% = set time   %8% = duration (secs)  %12% = remaining (mins)
-	boost::posix_time::ptime now = mantra::GetCurrentDateTime();
-	boost::posix_time::ptime expire = a.Creation() + a.Length();
-	mantra::duration remaining = mantra::duration(now, expire);
-	ROOT->proto.addline(*source, out,
-						(boost::format(ROOT->proto.ConfigValue<std::string>("akill")) %
-							  ROOT->ConfigValue<std::string>("services.host") %
-							  a.Mask().substr(0, a.Mask().find('@')) %
-							  a.Mask().substr(a.Mask().find('@') + 1) %
-							  a.Last_UpdaterName() % 
-							  // TODO
-							  uplink->Name() % time(NULL) % 1 % "" % "" % real_ % 1 %
-							  ROOT->ConfigValue<std::string>("services.host") %
-							  0x7F000001).str());
-						
-									   target->Name() % newnick % mantra::GetCurrentDateTime()).str());
+		// %4% = setter     %8% = duration (secs)  %12% = remaining (mins)
+		time_t now = time(NULL);
+		std::tm tm = boost::posix_time::to_tm(a.Creation());
+		time_t creation = mktime(&tm);
+		tm = boost::posix_time::to_tm(a.Creation() + a.Length());
+		time_t expire = mktime(&tm);
+
+		ROOT->proto.addline(*source, out, (format(fmt) %
+							source->GetServer()->Name() %
+							a.Mask().substr(0, a.Mask().find('@')) %
+							a.Mask().substr(a.Mask().find('@') + 1) %
+							a.Last_UpdaterName() % creation %
+							expire % now % (expire - creation) %
+							((expire - creation) / 60) % a.Reason() %
+							std::max(expire - now, static_cast<time_t>(0)) %
+							(std::max(expire - now, static_cast<time_t>(0)) / 60)).str());
+	}
+
+	if (ROOT->proto.ConfigValue<bool>("kill-after-akill"))
+	{
+		FindMatching fm(a.Mask());
+		boost::function1<void, const boost::shared_ptr<LiveUser> &> func =
+				boost::bind(&FindMatching::check, fm, _1);
+		ROOT->data.ForEach(func);
+
+		FindMatching::iterator i;
+		for (i = fm.results().begin(); i != fm.results().end(); ++i)
+		{
+			ROOT->proto.addline(*source, out, ROOT->proto.tokenise("KILL") +
+								' ' + (*i)->Name() + " :" +
+								_("AutoKilled: ") + a.Reason());
+			(*i)->Kill(source->GetUser(), _("AutoKilled: ") + a.Reason());
+		}
+	}
+
 	ROOT->proto.send(out);
 
 	MT_EE
@@ -1031,6 +1072,69 @@ void Service::AKILL(const Akill &a) const
 	MT_EE
 }
 
+void Service::RAKILL(const ServiceUser *source, const Akill &a) const
+{
+	MT_EB
+	MT_FUNC("Service::RAKILL" << source << a);
+
+	if (!source || source->GetService() != this)
+		return;
+
+	std::string out;
+	std::string fmt = ROOT->proto.ConfigValue<std::string>("unakill");
+	if (!fmt.empty())
+	{
+		// %1% = server     %5% = set time         %9% = duration (mins)
+		// %2% = user       %6% = expiry time      %10% = reason
+		// %3% = host       %7% = current time     %11% = remaining (secs)
+		// %4% = setter     %8% = duration (secs)  %12% = remaining (mins)
+
+		time_t now = time(NULL);
+		std::tm tm = boost::posix_time::to_tm(a.Creation());
+		time_t creation = mktime(&tm);
+		mantra::duration d = a.Length();
+		// Special case, perm akills we should set to the default expiry,
+		// and it will be re-set every time it is triggered.
+		if (d)
+			tm = boost::posix_time::to_tm(a.Creation() + a.Length());
+		else
+			tm = boost::posix_time::to_tm(a.Creation() +
+					ROOT->ConfigValue<mantra::duration>("operserv.akill.expire"));
+		time_t expire = mktime(&tm);
+
+		ROOT->proto.addline(*source, out, (format(fmt) %
+							source->GetServer()->Name() %
+							a.Mask().substr(0, a.Mask().find('@')) %
+							a.Mask().substr(a.Mask().find('@') + 1) %
+							a.Last_UpdaterName() % creation %
+							expire % now % (expire - creation) %
+							((expire - creation) / 60) % a.Reason() %
+							std::max(expire - now, static_cast<time_t>(0)) %
+							(std::max(expire - now, static_cast<time_t>(0)) / 60)).str());
+	}
+
+	ROOT->proto.send(out);
+
+	MT_EE
+}
+
+void Service::RAKILL(const Akill &a) const
+{
+	MT_EB
+	MT_FUNC("Service::RAKILL" << a);
+
+	SYNC_RLOCK(users_);
+	users_t::const_iterator j = std::lower_bound(users_.begin(),
+												 users_.end(),
+												 primary_);
+	if (j == users_.end() || **j != primary_)
+		return;
+
+	RAKILL(dynamic_cast<ServiceUser *>(j->get()), a);
+
+	MT_EE
+}
+
 bool Service::CommandMerge::operator()(const ServiceUser *serv,
 									   const boost::shared_ptr<LiveUser> &user,
 									   const std::vector<std::string> &params)
@@ -1049,7 +1153,7 @@ bool Service::CommandMerge::operator()(const ServiceUser *serv,
 	}
 
 	std::vector<std::string> p = params;
-	p[primary].append(" " + p[secondary]);
+	p[primary].append(' ' + p[secondary]);
 	p.erase(p.begin() + secondary);
 
 	bool rv = serv->Execute(user, p, primary);

@@ -188,9 +188,9 @@ public:
 			case 'b':
 				throw po::invalid_option_value(s);
 			case 'k':
-				if (had.find((char) ent[0][i]) != had.end())
+				if (had.find(static_cast<char>(ent[0][i])) != had.end())
 					throw po::invalid_option_value(s);
-				had.insert((char) ent[0][i]);
+				had.insert(static_cast<char>(ent[0][i]));
 				if (add)
 				{
 //					if (++j >= ent.size())
@@ -198,9 +198,9 @@ public:
 				}
 				break;
 			case 'l':
-				if (had.find((char) ent[0][i]) != had.end())
+				if (had.find(static_cast<char>(ent[0][i])) != had.end())
 					throw po::invalid_option_value(s);
-				had.insert((char) ent[0][i]);
+				had.insert(static_cast<char>(ent[0][i]));
 				if (add)
 				{
 //					if (++j >= ent.size())
@@ -219,9 +219,9 @@ public:
 			default:
 				if (ent[0][i] < 'A' || ent[0][i] > 'z' ||
 					(ent[0][i] > 'Z' && ent[0][i] < 'a') ||
-					had.find((char) ent[0][i]) != had.end())
+					had.find(static_cast<char>(ent[0][i])) != had.end())
 					throw po::invalid_option_value(s);
-				had.insert((char) ent[0][i]);
+				had.insert(static_cast<char>(ent[0][i]));
 			}
 		}
 		if (j + 1 < ent.size())
@@ -1025,13 +1025,13 @@ static void add_operserv_options(po::options_description &opts)
 		("operserv.akill.expire", mantra::value<mantra::duration>()->default_value(mantra::duration("3h")),
 					"default expiration time for an AKILL")
 		("operserv.akill.expire-oper", mantra::value<mantra::duration>()->default_value(mantra::duration("1d")),
-					"default expiration time for an AKILL set by OPER")
+					"maximum expiration time for an AKILL set by OPER")
 		("operserv.akill.expire-admin", mantra::value<mantra::duration>()->default_value(mantra::duration("1w")),
-					"default expiration time for an AKILL set by ADMIN")
+					"maximum expiration time for an AKILL set by ADMIN")
 		("operserv.akill.expire-sop", mantra::value<mantra::duration>()->default_value(mantra::duration("2m")),
-					"default expiration time for an AKILL set by SOP")
+					"maximum expiration time for an AKILL set by SOP")
 		("operserv.akill.expire-sadmin", mantra::value<mantra::duration>()->default_value(mantra::duration("1y")),
-					"default expiration time for an AKILL set by SADMIN")
+					"maximum expiration time for an AKILL set by SADMIN")
 
 		("operserv.clone.user-limit", mantra::value<unsigned int>()->default_value(2),
 					"default maximum number of connections for the same host")
