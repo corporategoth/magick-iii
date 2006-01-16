@@ -352,7 +352,7 @@ void Magick::init_config()
 static void add_stage_options(po::options_description &opts, const std::string &prefix)
 {
 	MT_EB
-	MT_FUNC("add_stage_options" << opts << prefix);
+	MT_FUNC("add_stage_options" << &opts << prefix);
 
 	opts.add_options()
 		((prefix + ".stage.verify.offset").c_str(), mantra::value<boost::uint64_t>()->default_value(0u),
@@ -447,7 +447,7 @@ static void add_stage_options(po::options_description &opts, const std::string &
 static void add_storage_options(po::options_description &opts)
 {
 	MT_EB
-	MT_FUNC("add_storage_options" << opts);
+	MT_FUNC("add_storage_options" << &opts);
 
 	opts.add_options()
 		("storage.password-hash", mantra::value<unsigned int>()->default_value(mantra::Hasher::NONE)->parser(
@@ -579,7 +579,7 @@ static void add_standard_log_options(const std::string &prefix,
 									 po::options_description &opts)
 {
 	MT_EB
-	MT_FUNC("add_standard_log_options" << prefix << opts);
+	MT_FUNC("add_standard_log_options" << prefix << &opts);
 
 	opts.add_options()
 		((prefix + ".utc").c_str(), mantra::value<bool>()->default_value(false),
@@ -612,7 +612,7 @@ static void add_standard_log_options(const std::string &prefix,
 static void add_log_options(po::options_description &opts)
 {
 	MT_EB
-	MT_FUNC("add_log_options" << opts);
+	MT_FUNC("add_log_options" << &opts);
 
 	opts.add_options()
 		("log.file.name", mantra::value<std::string>(),
@@ -679,7 +679,7 @@ static void add_log_options(po::options_description &opts)
 static void add_services_options(po::options_description &opts)
 {
 	MT_EB
-	MT_FUNC("add_services_options" << opts);
+	MT_FUNC("add_services_options" << &opts);
 
 	static boost::regex nick_rx("^([[:alpha:]\\x5B-\\x60\\x7B-\\x7D][-[:alnum:]\\x5B-\\x60\\x7B-\\x7D]*[[:space:]]*)*$");
 
@@ -726,7 +726,7 @@ static void add_services_options(po::options_description &opts)
 static void add_filesystem_options(po::options_description &opts)
 {
 	MT_EB
-	MT_FUNC("add_filesystem_options" << opts);
+	MT_FUNC("add_filesystem_options" << &opts);
 
 	opts.add_options()
 		("filesystem.picture-dir", mantra::value<std::string>()->default_value("files/pic"),
@@ -771,7 +771,7 @@ static void add_filesystem_options(po::options_description &opts)
 static void add_general_options(po::options_description &opts)
 {
 	MT_EB
-	MT_FUNC("add_general_options" << opts);
+	MT_FUNC("add_general_options" << &opts);
 
 	opts.add_options()
 		("general.connection-timeout", mantra::value<mantra::duration>()->default_value(mantra::duration("30s")),
@@ -816,7 +816,7 @@ static void add_general_options(po::options_description &opts)
 static void add_nickserv_options(po::options_description &opts)
 {
 	MT_EB
-	MT_FUNC("add_nickserv_options" << opts);
+	MT_FUNC("add_nickserv_options" << &opts);
 
 	opts.add_options()
 		("nickserv.append", mantra::value<bool>()->default_value(false),
@@ -873,7 +873,7 @@ static void add_nickserv_options(po::options_description &opts)
 static void add_chanserv_options(po::options_description &opts)
 {
 	MT_EB
-	MT_FUNC("add_chanserv_options" << opts);
+	MT_FUNC("add_chanserv_options" << &opts);
 
 	opts.add_options()
 		("chanserv.hide", mantra::value<bool>()->default_value(false),
@@ -975,7 +975,7 @@ static void add_chanserv_options(po::options_description &opts)
 static void add_memoserv_options(po::options_description &opts)
 {
 	MT_EB
-	MT_FUNC("add_memoserv_options" << opts);
+	MT_FUNC("add_memoserv_options" << &opts);
 
 	opts.add_options()
 		("memoserv.news-expire", mantra::value<mantra::duration>()->default_value(mantra::duration("3w")),
@@ -1002,7 +1002,7 @@ static void add_memoserv_options(po::options_description &opts)
 static void add_operserv_options(po::options_description &opts)
 {
 	MT_EB
-	MT_FUNC("add_operserv_options" << opts);
+	MT_FUNC("add_operserv_options" << &opts);
 
 	opts.add_options()
 		("operserv.services-admin", mantra::value<std::vector<std::string> >()->composing()->parser(mantra::validate_regex<std::string, char>("^[[:alpha:]\\x5B-\\x60\\x7B-\\x7D][-[:alnum:]\\x5B-\\x60\\x7B-\\x7D]*$")),
@@ -1080,7 +1080,7 @@ static void add_operserv_options(po::options_description &opts)
 static void add_commserv_options(po::options_description &opts)
 {
 	MT_EB
-	MT_FUNC("add_commserv_options" << opts);
+	MT_FUNC("add_commserv_options" << &opts);
 
 	static boost::regex usermode_rx("^\\+?[[:alpha:]]+$");
 	static boost::regex committee_rx("^[[:print:]]+$");

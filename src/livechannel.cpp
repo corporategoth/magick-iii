@@ -88,7 +88,6 @@ LiveChannel::PendingModes::PendingModes(const boost::shared_ptr<LiveChannel> &ch
 void LiveChannel::PendingModes::operator()()
 {
 	MT_EB
-	unsigned long codetype = MT_ASSIGN(MAGICK_TRACE_EVENT);
 	MT_FUNC("LiveChannel::PendingModes::operator()");
 
 	std::string modes;
@@ -169,7 +168,6 @@ void LiveChannel::PendingModes::operator()()
 	SYNC_UNLOCK(lock);
 	su->MODE(channel_, modes, params);
 
-	MT_ASSIGN(codetype);
 	MT_EE
 }
 
@@ -361,13 +359,11 @@ void LiveChannel::PendingModes::Cancel()
 void LiveChannel::ClearPart::operator()() const
 {
 	MT_EB
-	unsigned long codetype = MT_ASSIGN(MAGICK_TRACE_EVENT);
 	MT_FUNC("LiveChannel::ClearPart::operator()");
 
 	SYNCP_LOCK(channel_, recent_parts_);
 	channel_->recent_parts_.erase(user_);
 
-	MT_ASSIGN(codetype);
 	MT_EE
 }
 

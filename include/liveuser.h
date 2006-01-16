@@ -119,8 +119,8 @@ private:
 	boost::posix_time::ptime signon_;
 	boost::posix_time::ptime seen_;
 
-	boost::shared_ptr<LiveClone> clone_user_;
 	boost::shared_ptr<LiveClone> clone_host_;
+	boost::shared_ptr<LiveClone> clone_user_;
 
 	// From here on, they do.
 	// This is the 'general' lock, some stuff has a more specific
@@ -162,6 +162,12 @@ private:
 	pending_memos_t SYNC(pending_memos_);
 
 	// use if_LiveUser_Storage
+	void Clones(const boost::shared_ptr<LiveClone> &host,
+				const boost::shared_ptr<LiveClone> &user)
+	{
+		clone_host_ = host;
+		clone_user_ = user;
+	}
 	void Name(const std::string &in);
 	void Squit();
 
@@ -328,6 +334,9 @@ class if_LiveUser_Storage
 	if_LiveUser_Storage(LiveUser &b) : base(b) {}
 	if_LiveUser_Storage(const boost::shared_ptr<LiveUser> &b) : base(*(b.get())) {}
 
+	inline void Clones(const boost::shared_ptr<LiveClone> &user,
+					   const boost::shared_ptr<LiveClone> &host)
+		{ base.Clones(user, host); }
 	inline void Name(const std::string &in)
 		{ base.Name(in); }
 	inline void Squit()

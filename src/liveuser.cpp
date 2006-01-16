@@ -630,16 +630,19 @@ void LiveUser::Modes(const std::string &in)
 			add = false;
 			break;
 		case 'o':
-			if (add)
+			if (clone_host_ && clone_user_)
 			{
-				clone_user_->Ignore(self.lock());
-				clone_host_->Ignore(self.lock());
-			}
-			else
-			{
-				clone_user_->Add(self.lock());
-				clone_host_->Add(self.lock());
-				check_clone();
+				if (add)
+				{
+					clone_host_->Ignore(self.lock());
+					clone_user_->Ignore(self.lock());
+				}
+				else
+				{
+					clone_host_->Add(self.lock());
+					clone_user_->Add(self.lock());
+					check_clone();
+				}
 			}
 		default:
 			if (add)
@@ -671,57 +674,63 @@ bool LiveUser::check_clone()
 	MT_EB
 	MT_FUNC("LiveUser::check_clone");
 
-	Clone c = ROOT->data.Matches_Clone(Host());
-	if (c ? (clone_host_->Count() > c.Value()) : clone_host_->Count() >
-		ROOT->ConfigValue<unsigned int>("operserv.clone.host-limit"))
+	if (clone_host_)
 	{
-		if (clone_host_->Trigger() >= ROOT->ConfigValue<unsigned int>("operserv.clone.akill-trigger"))
+		Clone c = ROOT->data.Matches_Clone(Host());
+		if (c ? (clone_host_->Count() > c.Value()) : clone_host_->Count() >
+			ROOT->ConfigValue<unsigned int>("operserv.clone.host-limit"))
 		{
-			ServiceUser *su = dynamic_cast<ServiceUser *>(ROOT->data.Get_LiveUser(
-					ROOT->operserv.Primary()).get());
-			if (su)
+			if (clone_host_->Trigger() >= ROOT->ConfigValue<unsigned int>("operserv.clone.akill-trigger"))
 			{
-				Akill a = Akill::create("*@" + Host(),
-					ROOT->ConfigValue<std::string>("operserv.clone.akill-reason"),
-					ROOT->ConfigValue<std::string>("operserv.clone.akill-time"),
-					&ROOT->operserv);
-				ROOT->data.Add(a);
-				su->AKILL(a);
+				ServiceUser *su = dynamic_cast<ServiceUser *>(ROOT->data.Get_LiveUser(
+						ROOT->operserv.Primary()).get());
+				if (su)
+				{
+					Akill a = Akill::create("*@" + Host(),
+						ROOT->ConfigValue<std::string>("operserv.clone.akill-reason"),
+						ROOT->ConfigValue<std::string>("operserv.clone.akill-time"),
+						&ROOT->operserv);
+					ROOT->data.Add(a);
+					su->AKILL(a);
+				}
+				else
+					ROOT->operserv.KILL(self.lock(), _("AutoKill: ") +
+							ROOT->ConfigValue<std::string>("operserv.clone.akill-reason"));
+				MT_RET(true);
 			}
-			else
-				ROOT->operserv.KILL(self.lock(), _("AutoKill: ") +
-						ROOT->ConfigValue<std::string>("operserv.clone.akill-reason"));
+			ROOT->nickserv.KILL(self.lock(),
+					ROOT->ConfigValue<std::string>("operserv.clone.kill-reason"));
 			MT_RET(true);
 		}
-		ROOT->nickserv.KILL(self.lock(),
-				ROOT->ConfigValue<std::string>("operserv.clone.kill-reason"));
-		MT_RET(true);
 	}
-	c = ROOT->data.Matches_Clone(User() + '@' + Host());
-	if (c ? (clone_user_->Count() > c.Value()) : clone_user_->Count() >
-		ROOT->ConfigValue<unsigned int>("operserv.clone.user-limit"))
+	if (clone_user_)
 	{
-		if (clone_user_->Trigger() >= ROOT->ConfigValue<unsigned int>("operserv.clone.akill-trigger"))
+		Clone c = ROOT->data.Matches_Clone(User() + '@' + Host());
+		if (c ? (clone_user_->Count() > c.Value()) : clone_user_->Count() >
+			ROOT->ConfigValue<unsigned int>("operserv.clone.user-limit"))
 		{
-			ServiceUser *su = dynamic_cast<ServiceUser *>(ROOT->data.Get_LiveUser(
-					ROOT->operserv.Primary()).get());
-			if (su)
+			if (clone_user_->Trigger() >= ROOT->ConfigValue<unsigned int>("operserv.clone.akill-trigger"))
 			{
-				Akill a = Akill::create(User() + '@' + Host(),
-					ROOT->ConfigValue<std::string>("operserv.clone.akill-reason"),
-					ROOT->ConfigValue<std::string>("operserv.clone.akill-time"),
-					&ROOT->operserv);
-				ROOT->data.Add(a);
-				su->AKILL(a);
+				ServiceUser *su = dynamic_cast<ServiceUser *>(ROOT->data.Get_LiveUser(
+						ROOT->operserv.Primary()).get());
+				if (su)
+				{
+					Akill a = Akill::create(User() + '@' + Host(),
+						ROOT->ConfigValue<std::string>("operserv.clone.akill-reason"),
+						ROOT->ConfigValue<std::string>("operserv.clone.akill-time"),
+						&ROOT->operserv);
+					ROOT->data.Add(a);
+					su->AKILL(a);
+				}
+				else
+					ROOT->operserv.KILL(self.lock(), _("AutoKill: ") +
+							ROOT->ConfigValue<std::string>("operserv.clone.akill-reason"));
+				MT_RET(true);
 			}
-			else
-				ROOT->operserv.KILL(self.lock(), _("AutoKill: ") +
-						ROOT->ConfigValue<std::string>("operserv.clone.akill-reason"));
+			ROOT->nickserv.KILL(self.lock(),
+					ROOT->ConfigValue<std::string>("operserv.clone.kill-reason"));
 			MT_RET(true);
 		}
-		ROOT->nickserv.KILL(self.lock(),
-				ROOT->ConfigValue<std::string>("operserv.clone.kill-reason"));
-		MT_RET(true);
 	}
 
 	MT_RET(false);
@@ -808,20 +817,17 @@ void LiveUser::connect()
 void LiveUser::unignore()
 {
 	MT_EB
-	unsigned long codetype = MT_ASSIGN(MAGICK_TRACE_EVENT);
 	MT_FUNC("LiveUser::unignore");
 
 	SYNC_LOCK(messages_);
 	ignored_ = false;
 
-	MT_ASSIGN(codetype);
 	MT_EE
 }
 
 void LiveUser::protect()
 {
 	MT_EB
-	unsigned long codetype = MT_ASSIGN(MAGICK_TRACE_EVENT);
 	MT_FUNC("LiveUser::protect");
 
 	if (ROOT->proto.ConfigValue<std::string>("svsnick").empty())
@@ -830,7 +836,6 @@ void LiveUser::protect()
 			ROOT->nickserv.KILL(self.lock(), _("Nickname forbidden."));
 		else
 			ROOT->nickserv.KILL(self.lock(), _("Failed to identify."));
-		MT_ASSIGN(codetype);
 		return;
 	}
 
@@ -858,7 +863,6 @@ void LiveUser::protect()
 				ROOT->nickserv.KILL(self.lock(), _("Nickname forbidden."));
 			else
 				ROOT->nickserv.KILL(self.lock(), _("Failed to identify."));
-			MT_ASSIGN(codetype);
 			return;
 		}
 	}
@@ -882,14 +886,12 @@ void LiveUser::protect()
 				ROOT->nickserv.KILL(self.lock(), _("Nickname forbidden."));
 			else
 				ROOT->nickserv.KILL(self.lock(), _("Failed to identify."));
-			MT_ASSIGN(codetype);
 			return;
 		}
 	}
 
 	ROOT->nickserv.SVSNICK(self.lock(), newnick);
 
-	MT_ASSIGN(codetype);
 	MT_EE
 }
 

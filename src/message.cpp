@@ -66,7 +66,7 @@ std::string Message::print() const
 	return os.str();
 }
 
-bool Message::Process()
+bool Message::Process() const
 {
 	MT_EB
 	MT_FUNC("Message::Process");

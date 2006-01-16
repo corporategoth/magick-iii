@@ -81,9 +81,10 @@ CXXOPT=""
 
 dnl What warnings we will give off
 dnl REMOVED: -wundef -Wfolat-equal -Wshadow -Wcast-qual -Winline -Weffc++
+dnl REMOVED: -Wold-style-cast
 CPPWARN="-W -Wall -Wextra -Wpointer-arith -Wcast-align -Winvalid-pch"
 CWARN="-Wbad-function-cast -Wstrict-prototypes"
-CXXWARN="-Wold-style-cast -Woverloaded-virtual -Wsign-promo"
+CXXWARN="-Woverloaded-virtual -Wsign-promo"
 
 CPPFLAGS="$CPPFLAGS $CPPOPT $CPPWARN"
 CFLAGS="$CPPFLAGS $CFLAGS $COPT $CWARN"

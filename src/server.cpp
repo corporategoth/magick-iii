@@ -374,28 +374,40 @@ bool Jupe::RAW(const std::string &cmd,
 	MT_EE
 }
 
+static void pre_process()
+{
+	MT_ASSIGN(MAGICK_TRACE_WORKER);
+}
+
+static void process(const Message &m)
+{
+	MT_EB
+	MT_FUNC("process" << m);
+
+	if (!m.Process())
+		LOG(Warning, "Processing failed for message: %1%", m);
+
+	MT_EE
+}
+
 Uplink::Uplink(const std::string &password, const std::string &id)
 	: Jupe(::ROOT->ConfigValue<std::string>("server-name"),
 		   ::ROOT->ConfigValue<std::string>("server-desc"), id,
 		   std::string()), password_(password), burst_(false),
+	  queue_(boost::bind(&process, _1),
+			 ROOT->ConfigValue<unsigned int>("general.min-threads"),
+			 ROOT->ConfigValue<unsigned int>("general.max-threads")),
 	  flack_(ROOT->ConfigValue<std::string>("filesystem.flack-dir"),
 			 ROOT->ConfigValue<boost::uint64_t>("filesystem.flack-memory"))
 {
 	MT_EB
 	MT_FUNC("Uplink::Uplink" << id);
 
+	queue_.Start(&pre_process);
+
 	if (ROOT->ConfigExists("filesystem.flack-file-max"))
 		flack_.Max_Size(ROOT->ConfigValue<boost::uint64_t>("filesystem.flack-file-max"));
 	flack_.Clear();
-
-	// The first thread will start the rest.
-	boost::mutex::scoped_lock scoped_lock(lock_);
-	for (size_t i = 0; i < ROOT->ConfigValue<unsigned int>("general.min-threads"); ++i)
-	{
-		boost::thread *thr = new boost::thread(boost::bind(&Uplink::operator(), this));
-		if (thr)
-			workers_.push_back(thr);
-	}
 
 	MT_EE
 }
@@ -407,96 +419,10 @@ void Uplink::Disconnect()
 
 	Server::Disconnect();
 
-	std::list<boost::thread *> workers;
-	{
-		boost::mutex::scoped_lock scoped_lock(lock_);
-		workers.swap(workers_);
-		cond_.notify_all();
-	}
-
-	// This is not the first time ;)
-	if (!workers.empty())
-		SQUIT();
-
-	std::list<boost::thread *>::iterator i;
-	for (i=workers.begin(); i!=workers.end(); ++i)
-	{
-		(*i)->join();
-		delete *i;
-	}
+	queue_.Clear();
+	SQUIT();
 
 	MT_EE
-}
-
-void Uplink::operator()()
-{
-	MT_ASSIGN(MAGICK_TRACE_WORKER);
-	MT_AUTOFLUSH(true);
-
-	MT_EB
-	MT_FUNC("Uplink::operator()");
-
-	boost::thread local_thread;
-	while (true)
-	{
-		Message m;
-		{
-			boost::mutex::scoped_lock scoped_lock(lock_);
-			// Uplink is in destructor, so we die now.
-			if (workers_.empty())
-				break;
-
-			unsigned int wsz = workers_.size();
-			unsigned int msgq = pending_.size();
-			if (wsz > ROOT->ConfigValue<unsigned int>("general.max-threads") ||
-				(wsz > ROOT->ConfigValue<unsigned int>("general.min-threads") &&
-				 msgq < ROOT->ConfigValue<unsigned int>("general.low-water-mark") +
-				 (std::max(wsz - 2, 0u) * ROOT->ConfigValue<unsigned int>("general.high-water-mark"))))
-			{
-				NLOG(Info, _("Too many worker threads, killing one."));
-				std::list<boost::thread *>::iterator i;
-				for (i = workers_.begin(); i != workers_.end(); ++i)
-					if (*(*i) == local_thread)
-					{
-						delete *i;
-						workers_.erase(i);
-						break;
-					}
-				break;
-			}
-
-			while (wsz < ROOT->ConfigValue<unsigned int>("general.min-threads") ||
-				   msgq > wsz * ROOT->ConfigValue<unsigned int>("general.high-water-mark"))
-			{
-				NLOG(Info, _("Not enough worker threads, creating one."));
-				boost::thread *thr = new boost::thread(boost::bind(&Uplink::operator(), this));
-				if (thr)
-				{
-					workers_.push_back(thr);
-					++wsz;
-				}
-			}
-
-			if (!msgq)
-			{
-				MT_FLUSH();
-				cond_.wait(scoped_lock);
-				if (pending_.empty())
-					continue;
-			}
-			m = pending_.front();
-			pending_.pop_front();
-		}
-
-		if (!m.Process())
-		{
-			LOG(Warning, "Processing failed for message: %1%", m);
-		}
-		MT_FLUSH();
-	}
-
-	MT_EE
-	MT_FLUSH();
 }
 
 class FindServer : public Server::ChildrenAction
@@ -614,18 +540,6 @@ void Uplink::Push(const std::deque<Message> &in)
 	std::deque<Message>::const_iterator i;
 	for (i=in.begin(); i!=in.end(); ++i)
 		de.Add(*i);
-
-	MT_EE
-}
-
-void Uplink::Push(const Message &in)
-{
-	MT_EB
-	MT_FUNC("Uplink::Push" << in);
-
-	boost::mutex::scoped_lock scoped_lock(lock_);
-	pending_.push_back(in);
-	cond_.notify_one();
 
 	MT_EE
 }

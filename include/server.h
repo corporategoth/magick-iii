@@ -43,6 +43,7 @@ RCSID(magick__server_h, "@(#) $Id$");
 #include <mantra/net/socket.h>
 #include <mantra/net/socketgroup.h>
 #include <mantra/file/filebuffer.h>
+#include <mantra/service/messagequeue.h>
 
 #include <boost/shared_ptr.hpp>
 #include <boost/weak_ptr.hpp>
@@ -222,22 +223,16 @@ class Uplink : public Jupe
 	friend class Magick;
 	friend class Dependency;
 
-	boost::mutex lock_;
-	boost::condition cond_;
-	std::deque<Message> pending_;
-	std::list<boost::thread *> workers_;
 	std::string password_;
-	bool burst_;
+	bool SYNC(burst_);
+
+	mantra::MessageQueue<Message> queue_;
 
 	bool write_;
 	mantra::FileBuffer flack_;
 
-	void operator()();
-
 	Uplink(const std::string &password, const std::string &id = std::string());
 
-	// Assumes classification is done, and pushes it for processing.
-	void Push(const Message &in);
 public:
 	static boost::shared_ptr<Uplink> create(const std::string &password,
 		   const std::string &id = std::string())

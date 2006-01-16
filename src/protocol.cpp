@@ -612,7 +612,7 @@ void Protocol::BurstEnd() const
 		return;
 
 	{
-		boost::mutex::scoped_lock sl(uplink->lock_);
+		SYNCP_LOCK(uplink, burst_);
 		if (uplink->burst_)
 			return;
 

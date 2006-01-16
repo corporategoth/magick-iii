@@ -39,6 +39,7 @@ RCSID(magick__storage_cpp, "@(#)$Id$");
 #include "storeduser.h"
 #include "storednick.h"
 #include "storedchannel.h"
+#include "serviceuser.h"
 #include "committee.h"
 
 #include <dlfcn.h>
@@ -2211,7 +2212,6 @@ void Storage::Load()
 void Storage::Save()
 {
 	MT_EB
-	unsigned long codetype = MT_ASSIGN(MAGICK_TRACE_EVENT);
 	MT_FUNC("Storage::Save");
 
 	boost::timer t;
@@ -2236,7 +2236,6 @@ void Storage::Save()
 										   ROOT->ConfigValue<mantra::duration>("save-time"));
 	}
 
-	MT_ASSIGN(codetype);
 	MT_EE
 }
 
@@ -2315,34 +2314,38 @@ void Storage::Add(const boost::shared_ptr<LiveUser> &entry)
 		SYNC_WLOCK(LiveUsers_);
 		LiveUsers_.insert(entry);
 	}
+
+	ServiceUser *su = dynamic_cast<ServiceUser *>(entry.get());
+	if (!su)
 	{
+		boost::shared_ptr<LiveClone> user, host;
 		SYNC_WLOCK(LiveClones_);
 		LiveClones_t::iterator i = std::lower_bound(HostClones_.begin(),
 													HostClones_.end(),
 													entry->Host());
 		if (i == HostClones_.end() || **i != entry->Host())
 		{
-			boost::shared_ptr<LiveClone> ent(new LiveClone(entry->Host()));
-			ent->Add(entry);
-			HostClones_.insert(ent);
-			ent.reset(new LiveClone(entry->User() + '@' + entry->Host()));
-			ent->Add(entry);
-			UserClones_.insert(ent);
+			host.reset(new LiveClone(entry->Host()));
+			HostClones_.insert(user);
+			user.reset(new LiveClone(entry->User() + '@' + entry->Host()));
+			UserClones_.insert(user);
 		}
 		else
 		{
-			(*i)->Add(entry);
+			host = *i;
 			std::string userhost = entry->User() + '@' + entry->Host();
 			i = std::lower_bound(UserClones_.begin(), UserClones_.end(), userhost);
 			if (i == UserClones_.end() || **i != userhost)
 			{
-				boost::shared_ptr<LiveClone> ent(new LiveClone(userhost));
-				ent->Add(entry);
-				UserClones_.insert(ent);
+				user.reset(new LiveClone(userhost));
+				UserClones_.insert(user);
 			}
 			else
-				(*i)->Add(entry);
+				user = *i;
 		}
+		if_LiveUser_Storage(entry).Clones(host, user);
+		host->Add(entry);
+		user->Add(entry);
 	}
 
 	MT_EE
@@ -4017,7 +4020,6 @@ void Storage::Get_KillChannel(std::set<KillChannel> &fill) const
 void Storage::ExpireCheck()
 {
 	MT_EB
-	unsigned long codetype = MT_ASSIGN(MAGICK_TRACE_EVENT);
 	MT_FUNC("Storage::ExpireCheck");
 
 	boost::mutex::scoped_lock scoped_lock(lock_);
@@ -4027,7 +4029,6 @@ void Storage::ExpireCheck()
 
 	expire_event_ = ROOT->event->Schedule(boost::bind(&Storage::ExpireCheck, this),
 								   ROOT->ConfigValue<mantra::duration>("general.expire-check"));
-	MT_ASSIGN(codetype);
 	MT_EE
 }
 

@@ -180,6 +180,11 @@ static int create_instance(int prv, const boost::function0<bool> &check,
 	return rv;
 }
 
+static void pre_event()
+{
+	MT_ASSIGN(MAGICK_TRACE_EVENT);
+}
+
 static int start_threads(int prv, const boost::function0<bool> &check,
 						 const std::vector<std::string> &args)
 {
@@ -187,6 +192,7 @@ static int start_threads(int prv, const boost::function0<bool> &check,
 	NLOG(Info, _("Starting other threads ..."));
 
 	ROOT->event = new mantra::Events;
+	ROOT->event->Start(&pre_event);
 
 	++rv;
 	return rv;

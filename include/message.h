@@ -74,7 +74,7 @@ public:
 	const std::vector<std::string> &Params() const { return params_; }
 
 	static void ResetCommands();
-	bool Process();
+	bool Process() const;
 };
 
 inline std::ostream &operator<<(std::ostream &os, const Message &in)
