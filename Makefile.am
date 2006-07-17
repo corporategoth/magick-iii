@@ -1,4 +1,4 @@
-SUBDIRS = m4 include src python po
+SUBDIRS = include src python po
 
 ACLOCAL_AMFLAGS = -I m4
 

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Magick 3.0\n"
 "Report-Msgid-Bugs-To: translators@neuromancy.net\n"
-"POT-Creation-Date: 2006-01-15 18:12-0500\n"
+"POT-Creation-Date: 2006-06-16 18:57-0400\n"
 "PO-Revision-Date: 2005-04-06 00:24-0400\n"
 "Last-Translator: Preston A. Elder <prez@neuromancy.net>\n"
 "Language-Team: The Neuromancy Society Translators <translators@neuromancy."
@@ -42,151 +42,151 @@ msgid ""
 "Please READ and EDIT your configuration file."
 msgstr ""
 
-#: src/config_parse.cpp:120
+#: src/config_parse.cpp:118
 #, c-format
 msgid "Unknown trace level %1% specified."
 msgstr ""
 
-#: src/config_parse.cpp:131 src/config_parse.cpp:140 src/config_parse.cpp:148
-#: src/config_parse.cpp:156 src/config_parse.cpp:164 src/config_parse.cpp:172
-#: src/config_parse.cpp:180 src/config_parse.cpp:188
+#: src/config_parse.cpp:129 src/config_parse.cpp:138 src/config_parse.cpp:146
+#: src/config_parse.cpp:154 src/config_parse.cpp:162 src/config_parse.cpp:170
+#: src/config_parse.cpp:178 src/config_parse.cpp:186
 #, c-format
 msgid "CFG: %1% must be at least equal to %2%."
 msgstr ""
 
-#: src/config_parse.cpp:198
+#: src/config_parse.cpp:196
 #, c-format
 msgid "CFG: Could not bind to %1% (%2%)."
 msgstr ""
 
-#: src/config_parse.cpp:396 src/config_parse.cpp:474 src/config_parse.cpp:496
-#: src/config_parse.cpp:565 src/config_parse.cpp:572 src/config_parse.cpp:662
-#: src/config_parse.cpp:699 src/config_parse.cpp:716 src/config_parse.cpp:761
-#: src/config_parse.cpp:768
+#: src/config_parse.cpp:394 src/config_parse.cpp:472 src/config_parse.cpp:494
+#: src/config_parse.cpp:563 src/config_parse.cpp:570 src/config_parse.cpp:660
+#: src/config_parse.cpp:697 src/config_parse.cpp:714 src/config_parse.cpp:759
+#: src/config_parse.cpp:766
 #, c-format
 msgid "CFG: %1% not specified."
 msgstr ""
 
-#: src/config_parse.cpp:404 src/config_parse.cpp:482 src/config_parse.cpp:504
-#: src/config_parse.cpp:580
+#: src/config_parse.cpp:402 src/config_parse.cpp:480 src/config_parse.cpp:502
+#: src/config_parse.cpp:578
 #, c-format
 msgid "CFG: Could not retrieve existing %1% log."
 msgstr ""
 
-#: src/config_parse.cpp:415 src/config_parse.cpp:524 src/config_parse.cpp:670
-#: src/config_parse.cpp:737
+#: src/config_parse.cpp:413 src/config_parse.cpp:522 src/config_parse.cpp:668
+#: src/config_parse.cpp:735
 #, c-format
 msgid "CFG: Could not open log file %1%."
 msgstr ""
 
-#: src/config_parse.cpp:602 src/config_parse.cpp:785
+#: src/config_parse.cpp:600 src/config_parse.cpp:783
 msgid "CFG: Could not open logging socket."
 msgstr ""
 
-#: src/config_parse.cpp:608 src/config_parse.cpp:793
+#: src/config_parse.cpp:606 src/config_parse.cpp:791
 #, c-format
 msgid "CFG: Could not connect to remote logging host ([%1%]:%2%)."
 msgstr ""
 
-#: src/config_parse.cpp:850
+#: src/config_parse.cpp:848
 msgid "Auto Deop"
 msgstr ""
 
-#: src/config_parse.cpp:853
+#: src/config_parse.cpp:851
 msgid "Auto Voice"
 msgstr ""
 
-#: src/config_parse.cpp:856
+#: src/config_parse.cpp:854
 msgid "Auto HalfOp"
 msgstr ""
 
-#: src/config_parse.cpp:859
+#: src/config_parse.cpp:857
 msgid "Auto Op"
 msgstr ""
 
-#: src/config_parse.cpp:862
+#: src/config_parse.cpp:860
 msgid "Read News"
 msgstr ""
 
-#: src/config_parse.cpp:865
+#: src/config_parse.cpp:863
 msgid "Write News"
 msgstr ""
 
-#: src/config_parse.cpp:868
+#: src/config_parse.cpp:866
 msgid "Delete News"
 msgstr ""
 
-#: src/config_parse.cpp:871
+#: src/config_parse.cpp:869
 msgid "Set Own Greeting"
 msgstr ""
 
-#: src/config_parse.cpp:874
+#: src/config_parse.cpp:872
 msgid "Set Any Greeting"
 msgstr ""
 
-#: src/config_parse.cpp:877
+#: src/config_parse.cpp:875
 msgid "Create On-Join Message"
 msgstr ""
 
-#: src/config_parse.cpp:880
+#: src/config_parse.cpp:878
 msgid "Manage AutoKicks"
 msgstr ""
 
-#: src/config_parse.cpp:883
+#: src/config_parse.cpp:881
 msgid "'Super' Op"
 msgstr ""
 
-#: src/config_parse.cpp:886
+#: src/config_parse.cpp:884
 msgid "Unban Users"
 msgstr ""
 
-#: src/config_parse.cpp:889
+#: src/config_parse.cpp:887
 msgid "Manage Access List"
 msgstr ""
 
-#: src/config_parse.cpp:892
+#: src/config_parse.cpp:890
 msgid "Alter Channel Settings"
 msgstr ""
 
-#: src/config_parse.cpp:895
+#: src/config_parse.cpp:893
 msgid "View Current Channel Information"
 msgstr ""
 
-#: src/config_parse.cpp:898
+#: src/config_parse.cpp:896
 msgid "Use the INVITE command"
 msgstr ""
 
-#: src/config_parse.cpp:901
+#: src/config_parse.cpp:899
 msgid "Use the UNBAN command"
 msgstr ""
 
-#: src/config_parse.cpp:904
+#: src/config_parse.cpp:902
 msgid "Use the VOICE/DEVOICE command"
 msgstr ""
 
-#: src/config_parse.cpp:907
+#: src/config_parse.cpp:905
 msgid "Use the HALFOP/DEHALFOP command"
 msgstr ""
 
-#: src/config_parse.cpp:910
+#: src/config_parse.cpp:908
 msgid "Use the OP/DEOP command"
 msgstr ""
 
-#: src/config_parse.cpp:913
+#: src/config_parse.cpp:911
 msgid "Use the KICK/ANONKICK command"
 msgstr ""
 
-#: src/config_parse.cpp:916
+#: src/config_parse.cpp:914
 msgid "Use the MODE/TOPIC command"
 msgstr ""
 
-#: src/config_parse.cpp:919
+#: src/config_parse.cpp:917
 msgid "Use the CLEAR command"
 msgstr ""
 
 #: src/liveuser.cpp:230 src/liveuser.cpp:233 src/liveuser.cpp:414
-#: src/liveuser.cpp:417 src/liveuser.cpp:797 src/liveuser.cpp:800
-#: src/liveuser.cpp:1024 src/liveuser.cpp:1027
+#: src/liveuser.cpp:417 src/liveuser.cpp:806 src/liveuser.cpp:809
+#: src/liveuser.cpp:1026 src/liveuser.cpp:1029
 #, c-format
 msgid "This nickname is registered, you have %1% to identify."
 msgstr ""
@@ -196,34 +196,34 @@ msgstr ""
 msgid "NICK CHANGE -> %1%"
 msgstr ""
 
-#: src/liveuser.cpp:335 src/liveuser.cpp:338 src/liveuser.cpp:759
-#: src/liveuser.cpp:762
+#: src/liveuser.cpp:335 src/liveuser.cpp:338 src/liveuser.cpp:768
+#: src/liveuser.cpp:771
 #, c-format
 msgid "This nickname is forbidden, you have %1% to change nicknames."
 msgstr ""
 
-#: src/liveuser.cpp:692 src/liveuser.cpp:718 src/liveuser.cpp:746
+#: src/liveuser.cpp:697 src/liveuser.cpp:726 src/liveuser.cpp:755
 msgid "AutoKill: "
 msgstr ""
 
-#: src/liveuser.cpp:830 src/liveuser.cpp:858 src/liveuser.cpp:882
+#: src/liveuser.cpp:836 src/liveuser.cpp:863 src/liveuser.cpp:886
 msgid "Nickname forbidden."
 msgstr ""
 
-#: src/liveuser.cpp:832 src/liveuser.cpp:860 src/liveuser.cpp:884
+#: src/liveuser.cpp:838 src/liveuser.cpp:865 src/liveuser.cpp:888
 msgid "Failed to identify."
 msgstr ""
 
-#: src/liveuser.cpp:999
+#: src/liveuser.cpp:1001
 #, c-format
 msgid "Password failed trying to identify user %1%."
 msgstr ""
 
-#: src/liveuser.cpp:1000 src/liveuser.cpp:1151
+#: src/liveuser.cpp:1002 src/liveuser.cpp:1153
 msgid "Too many password failures."
 msgstr ""
 
-#: src/liveuser.cpp:1149
+#: src/liveuser.cpp:1151
 #, c-format
 msgid "Password failed trying to identify user %1% to channel %2%."
 msgstr ""
@@ -292,27 +292,27 @@ msgstr ""
 msgid "Uplink connection to %1%[%2%] dropped."
 msgstr ""
 
-#: src/main.cpp:187
+#: src/main.cpp:192
 msgid "Starting other threads ..."
 msgstr ""
 
-#: src/main.cpp:201
+#: src/main.cpp:207
 msgid "Loading databases."
 msgstr ""
 
-#: src/main.cpp:203
+#: src/main.cpp:209
 msgid "Startup complete."
 msgstr ""
 
-#: src/main.cpp:235
+#: src/main.cpp:241
 msgid "Shutting Down."
 msgstr ""
 
-#: src/main.cpp:244
+#: src/main.cpp:250
 msgid "Stopping other threads ..."
 msgstr ""
 
-#: src/main.cpp:256
+#: src/main.cpp:262
 msgid "Shutdown complete."
 msgstr ""
 
@@ -456,14 +456,6 @@ msgstr ""
 msgid "Invalid message from server \"%1%\", ignored."
 msgstr ""
 
-#: src/server.cpp:456
-msgid "Too many worker threads, killing one."
-msgstr ""
-
-#: src/server.cpp:471
-msgid "Not enough worker threads, creating one."
-msgstr ""
-
 #: src/service.cpp:206
 msgid "Signing on as different service."
 msgstr ""
@@ -500,103 +492,103 @@ msgstr ""
 msgid "No such command %1%."
 msgstr ""
 
-#: src/storage.cpp:138
+#: src/storage.cpp:139
 #, c-format
 msgid "%1% %2%"
 msgstr ""
 
-#: src/storage.cpp:141
+#: src/storage.cpp:142
 #, c-format
 msgid "SQUIT server %1% (%2%)"
 msgstr ""
 
-#: src/storage.cpp:670 src/storage.cpp:1024
+#: src/storage.cpp:671 src/storage.cpp:1025
 #, c-format
 msgid "CFG: No stages_ found for %1%."
 msgstr ""
 
-#: src/storage.cpp:700 src/storage.cpp:721 src/storage.cpp:1054
-#: src/storage.cpp:1075
+#: src/storage.cpp:701 src/storage.cpp:722 src/storage.cpp:1055
+#: src/storage.cpp:1076
 #, c-format
 msgid "CFG: Multiple final stages_ specified for %1%."
 msgstr ""
 
-#: src/storage.cpp:709 src/storage.cpp:1063
+#: src/storage.cpp:710 src/storage.cpp:1064
 #, c-format
 msgid "CFG: No file name specified for %1%."
 msgstr ""
 
-#: src/storage.cpp:731 src/storage.cpp:1085
+#: src/storage.cpp:732 src/storage.cpp:1086
 #, c-format
 msgid "CFG: No host and/or port specified for %1%."
 msgstr ""
 
-#: src/storage.cpp:745
+#: src/storage.cpp:746
 #, c-format
 msgid "CFG: No verify string specified for %1%."
 msgstr ""
 
-#: src/storage.cpp:773
+#: src/storage.cpp:774
 #, c-format
 msgid "CFG: No key or keyfile specified for %1%."
 msgstr ""
 
-#: src/storage.cpp:779 src/storage.cpp:1133
+#: src/storage.cpp:780 src/storage.cpp:1134
 #, c-format
 msgid "CFG: Only key or keyfile may be specified for %1%."
 msgstr ""
 
-#: src/storage.cpp:799 src/storage.cpp:1153
+#: src/storage.cpp:800 src/storage.cpp:1154
 #, c-format
 msgid "CFG: No final stages_ specified for %1%."
 msgstr ""
 
-#: src/storage.cpp:833 src/storage.cpp:1187
+#: src/storage.cpp:834 src/storage.cpp:1188
 msgid "CFG: Could not open storage socket."
 msgstr ""
 
-#: src/storage.cpp:839 src/storage.cpp:1193
+#: src/storage.cpp:840 src/storage.cpp:1194
 #, c-format
 msgid "CFG: Could not connect to remote storage host ([%1%]:%2%)."
 msgstr ""
 
-#: src/storage.cpp:862 src/storage.cpp:914 src/storage.cpp:1216
-#: src/storage.cpp:1268
+#: src/storage.cpp:863 src/storage.cpp:915 src/storage.cpp:1217
+#: src/storage.cpp:1269
 #, c-format
 msgid "CFG: Failed to open %1% (%2%) - stage not loaded."
 msgstr ""
 
-#: src/storage.cpp:889 src/storage.cpp:1243
+#: src/storage.cpp:890 src/storage.cpp:1244
 #, c-format
 msgid "CFG: Could not read key file %1%."
 msgstr ""
 
-#: src/storage.cpp:905 src/storage.cpp:1259
+#: src/storage.cpp:906 src/storage.cpp:1260
 #, c-format
 msgid "CFG: Logic error at %1%:%2% in %3% (no key specified)."
 msgstr ""
 
-#: src/storage.cpp:937 src/storage.cpp:1291
+#: src/storage.cpp:938 src/storage.cpp:1292
 #, c-format
 msgid "CFG: Failed to initialise crypt stage: %1%"
 msgstr ""
 
-#: src/storage.cpp:968
+#: src/storage.cpp:969
 msgid "CFG: No DB directory specified for storage.berkeldydb."
 msgstr ""
 
-#: src/storage.cpp:989 src/storage.cpp:1303 src/storage.cpp:1378
-#: src/storage.cpp:1464 src/storage.cpp:1527
+#: src/storage.cpp:990 src/storage.cpp:1304 src/storage.cpp:1379
+#: src/storage.cpp:1465 src/storage.cpp:1528
 #, c-format
 msgid "CFG: Failed to open %1% (%2%) - storage mechanism not loaded."
 msgstr ""
 
-#: src/storage.cpp:1335 src/storage.cpp:1421 src/storage.cpp:1507
+#: src/storage.cpp:1336 src/storage.cpp:1422 src/storage.cpp:1508
 #, c-format
 msgid "CFG: No DB name specified for %1%."
 msgstr ""
 
-#: src/storage.cpp:2201
+#: src/storage.cpp:2202
 #, c-format
 msgid "Database loaded in %1% seconds."
 msgstr ""

@@ -390,10 +390,27 @@ static void process(const Message &m)
 	MT_EE
 }
 
-Uplink::Uplink(const std::string &password, const std::string &id)
+bool Uplink::Write(const char *buf, size_t sz)
+{
+	MT_EB
+	MT_FUNC("Uplink::Write" << buf << sz);
+
+	bool rv = flack_.Write(buf, sz);
+	if (rv)
+		group_.SetWrite(sock_, true);
+
+	MT_RET(rv);
+	MT_EE
+}
+
+Uplink::Uplink(const mantra::Socket &sock, const std::string &password,
+			   const std::string &id)
 	: Jupe(::ROOT->ConfigValue<std::string>("server-name"),
 		   ::ROOT->ConfigValue<std::string>("server-desc"), id,
-		   std::string()), password_(password), burst_(false),
+		   std::string()),
+	  sock_(sock), group_((mantra::SocketGroup::Implement_t)
+						  ROOT->ConfigValue<unsigned int>("general.multiplex-mode")),
+	  disconnect_(false), password_(password), burst_(false),
 	  queue_(boost::bind(&process, _1),
 			 ROOT->ConfigValue<unsigned int>("general.min-threads"),
 			 ROOT->ConfigValue<unsigned int>("general.max-threads")),
@@ -401,7 +418,7 @@ Uplink::Uplink(const std::string &password, const std::string &id)
 			 ROOT->ConfigValue<boost::uint64_t>("filesystem.flack-memory"))
 {
 	MT_EB
-	MT_FUNC("Uplink::Uplink" << id);
+	MT_FUNC("Uplink::Uplink" << sock << password << id);
 
 	queue_.Start(&pre_process);
 
@@ -409,6 +426,114 @@ Uplink::Uplink(const std::string &password, const std::string &id)
 		flack_.Max_Size(ROOT->ConfigValue<boost::uint64_t>("filesystem.flack-file-max"));
 	flack_.Clear();
 
+	group_.SetRead(sock_, true);
+
+	MT_EE
+}
+
+boost::shared_ptr<Uplink> Uplink::create(const remote_connection &rc,
+										 const boost::function0<bool> &check)
+{
+	MT_EB
+	MT_FUNC("Uplink::create" << rc << check);
+
+	mantra::Socket sock;
+	if (!ROOT->ConfigExists("bind"))
+		sock = mantra::Socket(mantra::Socket::STREAM,
+							  ROOT->ConfigValue<std::string>("bind"));
+	else
+	{
+		mantra::Socket::SockDomain_t domain = mantra::Socket::RemoteDomain(rc.host);
+		sock = mantra::Socket(domain, mantra::Socket::STREAM);
+	}
+	sock.Blocking(false);
+
+	boost::posix_time::ptime now = mantra::GetCurrentDateTime();
+	boost::posix_time::ptime expire = now +
+		ROOT->ConfigValue<mantra::duration>("general.connection-timeout");
+
+	LOG(Info, _("Attempting connection to %1%[%2%]."), rc.host % rc.port);
+	boost::shared_ptr<Uplink> rv;
+	if (!sock.StartConnect(rc.host, rc.port))
+		MT_RET(rv);
+
+	mantra::SocketGroup sg;
+	sg.SetWrite(sock, true);
+
+	do
+	{
+		if (expire < now)
+		{
+			LOG(Error, _("Timed out attempting connection to %1%[%2%]."),
+					rc.host % rc.port);
+			sock.Close();
+			break;
+		}
+
+		mantra::SocketGroup::WaitResultMap res;
+		int rv = sg.Wait(res, 500);
+		if (rv == SOCK_ETIMEDOUT)
+		{
+			continue;
+		}
+		else if (rv != 0)
+		{
+			LOG(Error, _("Received error code #%1% attempting connection to socket %2%[%3%]."),
+					rv % rc.host % rc.port);
+			sock.Close();
+			break;
+		}
+		else if (res.size() == 0)
+			continue;
+		else if (res.size() > 1 || res.begin()->first != sock)
+		{
+			LOG(Error, _("Invalid data in result while attmpting connection to socket %1%[%2%]"),
+					rc.host % rc.port);
+			sock.Close();
+			break;
+		}
+		else if (res.begin()->second & mantra::SocketGroup::Error)
+		{
+			sock.Retrieve_Error();
+			if (sock.Last_Error())
+			{
+				LOG(Warning, _("Received socket error #%1% (%2%) on %3%[%4%], closing."),
+						sock.Last_Error() % sock.Last_Error_String() % rc.host % rc.port);
+			}
+			else
+			{
+				LOG(Warning, _("Could not establish connection to %1%[%2%]."),
+						rc.host % rc.port);
+			}
+			break;
+		}
+		else if (res.begin()->second & mantra::SocketGroup::Write)
+		{
+			if (sock.CompleteConnect(0))
+				break;
+
+			if (sock.Last_Error() != SOCK_EAGAIN)
+			{
+				LOG(Warning, _("Received socket error #%1% (%2%) attempting connection to %3%[%4%]."),
+						sock.Last_Error() % sock.Last_Error_String() % rc.host % rc.port);
+				sock.Close();
+				break;
+			}
+		}
+
+		MT_FLUSH();
+		now = mantra::GetCurrentDateTime();
+	}
+	while (sock.Valid() && check());
+
+	if (!sock.Valid())
+		MT_RET(rv);
+
+	LOG(Info, _("Connection established to %1%[%2%]."), rc.host % rc.port);
+	rv.reset(new Uplink(sock, rc.password, ROOT->proto.NumericToID(rc.numeric)));
+	rv->self = rv;
+
+	MT_RET(rv);
 	MT_EE
 }
 
@@ -508,18 +633,6 @@ boost::shared_ptr<Server> Uplink::FindID(const std::string &id) const
 	MT_EE
 }
 
-bool Uplink::Write()
-{
-	MT_EB
-	MT_FUNC("Uplink::Write");
-
-	bool rv = write_;
-	write_ = false;
-	MT_RET(rv);
-
-	MT_EE
-}
-
 bool Uplink::CheckPassword(const std::string &password) const
 {
 	MT_EB
@@ -532,6 +645,7 @@ bool Uplink::CheckPassword(const std::string &password) const
 	MT_EE
 }
 
+/*
 void Uplink::Push(const std::deque<Message> &in)
 {
 	MT_EB
@@ -541,6 +655,175 @@ void Uplink::Push(const std::deque<Message> &in)
 	for (i=in.begin(); i!=in.end(); ++i)
 		de.Add(*i);
 
+	MT_EE
+}
+*/
+
+bool Uplink::operator()(const boost::function0<bool> &check)
+{
+	MT_EB
+	MT_FUNC("Server::operator()" << check);
+
+	std::string in, uin;
+
+	do
+	{
+		if (disconnect_)
+		{
+			LOG(Error, _("Disconnect requested to %1%[%2%]."),
+					sock_.Remote_Str() % sock_.Remote_Port());
+			sock_.Close();
+			break;
+		}
+
+		mantra::SocketGroup::WaitResultMap res;
+		int rv = group_.Wait(res, 500);
+		if (rv == SOCK_ETIMEDOUT)
+		{
+			continue;
+		}
+		else if (rv != 0)
+		{
+			LOG(Error, _("Received error code #%1% from socket %2%[%3%]."),
+					rv % sock_.Remote_Str() % sock_.Remote_Port());
+			sock_.Close();
+			break;
+		}
+		else if (res.size() == 0)
+			continue;
+		else if (res.size() > 1 || res.begin()->first != sock_)
+		{
+			LOG(Error, _("Invalid data in result for socket %1%[%2%]."),
+					sock_.Remote_Str() % sock_.Remote_Port());
+			sock_.Close();
+			break;
+		}
+		else if (res.begin()->second & mantra::SocketGroup::Error)
+		{
+			sock_.Retrieve_Error();
+			if (sock_.Last_Error())
+			{
+				LOG(Warning, _("Received socket error #%1% (%2%) on socket %3%[%4%], closing."),
+						sock_.Last_Error() % sock_.Last_Error_String() % sock_.Remote_Str() % sock_.Remote_Port());
+			}
+			else
+			{
+				LOG(Warning, _("Connection to %1%[%2%] closed by foreign host."),
+						sock_.Remote_Str() % sock_.Remote_Port());
+			}
+			sock_.Close();
+			break;
+		}
+
+		if (res.begin()->second & mantra::SocketGroup::Write)
+		{
+			char buf[1024];
+			int len;
+			do
+			{
+				len = flack_.Read(buf, 1024);
+				if (!len)
+				{
+					group_.SetWrite(sock_, false);
+					break;
+				}
+
+				rv = sock_.send(buf, len);
+				if (rv < 0)
+				{
+					if (sock_.Last_Error() != SOCK_EAGAIN)
+					{
+						LOG(Warning, _("Received socket error #%1% (%2%) while sending data to %3%[%4%]."),
+								sock_.Last_Error() % sock_.Last_Error_String() %
+								sock_.Remote_Str() % sock_.Remote_Port());
+						sock_.Close();
+					}
+					break;
+				}
+				else
+					flack_.Consume(rv);
+			}
+			while (rv == len);
+
+			if (!sock_.Valid())
+				break;
+		}
+
+		std::deque<Message> msgs;
+		if (res.begin()->second & mantra::SocketGroup::Urgent)
+		{
+			char buf[1024];
+			do
+			{
+				rv = sock_.recv(buf, 1024, 0, true);
+				if (rv < 0)
+				{
+					if (sock_.Last_Error() != SOCK_EAGAIN)
+					{
+						LOG(Warning, _("Received socket error #%1% (%2%) while sending data to %3%[%4%]."),
+								sock_.Last_Error() % sock_.Last_Error_String() % sock_.Remote_Str() % sock_.Remote_Port());
+						sock_.Close();
+					}
+					break;
+				}
+				else if (rv == 0)
+				{
+					LOG(Warning, _("Uplink connection closed by %1%[%2%]."),
+							sock_.Remote_Str() % sock_.Remote_Port());
+					sock_.Close();
+					break;
+				}
+				else
+					uin.append(buf, rv);
+			}
+			while (rv == 1024);
+			if (!sock_.Valid())
+				break;
+			ROOT->proto.Decode(uin, msgs);
+		}
+
+		if (res.begin()->second & mantra::SocketGroup::Read)
+		{
+			char buf[1024];
+			do
+			{
+				rv = sock_.recv(buf, 1024);
+				if (rv < 0)
+				{
+					if (sock_.Last_Error() != SOCK_EAGAIN)
+					{
+						LOG(Warning, _("Received socket error #%1% (%2%) while sending data to %3%[%4%]."),
+								sock_.Last_Error() % sock_.Last_Error_String() % sock_.Remote_Str() % sock_.Remote_Port());
+						sock_.Close();
+					}
+					break;
+				}
+				else if (rv == 0)
+				{
+					LOG(Warning, _("Uplink connection closed by %1%[%2%]."),
+							sock_.Remote_Str() % sock_.Remote_Port());
+					sock_.Close();
+					break;
+				}
+				else
+					in.append(buf, rv);
+			}
+			while (rv == 1024);
+			if (!sock_.Valid())
+				break;
+			ROOT->proto.Decode(in, msgs);
+		}
+
+		std::deque<Message>::const_iterator i;
+		for (i=msgs.begin(); i!=msgs.end(); ++i)
+			de.Add(*i);
+
+		MT_FLUSH();
+	}
+	while (sock_.Valid() && check());
+
+	bool rv = check();
+	MT_RET(rv);
 	MT_EE
 }
 

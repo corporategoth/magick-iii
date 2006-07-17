@@ -565,7 +565,7 @@ static void add_storage_options(po::options_description &opts)
 					"directory where databases reside.")
 		("storage.berkeleydb.private", mantra::value<bool>()->default_value(true),
 					"are the DB's shared with other processes")
-		("storage.berkeleydb.password", mantra::value<std::string>(),
+		("storage.berkeleydb.password", mantra::value<std::string>()->default_value(std::string()),
 					"password used to protect databases.")
 		("storage.berkeleydb.btree", mantra::value<bool>()->default_value(false),
 					"use binary tree (instead of hash) for storage")
@@ -778,6 +778,18 @@ static void add_general_options(po::options_description &opts)
 					"how long to attempt to create a connection")
 		("general.server-relink", mantra::value<mantra::duration>()->default_value(mantra::duration("5s")),
 					"how long to wait before attempting a connection")
+		("general.multiplex-mode", mantra::value<unsigned int>()->default_value(mantra::SocketGroup::Select)->parser(
+					mantra::validate_mapped<std::string, unsigned int, mantra::iless<std::string> >("select", mantra::SocketGroup::Select)
+#ifdef HAVE_SYS_POLL_H
+						+ std::make_pair("poll", mantra::SocketGroup::Poll)
+#endif
+#ifdef HAVE_SYS_DEVPOLL_H
+						+ std::make_pair("devpoll", mantra::SocketGroup::DevPoll)
+#endif
+#ifdef HAVE_SYS_EOLL_H
+						+ std::make_pair("epoll", mantra::SocketGroup::EPoll)
+#endif
+					), "type of multiplexer to use")
 		("general.squit-cancel", mantra::value<mantra::duration>()->default_value(mantra::duration("10s")),
 					"how long to wait on a suspected SQUIT for actual SQUIT")
 		("general.squit-protect", mantra::value<mantra::duration>()->default_value(mantra::duration("2n")),

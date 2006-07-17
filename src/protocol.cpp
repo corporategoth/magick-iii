@@ -362,11 +362,10 @@ bool Protocol::send(const char *buf, boost::uint64_t len) const
 	if (!uplink)
 		MT_RET(false);
 
-	bool rv = uplink->flack_.Write(buf, len);
+	bool rv = uplink->Write(buf, len);
 	if (!rv)
 		LOG(Warning, _("Failed to write to outbound flack with error #%1%."),
 			uplink->flack_.Last_Write_Error());
-	uplink->write_ = true;
 
 	MT_RET(rv);
 	MT_EE

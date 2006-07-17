@@ -108,259 +108,36 @@ void Magick::run(const boost::function0<bool> &check)
     init_operserv_functions(operserv);
     init_other_functions(other);
 
-	while (check())
+	size_t next_conn = 0;
+	do
 	{
-		size_t next_conn = 0;
-
 		std::vector<remote_connection> all_remote = opt_config["remote"].as<std::vector<remote_connection> >();
 		if (next_conn >= all_remote.size())
 			next_conn = 0;
 
-		disconnect = false;
-		remote_connection remote = all_remote[next_conn];
-		LOG(Info, _("Attempting connection to %1%[%2%]."),
-					remote.host % remote.port);
-
-		mantra::Socket sock;
-		if (!opt_config["bind"].empty())
-			sock = mantra::Socket(mantra::Socket::STREAM, opt_config["bind"].as<std::string>());
-		else
+		uplink = Uplink::create(all_remote[next_conn], check);
+		if (uplink)
 		{
-			mantra::Socket::SockDomain_t domain = mantra::Socket::RemoteDomain(remote.host);
-			sock = mantra::Socket(domain, mantra::Socket::STREAM);
-		}
-		sock.Blocking(false);
-
-		boost::posix_time::ptime now = mantra::GetCurrentDateTime();
-		boost::posix_time::ptime expire = now +
-			ConfigValue<mantra::duration>("general.connection-timeout");
-
-		if (!disconnect && sock.StartConnect(remote.host, remote.port))
-		{
-			std::string in, uin;
-			mantra::SocketGroup sg;
-			sg.SetWrite(sock, true);
-
-			do
-			{
-				if (!uplink && expire < now)
-				{
-					LOG(Error, _("Timed out attempting connection to %1%[%2%]."),
-							remote.host % remote.port);
-					sock.Close();
-					break;
-				}
-				else if (disconnect)
-				{
-					LOG(Error, _("Disconnect requested to %1%[%2%]."),
-							remote.host % remote.port);
-					sock.Close();
-					break;
-				}
-
-				if (uplink && uplink->Write())
-					sg.SetWrite(sock, true);
-				mantra::SocketGroup::WaitResultMap res;
-				int rv = sg.Wait(res, 500);
-				if (rv == SOCK_ETIMEDOUT)
-				{
-					continue;
-				}
-				else if (rv != 0)
-				{
-					LOG(Error, _("Received error code #%1% from primary socket group, closing socket."), rv);
-					sock.Close();
-					break;
-				}
-				else if (res.size() == 0)
-					continue;
-				else if (res.size() > 1 || res.begin()->first != sock)
-				{
-					NLOG(Error, _("Invalid data in result from primary socket group, closing socket."));
-					sock.Close();
-					break;
-				}
-				else if (res.begin()->second & mantra::SocketGroup::Error)
-				{
-					sock.Retrieve_Error();
-					if (sock.Last_Error())
-					{
-						LOG(Warning, _("Received socket error #%1% on %2%[%3%], closing."),
-								sock.Last_Error() % remote.host % remote.port);
-					}
-					else if (!uplink)
-					{
-						LOG(Warning, _("Could not establish connection to %1%[%2%]."),
-								remote.host % remote.port);
-					}
-					else
-					{
-						LOG(Warning, _("Connection to %1%[%2%] closed by foreign host."),
-								remote.host % remote.port);
-					}
-					sock.Close();
-					break;
-				}
-
-				if (res.begin()->second & mantra::SocketGroup::Write)
-				{
-					if (!sock.Connected())
-					{
-						if (!sock.CompleteConnect(0))
-						{
-							if (sock.Last_Error() != SOCK_EAGAIN)
-							{
-								LOG(Warning, _("Received socket error #%1% attempting connection to %2%[%3%]."),
-										sock.Last_Error() % remote.host % remote.port);
-								sock.Close();
-								break;
-							}
-						}
-						else
-						{
-							LOG(Info, _("Connection established to %1%[%2%]."),
-										remote.host % remote.port);
-
-							uplink = Uplink::create(remote.password,
-													proto.NumericToID(remote.numeric));
-							sg.SetRead(sock, true);
-							proto.Connect(*uplink);
-						}
-					}
-					else
-					{
-						if (!uplink)
-						{
-							sg.SetWrite(sock, false);
-							continue;
-						}
-
-						char buf[1024];
-						int len;
-						do
-						{
-							len = uplink->flack_.Read(buf, 1024);
-							if (!len)
-							{
-								sg.SetWrite(sock, false);
-								break;
-							}
-
-							rv = sock.send(buf, len);
-							if (rv < 0)
-							{
-								if (sock.Last_Error() != SOCK_EAGAIN)
-								{
-									LOG(Warning, _("Received socket error #%1% while sending data to %2%[%3%]."),
-											sock.Last_Error() % remote.host % remote.port);
-									sock.Close();
-								}
-								break;
-							}
-							else
-								uplink->flack_.Consume(rv);
-						}
-						while (rv == len);
-
-						if (!sock.Valid())
-							break;
-					}
-				}
-
-				std::deque<Message> msgs;
-				if (res.begin()->second & mantra::SocketGroup::Urgent)
-				{
-					char buf[1024];
-					do
-					{
-						rv = sock.recv(buf, 1024, 0, true);
-						if (rv < 0)
-						{
-							if (sock.Last_Error() != SOCK_EAGAIN)
-							{
-								LOG(Warning, _("Received socket error #%1% while sending data to %2%[%3%]."),
-										sock.Last_Error() % remote.host % remote.port);
-								sock.Close();
-							}
-							break;
-						}
-						else if (rv == 0)
-						{
-							LOG(Warning, _("Uplink connection closed by %1%[%2%]."),
-									remote.host % remote.port);
-							sock.Close();
-						}
-						else
-							uin.append(buf, rv);
-					}
-					while (rv == 1024);
-					if (!sock.Valid())
-						break;
-					proto.Decode(uin, msgs);
-				}
-
-				if (res.begin()->second & mantra::SocketGroup::Read)
-				{
-					char buf[1024];
-					do
-					{
-						rv = sock.recv(buf, 1024);
-						if (rv < 0)
-						{
-							if (sock.Last_Error() != SOCK_EAGAIN)
-							{
-								LOG(Warning, _("Received socket error #%1% while sending data to %2%[%3%]."),
-										sock.Last_Error() % remote.host % remote.port);
-								sock.Close();
-							}
-							break;
-						}
-						else if (rv == 0)
-						{
-							LOG(Warning, _("Uplink connection closed by %1%[%2%]."),
-									remote.host % remote.port);
-							sock.Close();
-						}
-						else
-							in.append(buf, rv);
-					}
-					while (rv == 1024);
-					if (!sock.Valid())
-						break;
-					proto.Decode(in, msgs);
-				}
-				if (!msgs.empty())
-					uplink->Push(msgs);
-
-				MT_FLUSH();
-				now = mantra::GetCurrentDateTime();
-			}
-			while (sock.Valid() && check());
-
-			if (uplink)
-			{
-				LOG(Info, _("Uplink connection to %1%[%2%] dropped."),
-						remote.host % remote.port);
-				uplink.reset();
-			}
-		}
-		else
-		{
-			LOG(Warning, _("Could not establish connection to %1%[%2%]."),
-						remote.host % remote.port);
-			sock.Close();
+			proto.Connect(*uplink);
+			bool rv = (*uplink)(check);
+			uplink->Disconnect();
+			uplink.reset();
+			if (rv)
+				break;
 		}
 
 		++next_conn;
 		MT_FLUSH();
-		now = mantra::GetCurrentDateTime();
-		expire = now + opt_config["general.server-relink"].as<mantra::duration>();
+		boost::posix_time::ptime now = mantra::GetCurrentDateTime();
+		boost::posix_time::ptime expire = now +
+				opt_config["general.server-relink"].as<mantra::duration>();
 		while (now < expire && check())
 		{
 			sleep(1);
 			now = mantra::GetCurrentDateTime();
 		}
 	}
+	while (check());
 
 	MT_EE
 }

@@ -53,6 +53,28 @@ RCSID(magick__server_h, "@(#) $Id$");
 
 class LiveUser;
 
+struct remote_connection
+{
+	std::string host;
+	boost::uint16_t port;
+	std::string password;
+	unsigned int numeric;
+
+	remote_connection() : port(0), numeric(0) {}
+	~remote_connection() {}
+
+	// These keep GCC4 happy ..
+	remote_connection(const remote_connection &in) { *this = in; }
+	remote_connection &operator=(const remote_connection &in)
+	{
+		host = in.host;
+		port = in.port;;
+		password = in.password;
+		numeric = in.numeric;
+		return *this;
+	}
+};
+
 class Server : private boost::noncopyable,
 			   public boost::totally_ordered1<Server>,
 			   public boost::totally_ordered2<Server, std::string>
@@ -220,27 +242,25 @@ public:
 class Uplink : public Jupe
 {
 	friend class Protocol;
-	friend class Magick;
 	friend class Dependency;
+
+	mantra::Socket sock_;
+	mantra::SocketGroup group_;
+	bool disconnect_;
 
 	std::string password_;
 	bool SYNC(burst_);
 
 	mantra::MessageQueue<Message> queue_;
-
-	bool write_;
 	mantra::FileBuffer flack_;
 
-	Uplink(const std::string &password, const std::string &id = std::string());
+	bool Write(const char *buf, size_t sz);
+	Uplink(const mantra::Socket &sock, const std::string &password,
+		   const std::string &id);
 
 public:
-	static boost::shared_ptr<Uplink> create(const std::string &password,
-		   const std::string &id = std::string())
-	{
-		boost::shared_ptr<Uplink> rv(new Uplink(password, id));
-		rv->self = rv;
-		return rv;
-	}
+	static boost::shared_ptr<Uplink> create(const remote_connection &rc,
+											const boost::function0<bool> &check);
 
 	virtual ~Uplink() { this->Disconnect(); }
 
@@ -250,13 +270,13 @@ public:
 	using Server::Disconnect;
 	void Disconnect();
 
-	bool Write();
 	bool CheckPassword(const std::string &password) const;
 
 	DependencyEngine de;
 
 	// Pushes it onto the stack to be classified.
-	void Push(const std::deque<Message> &in);
+//	void Push(const std::deque<Message> &in);
+	bool operator()(const boost::function0<bool> &check);
 
 	bool KILL(const boost::shared_ptr<LiveUser> &user, const std::string &reason) const;
 

@@ -43,6 +43,7 @@ RCSID(magick__storednick_h, "@(#) $Id$");
 #include <boost/operators.hpp>
 
 class StoredUser;
+class ServiceUser;
 
 class StoredNick : public boost::noncopyable,
 				   public boost::totally_ordered1<StoredNick>,

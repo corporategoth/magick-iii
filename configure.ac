@@ -30,7 +30,7 @@ dnl ==============
 AC_INIT(Magick IRC Services, 3.0.0, magick-bugs@neuromancy.net)
 AC_CONFIG_SRCDIR(src/main.cpp)
 AM_INIT_AUTOMAKE
-AC_CONFIG_FILES([	Makefile po/Makefile.in m4/Makefile
+AC_CONFIG_FILES([	Makefile po/Makefile.in
 					include/Makefile
 					src/Makefile
 					python/Makefile

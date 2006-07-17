@@ -42,14 +42,6 @@ RCSID(magick__protocol_h, "@(#) $Id$");
 
 #include <boost/program_options.hpp>
 
-struct remote_connection
-{
-	std::string host;
-	boost::uint16_t port;
-	std::string password;
-	unsigned int numeric;
-};
-
 class LiveUser;
 class Protocol
 {

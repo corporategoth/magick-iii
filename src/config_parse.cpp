@@ -75,8 +75,6 @@ bool Magick::set_config(const po::variables_map &vm)
 	MT_EB
 	MT_FUNC("Magick::set_config" << vm);
 
-	bool dodisconnect = false, dorestart = false;
-
 	// First things first, lets get the right language going.
 	// All errors from now on will then be localised.
 	if (!check_old_new<std::string>("language-dir", opt_config, vm))
